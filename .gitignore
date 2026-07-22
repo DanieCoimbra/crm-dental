@@ -1,0 +1,26 @@
+# Arquivos de Ambiente e Configuração
+.env
+.gemini/
+.vscode/
+.idea/
+.DS_Store
+
+# Executáveis e Logs
+*.exe
+*.log
+dental-api.exe
+
+# Backend Go
+backend-go/server
+backend-go/tmp/
+backend-go/uploads/
+
+# Frontend Flutter (complementar ao .gitignore próprio)
+frontend_flutter/.dart_tool/
+frontend_flutter/build/
+frontend_flutter/.flutter-plugins
+frontend_flutter/.flutter-plugins-dependencies
+
+# Arquivos locais
+responses.txt
+parse.py

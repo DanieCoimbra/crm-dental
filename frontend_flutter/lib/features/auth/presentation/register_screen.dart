@@ -1,0 +1,194 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
+import 'package:frontend_flutter/core/network/api_client.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:frontend_flutter/features/auth/providers/auth_provider.dart';
+
+class RegisterScreen extends ConsumerStatefulWidget {
+  const RegisterScreen({super.key});
+
+  @override
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _clinicNameCtrl = TextEditingController();
+  final _cnpjCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    _clinicNameCtrl.dispose();
+    _cnpjCtrl.dispose();
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    
+    setState(() => _isLoading = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.post('/auth/register', data: {
+        'clinic_name': _clinicNameCtrl.text,
+        'clinic_cnpj': _cnpjCtrl.text,
+        'name': _nameCtrl.text,
+        'email': _emailCtrl.text,
+        'password': _passwordCtrl.text,
+      });
+
+      final token = response.data['token'];
+      final user = response.data['user'];
+      if (token != null) {
+        final role = user?['role']?['name'] ?? 'admin';
+        await ref.read(authProvider.notifier).login(token, role); // Update state to trigger redirect
+      }
+    } on DioException catch (e) {
+      if (mounted) {
+        final msg = e.response?.data['message'] ?? 'Erro no cadastro';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                )
+              ],
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(LucideIcons.activity, size: 48, color: Colors.blue),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Cadastre sua Clínica',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Crie sua conta no sistema SaaS',
+                    style: TextStyle(color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  TextFormField(
+                    controller: _clinicNameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nome da Clínica',
+                      prefixIcon: Icon(LucideIcons.building),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _cnpjCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'CNPJ',
+                      prefixIcon: Icon(LucideIcons.fileText),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
+                  ),
+                  const Divider(height: 32),
+                  TextFormField(
+                    controller: _nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Seu Nome',
+                      prefixIcon: Icon(LucideIcons.user),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _emailCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'E-mail',
+                      prefixIcon: Icon(LucideIcons.mail),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) {
+                      if (v!.isEmpty) return 'Obrigatório';
+                      if (!v.contains('@')) return 'E-mail inválido';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passwordCtrl,
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: 'Senha',
+                      prefixIcon: const Icon(LucideIcons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscurePassword ? LucideIcons.eye : LucideIcons.eyeOff),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      ),
+                      border: const OutlineInputBorder(),
+                    ),
+                    validator: (v) => v!.length < 6 ? 'Mínimo 6 caracteres' : null,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: _isLoading 
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Criar Conta', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => context.go('/login'),
+                    child: const Text('Já tem uma conta? Faça login'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
