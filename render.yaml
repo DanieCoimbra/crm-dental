@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: dental-crm-api
+    env: docker
+    dockerContext: backend-go
+    dockerfilePath: backend-go/Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false

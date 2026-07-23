@@ -3,6 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
+	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -20,7 +23,13 @@ type User struct {
 }
 
 func main() {
-	dsn := "postgresql://postgres:HjNat2LJgZMUx6@db.secrmgyfvteesacmifvi.supabase.co:5432/postgres"
+	_ = godotenv.Load()
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		fmt.Println("DATABASE_URL não configurada")
+		return
+	}
+
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		fmt.Printf("Failed to connect to DB: %v\n", err)

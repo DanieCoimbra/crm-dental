@@ -19,7 +19,10 @@ func Connect() {
 		log.Fatal("DATABASE_URL não configurada no .env")
 	}
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  dsn,
+		PreferSimpleProtocol: true, // Desabilita prepared statements para compatibilidade com o Pooler do Supabase
+	}), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info), // Mostra as queries no console
 	})
 	if err != nil {

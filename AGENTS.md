@@ -4,7 +4,7 @@
 
 ## Visão Geral do Projeto
 
-**Dental Clinic CRM** é um sistema para gerenciamento de clínicas odontológicas. O projeto está dividido em duas partes principais: uma API Backend construída em Go e um aplicativo Frontend construído em Flutter.
+**Dental Clinic CRM** é um sistema para gerenciamento de clínicas odontológicas. O projeto está dividido em duas partes principais: uma API Backend construída em Go e um aplicativo Frontend construído em Flutter. Sempre converse em portugues br.
 
 ### Stack Tecnológica
 

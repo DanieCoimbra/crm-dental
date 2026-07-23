@@ -7,18 +7,24 @@ import (
 
 	"dental-crm-api/internal/core/domain"
 	"dental-crm-api/internal/pkg/encryption"
+	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func main() {
+	_ = godotenv.Load()
+
 	// Initialize Encryption
-	os.Setenv("APP_KEY", "base64:pkJmCsrMG8E+avKs/1FWHWGj59/NDsgfPd8+lUPQPPQ=")
 	if err := encryption.Init(); err != nil {
 		log.Fatalf("Failed to init encryption: %v", err)
 	}
 
-	dsn := "postgresql://postgres:HjNat2LJgZMUx6@db.secrmgyfvteesacmifvi.supabase.co:5432/postgres"
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		log.Fatal("DATABASE_URL não configurada no .env")
+	}
+
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect to DB: %v", err)
