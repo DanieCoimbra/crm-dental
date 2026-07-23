@@ -25,8 +25,13 @@ func Connect() {
 	}), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info), // Mostra as queries no console
 	})
+	sqlDB, err := db.DB()
 	if err != nil {
-		log.Fatal("❌ Falha ao conectar ao banco de dados Supabase: ", err)
+		log.Fatal("❌ Falha ao obter SQL DB do GORM: ", err)
+	}
+
+	if err := sqlDB.Ping(); err != nil {
+		log.Fatal("❌ Falha ao realizar ping no banco de dados Supabase: ", err)
 	}
 
 	log.Println("✅ Conectado com sucesso ao Supabase via GORM!")

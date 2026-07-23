@@ -1,11 +1,13 @@
 package routes
 
 import (
+	"fmt"
+	"time"
+
 	"dental-crm-api/internal/adapters/handlers"
 	"dental-crm-api/internal/adapters/repositories"
 	"dental-crm-api/internal/database"
 	"dental-crm-api/internal/middleware"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cache"
@@ -89,8 +91,11 @@ func SetupRoutes(app *fiber.App) {
 	private.Get("/dashboard/stats", adminOnly, cache.New(cache.Config{
 		Expiration: 5 * time.Minute,
 		KeyGenerator: func(c *fiber.Ctx) string {
-			clinicID := c.Locals("clinic_id").(float64)
-			return "dashboard_" + string(rune(clinicID))
+			clinicIDVal := c.Locals("clinic_id")
+			if clinicIDVal == nil {
+				return "dashboard_anon"
+			}
+			return fmt.Sprintf("dashboard_v1_%v", clinicIDVal)
 		},
 	}), dashboardHandler.GetStats)
 
