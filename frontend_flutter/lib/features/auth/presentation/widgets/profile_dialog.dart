@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend_flutter/features/auth/data/auth_repository.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:frontend_flutter/core/network/api_client.dart';
 
 class ProfileDialog extends ConsumerStatefulWidget {
   const ProfileDialog({super.key});
@@ -106,7 +107,7 @@ class _ProfileDialogState extends ConsumerState<ProfileDialog> {
                           CircleAvatar(
                             radius: 40,
                             backgroundImage: _avatarUrl != null 
-                              ? NetworkImage(_avatarUrl!.startsWith('/uploads') ? 'http://localhost:8080$_avatarUrl' : _avatarUrl!) 
+                              ? NetworkImage(_avatarUrl!.startsWith('/uploads') ? '$backendBaseUrl$_avatarUrl' : _avatarUrl!) 
                               : null,
                             child: _avatarUrl == null ? const Icon(LucideIcons.user, size: 40) : null,
                           ),

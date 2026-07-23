@@ -8,6 +8,7 @@ import 'package:frontend_flutter/features/auth/presentation/widgets/profile_dial
 import 'package:frontend_flutter/shared/widgets/theme_toggle_button.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_flutter/features/inventory/presentation/widgets/inventory_alert_badge.dart';
+import 'package:frontend_flutter/core/network/api_client.dart';
 
 class Topbar extends ConsumerWidget implements PreferredSizeWidget {
   const Topbar({super.key});
@@ -82,7 +83,7 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
 
                       String? avatarUrl = user.avatar;
                       if (avatarUrl != null && avatarUrl.isNotEmpty && avatarUrl.startsWith('/uploads')) {
-                        avatarUrl = 'http://localhost:8080$avatarUrl';
+                        avatarUrl = '$backendBaseUrl$avatarUrl';
                       }
 
                       return Row(
