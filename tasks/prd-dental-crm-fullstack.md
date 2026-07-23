@@ -92,6 +92,14 @@ Expandir a arquitetura moderna Fullstack (Backend em **Go 1.26** e Frontend em *
 - [ ] Tela `/settings/whatsapp` onde a clínica cadastra chave/instância do provedor (Ex: Z-API / Evolution API).
 - [ ] Rotina Cron no backend Go que escaneia consultas para `amanhã` e envia POST HTTP assíncrono para o provedor de disparo.
 
+### US-011: Pagamentos Reais com Cartão e PIX via Stripe (F12)
+**Description:** As a **Dono de Clínica**, I want **pagar a assinatura inserindo meus dados de cartão no app ou escaneando um QR Code PIX gerado pela Stripe**, so that **o sistema seja ativado automaticamente sem telas de simulação.**
+
+**Acceptance Criteria:**
+- [ ] Formulário Customizado de Cartão de Crédito integrado ao App (Flutter Stripe / Stripe Elements).
+- [ ] Geração dinâmica e exibição de QR Code do PIX + função Copia e Cola, orquestrados pela API da Stripe (PaymentIntents).
+- [ ] Feedback visual atualizando a tela assim que o pagamento for concluído com sucesso.
+
 ---
 
 ## 3. Functional Requirements

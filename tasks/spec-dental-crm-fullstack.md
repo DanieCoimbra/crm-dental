@@ -4,7 +4,7 @@
 - **Feature**: CRM Clínico Fullstack MVP + Lote 7 (Gestão, EMR, Estoque, Financeiro, Dashboard, Cupons, WhatsApp, Supabase Storage, Tema Escuro)
 - **Tech Stack Used**: 
   - **Backend**: Go 1.26, Fiber v2, PostgreSQL (GORM), Supabase Storage (via aws-sdk-go-v2), Stripe-go.
-  - **Frontend**: Flutter (Dart ^3.12.2), Riverpod (State Management), go_router, Dio, `pdf` / `printing` para recibos.
+  - **Frontend**: Flutter (Dart ^3.12.2), Riverpod (State Management), go_router, Dio, `pdf` / `printing` para recibos, `flutter_stripe` para Pagamentos Nativos.
 - **Architecture Approach**: 
   - Separação rígida de responsabilidades: O backend atua puramente como API RESTful com arquitetura limpa (Core -> Usecases -> Adapters -> Database). 
   - O Frontend utiliza padrão SPA Client-side orientado a features (`lib/features/`), consumindo a API com injeção de dependência via Riverpod.
@@ -76,6 +76,12 @@ Todas as tabelas operacionais da clínica DEVEM possuir a coluna `clinic_id` (Bi
   - **Step 1**: O Frontend envia Multipart/Form-Data para `POST /api/v1/patients/files`.
   - **Step 2**: O Handler em Go lê o buffer, cria um arquivo único (UUID) e faz PutObject no Supabase Storage via `aws-sdk-go-v2`.
   - **Step 3**: Grava apenas o `path` ou `public_url` da chave no banco PostgreSQL.
+
+- **Operation: Stripe Checkout e PIX (F12)**
+  - **Step 1**: Frontend requisita a criação de um PaymentIntent no Backend Go informando valor e plano.
+  - **Step 2**: Go chama a API da Stripe criando um `PaymentIntent` e retorna o `client_secret` para o Frontend.
+  - **Step 3 (Cartão)**: Frontend (via `flutter_stripe`) apresenta CardField, coleta os dados com segurança PCI-compliance e confirma o pagamento diretamente com a Stripe usando o `client_secret`.
+  - **Step 3 (PIX)**: Frontend recebe do Go os detalhes do PIX gerado pela Stripe (QR Code String), desenha na tela (ex: `qr_flutter`) e inicia um polling via endpoint próprio do Go ou aguarda um WebSocket alertar que o Webhook já aprovou a fatura.
 
 ---
 

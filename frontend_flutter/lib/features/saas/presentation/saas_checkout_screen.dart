@@ -117,8 +117,8 @@ class SaasCheckoutScreen extends ConsumerWidget {
               );
               
               // Invalida a clínica atual para recarregar o status
-              ref.invalidate(currentClinicProvider);
-              context.go('/dashboard');
+              ref.read(authProvider.notifier).logout();
+              context.go('/login');
             },
             child: const Text('Simular Pagamento Sucedido'),
           ),
