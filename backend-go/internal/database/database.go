@@ -26,8 +26,17 @@ func maskDSN(dsn string) string {
 	return dsn
 }
 
+func cleanDSN(dsn string) string {
+	dsn = strings.TrimSpace(dsn)
+	dsn = strings.Trim(dsn, "\"'\r\n\t`")
+	dsn = strings.ReplaceAll(dsn, "\r", "")
+	dsn = strings.ReplaceAll(dsn, "\n", "")
+	return dsn
+}
+
 func Connect() {
 	dsn := os.Getenv("DATABASE_URL")
+	dsn = cleanDSN(dsn)
 	if dsn == "" {
 		log.Fatal("❌ DATABASE_URL não está configurada nas variáveis de ambiente.")
 	}
