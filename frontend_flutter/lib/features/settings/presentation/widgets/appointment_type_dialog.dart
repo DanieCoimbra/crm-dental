@@ -6,7 +6,6 @@ import 'package:frontend_flutter/features/schedule/data/appointment_type_model.d
 import 'package:frontend_flutter/features/settings/data/settings_repository.dart';
 import 'package:frontend_flutter/features/inventory/providers/inventory_provider.dart';
 import 'package:frontend_flutter/features/inventory/data/inventory_model.dart';
-import 'package:frontend_flutter/core/theme/app_theme.dart';
 
 class AppointmentTypeDialog extends ConsumerStatefulWidget {
   final AppointmentType? type;
