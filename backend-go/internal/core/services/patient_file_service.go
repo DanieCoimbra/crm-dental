@@ -16,18 +16,18 @@ func NewPatientFileService() *PatientFileService {
 	}
 }
 
-func (s *PatientFileService) CreateFile(clinicID, patientID uint, fileName, filePath, fileType, category string) (*domain.PatientFile, error) {
-	if filePath == "" {
-		return nil, errors.New("o caminho do arquivo é obrigatório")
+func (s *PatientFileService) CreateFile(clinicID, patientID uint, fileName, supabaseUrl, fileType, category string) (*domain.PatientFile, error) {
+	if supabaseUrl == "" {
+		return nil, errors.New("a URL do Supabase é obrigatória")
 	}
 
 	file := &domain.PatientFile{
-		ClinicID:  clinicID,
-		PatientID: patientID,
-		FileName:  fileName,
-		FilePath:  filePath,
-		FileType:  fileType,
-		Category:  category,
+		ClinicID:    clinicID,
+		PatientID:   patientID,
+		FileName:    fileName,
+		SupabaseUrl: supabaseUrl,
+		FileType:    fileType,
+		Category:    category,
 	}
 
 	err := s.fileRepo.Create(file)

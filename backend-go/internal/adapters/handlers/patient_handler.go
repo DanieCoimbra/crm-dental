@@ -68,7 +68,7 @@ func (h *PatientHandler) Create(c *fiber.Ctx) error {
 func (h *PatientHandler) Delete(c *fiber.Ctx) error {
 	clinicID := uint(c.Locals("clinic_id").(float64))
 	deletedBy := uint(c.Locals("user_id").(float64))
-	
+
 	patientID, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})

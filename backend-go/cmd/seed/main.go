@@ -30,7 +30,7 @@ func main() {
 		log.Fatalf("User go@clinica.com not found! Error: %v", err)
 	}
 	log.Printf("Found user %s with ClinicID %d\n", user.Email, user.ClinicID)
-	
+
 	clinicID := user.ClinicID
 
 	// Create Dummy Patients linked to this clinic

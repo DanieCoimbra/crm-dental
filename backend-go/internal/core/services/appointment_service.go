@@ -8,16 +8,18 @@ import (
 )
 
 type AppointmentService struct {
-	appointmentRepo *repositories.AppointmentRepository
-	apptTypeRepo    *repositories.AppointmentTypeRepository
-	settingService  *SettingService
+	appointmentRepo  *repositories.AppointmentRepository
+	apptTypeRepo     *repositories.AppointmentTypeRepository
+	settingService   *SettingService
+	inventoryService *InventoryService
 }
 
 func NewAppointmentService() *AppointmentService {
 	return &AppointmentService{
-		appointmentRepo: repositories.NewAppointmentRepository(),
-		apptTypeRepo:    repositories.NewAppointmentTypeRepository(),
-		settingService:  NewSettingService(),
+		appointmentRepo:  repositories.NewAppointmentRepository(),
+		apptTypeRepo:     repositories.NewAppointmentTypeRepository(),
+		settingService:   NewSettingService(),
+		inventoryService: NewInventoryService(),
 	}
 }
 
@@ -65,16 +67,16 @@ func (s *AppointmentService) CreateAppointment(clinicID, doctorID, patientID uin
 
 		businessStart := s.settingService.GetSetting(clinicID, "business_start_hour", "08:00")
 		businessEnd := s.settingService.GetSetting(clinicID, "business_end_hour", "18:00")
-		
+
 		bStart, err1 := time.Parse("15:04", businessStart)
 		bEnd, err2 := time.Parse("15:04", businessEnd)
-		
+
 		if err1 == nil && err2 == nil {
 			startMin := startTime.Hour()*60 + startTime.Minute()
 			endMin := endTime.Hour()*60 + endTime.Minute()
 			bStartMin := bStart.Hour()*60 + bStart.Minute()
 			bEndMin := bEnd.Hour()*60 + bEnd.Minute()
-			
+
 			if startMin < bStartMin || endMin > bEndMin {
 				return nil, errors.New("o agendamento está fora do horário de funcionamento")
 			}
@@ -153,16 +155,16 @@ func (s *AppointmentService) UpdateAppointment(clinicID, id, doctorID, patientID
 
 		businessStart := s.settingService.GetSetting(clinicID, "business_start_hour", "08:00")
 		businessEnd := s.settingService.GetSetting(clinicID, "business_end_hour", "18:00")
-		
+
 		bStart, err1 := time.Parse("15:04", businessStart)
 		bEnd, err2 := time.Parse("15:04", businessEnd)
-		
+
 		if err1 == nil && err2 == nil {
 			startMin := startTime.Hour()*60 + startTime.Minute()
 			endMin := endTime.Hour()*60 + endTime.Minute()
 			bStartMin := bStart.Hour()*60 + bStart.Minute()
 			bEndMin := bEnd.Hour()*60 + bEnd.Minute()
-			
+
 			if startMin < bStartMin || endMin > bEndMin {
 				return nil, errors.New("o agendamento está fora do horário de funcionamento")
 			}
@@ -215,5 +217,11 @@ func (s *AppointmentService) FinishAppointment(clinicID, id uint) (*domain.Appoi
 	if err := s.appointmentRepo.Update(appt); err != nil {
 		return nil, err
 	}
+
+	// [F05 Trigger] Dedução autônoma do estoque via goroutine (Assíncrono)
+	if appt.AppointmentTypeID != nil {
+		go s.inventoryService.ProcessAppointmentMaterials(clinicID, *appt.AppointmentTypeID)
+	}
+
 	return appt, nil
 }

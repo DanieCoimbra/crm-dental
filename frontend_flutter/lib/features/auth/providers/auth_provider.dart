@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:frontend_flutter/features/auth/data/auth_repository.dart';
 import 'package:frontend_flutter/features/settings/data/user_model.dart';
+import 'package:frontend_flutter/features/settings/data/clinic_model.dart';
+import 'package:frontend_flutter/core/network/api_client.dart';
 
 const _storage = FlutterSecureStorage();
 
@@ -55,4 +57,12 @@ final authProvider = NotifierProvider<AuthNotifier, AuthState>(() {
 final currentUserProvider = FutureProvider<User>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return repository.getProfile();
+});
+
+final currentClinicProvider = FutureProvider<Clinic>((ref) async {
+  // Use o settingsRepositoryProvider, mas ele não está importado.
+  // Vou importar ou usar dio diretamente
+  final dio = ref.watch(dioProvider);
+  final response = await dio.get('/clinics/me');
+  return Clinic.fromJson(response.data);
 });

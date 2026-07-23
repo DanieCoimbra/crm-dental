@@ -65,12 +65,12 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Dados inválidos"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error_code": "INVALID_REQUEST", "message": "Dados inválidos"})
 	}
 
 	token, user, err := h.authService.Login(req.Email, req.Password)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": err.Error()})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error_code": "INVALID_CREDENTIALS", "message": err.Error()})
 	}
 
 	h.auditService.LogAction(user.ClinicID, user.ID, "login", "auth", user.ID, c.IP(), c.Get("User-Agent"), "Usuário logou no sistema")
@@ -92,7 +92,7 @@ func (h *AuthHandler) Profile(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Usuário não encontrado"})
 	}
-	
+
 	return c.JSON(user)
 }
 
@@ -100,17 +100,15 @@ func (h *AuthHandler) Profile(c *fiber.Ctx) error {
 func (h *AuthHandler) ListUsers(c *fiber.Ctx) error {
 	roleQuery := c.Query("role")
 	userRepo := h.authService.GetUserRepository()
-	
+
 	users, err := userRepo.ListByRole(roleQuery)
 	if err != nil {
 		// Mock temporário se o método ListByRole falhar ou não existir
 		return c.JSON([]map[string]interface{}{})
 	}
-	
+
 	return c.JSON(users)
 }
-
-
 
 type UpdateProfileRequest struct {
 	Name     string `json:"name"`

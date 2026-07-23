@@ -85,7 +85,7 @@ class PatientFilesTab extends ConsumerWidget {
                               TextButton(
                                 onPressed: () async {
                                   try {
-                                    await ref.read(patientsRepositoryProvider).openPatientFile(file.filePath);
+                                    await ref.read(patientsRepositoryProvider).openPatientFile(file.supabaseUrl);
                                   } catch (e) {
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));

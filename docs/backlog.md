@@ -20,14 +20,14 @@ Este documento armazena as ideias de funcionalidades, melhorias e requisitos fut
 ## 🎯 Próximas Funcionalidades / Prioridades
 
 ## Principais
-- [ ] **Modo escuro**: criar modo escuro para todo sistema, com botão no topbar. 
+- [x] **Modo escuro**: criar modo escuro para todo sistema, com botão no topbar. 
 - [ ] **API do Google Calendar**: Criar integração com a API do Google Calendar para sincronização de consultas (criar, editar, cancelar).
-- [ ] **Sistema de pagamento**: criar sistema junto com apis de pagamentos (Stripe, Pagseguro, Mercado Pago), criar planos de assinatura (Trial 14 dias, Mensal, Anual) e métricas de faturamento mensal para o SaaS.
-- [ ] **Sistema de Cupons de desconto**: Sistema de cupons de descontos para planos do SaaS, os cupons são em porcentagens, o responsavel/dono do cupom vai ganhar em cima de clinicas indicadas que usaram o cupom.
-- [ ] **Módulo Financeiro**: Registro de pagamentos, parcelamentos, recibos e relatório de receitas do mês, para clinica.
-- [ ] **Módulo de Estoque**: Registro de consumo de materiais por consulta (ex: luvas, anestésicos).
-- [ ] **Armazenamento em Nuvem**: Migrar anexos de `local` para serviços AWS S3.
-- [ ] **Dashboard Gerencial com Gráficos**: Tela inicial com gráficos, estatísticas de atendimento, taxa de faltas e faturamento.
+- [x] **Sistema de pagamento**: criar sistema junto com apis de pagamentos (Stripe, Pagseguro, Mercado Pago), criar planos de assinatura (Trial 14 dias, Mensal, Anual) e métricas de faturamento mensal para o SaaS.
+- [x] **Sistema de Cupons de desconto**: Sistema de cupons de descontos para planos do SaaS, os cupons são em porcentagens, o responsavel/dono do cupom vai ganhar em cima de clinicas indicadas que usaram o cupom.
+- [x] **Módulo Financeiro**: Registro de pagamentos, parcelamentos, recibos e relatório de receitas do mês, para clinica.
+- [x] **Módulo de Estoque**: Registro de consumo de materiais por consulta (ex: luvas, anestésicos).
+- [x] **Armazenamento em Nuvem**: Migrar anexos de `local` para Supabase Storage (Bucket).
+- [x] **Dashboard Gerencial com Gráficos**: Tela inicial com gráficos, estatísticas de atendimento, taxa de faltas e faturamento.
 
 ## Segundaria
 - [ ] **Autenticação em Duas Etapas (2FA)**: Opção de dupla autenticação no login para médicos e gerentes.

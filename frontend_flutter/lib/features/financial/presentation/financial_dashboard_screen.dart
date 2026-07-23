@@ -4,6 +4,7 @@ import 'package:frontend_flutter/features/financial/providers/financial_provider
 import 'package:frontend_flutter/features/financial/data/financial_repository.dart';
 import 'package:frontend_flutter/features/financial/presentation/widgets/transaction_form_dialog.dart';
 import 'package:frontend_flutter/features/financial/utils/receipt_generator.dart';
+import 'package:frontend_flutter/features/dashboard/providers/dashboard_provider.dart';
 import 'package:intl/intl.dart';
 
 class FinancialDashboardScreen extends ConsumerWidget {
@@ -110,6 +111,7 @@ class FinancialDashboardScreen extends ConsumerWidget {
                                     onPressed: () async {
                                       await ref.read(financialRepositoryProvider).payInstallment(inst.id);
                                       ref.invalidate(financialTransactionsProvider);
+                                      ref.invalidate(dashboardStatsProvider);
                                     },
                                     child: const Text('Dar Baixa'),
                                   )

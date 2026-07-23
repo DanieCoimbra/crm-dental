@@ -13,6 +13,9 @@ import 'package:frontend_flutter/features/auth/providers/auth_provider.dart';
 import 'package:frontend_flutter/features/financial/presentation/financial_dashboard_screen.dart';
 import 'package:frontend_flutter/features/inventory/presentation/inventory_screen.dart';
 import 'package:frontend_flutter/features/marketing/presentation/marketing_screen.dart';
+import 'package:frontend_flutter/features/saas/presentation/saas_checkout_screen.dart';
+
+import 'package:frontend_flutter/shared/widgets/tenant_guard_overlay.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -41,9 +44,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
       ),
+      GoRoute(
+        path: '/saas-checkout',
+        builder: (context, state) => const SaasCheckoutScreen(),
+      ),
       ShellRoute(
         builder: (context, state, child) {
-          return DashboardLayout(child: child);
+          return TenantGuardOverlay(
+            child: DashboardLayout(child: child),
+          );
         },
         routes: [
           GoRoute(

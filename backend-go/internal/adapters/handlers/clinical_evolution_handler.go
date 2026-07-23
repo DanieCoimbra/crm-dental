@@ -18,7 +18,7 @@ func NewClinicalEvolutionHandler() *ClinicalEvolutionHandler {
 }
 
 type CreateEvolutionRequest struct {
-	Content string `json:"content"`
+	ContentHtml string `json:"content_html"`
 }
 
 func (h *ClinicalEvolutionHandler) ListByPatient(c *fiber.Ctx) error {
@@ -49,7 +49,7 @@ func (h *ClinicalEvolutionHandler) Create(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Dados inválidos"})
 	}
 
-	evolution, err := h.evolutionService.CreateEvolution(clinicID, uint(patientID), userID, req.Content)
+	evolution, err := h.evolutionService.CreateEvolution(clinicID, uint(patientID), userID, req.ContentHtml)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
 	}

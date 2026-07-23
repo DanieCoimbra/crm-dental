@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"encoding/json"
-	
+
 	"dental-crm-api/internal/core/domain"
 	"dental-crm-api/internal/database"
 	"gorm.io/gorm"
@@ -45,11 +45,11 @@ func (r *UserRepository) FindByID(id uint) (*domain.User, error) {
 func (r *UserRepository) ListByRole(roleName string) ([]domain.User, error) {
 	var users []domain.User
 	query := database.DB.Preload("Role").Preload("Clinic")
-	
+
 	if roleName != "" {
 		query = query.Joins("JOIN roles ON roles.id = users.role_id").Where("roles.name = ?", roleName)
 	}
-	
+
 	err := query.Find(&users).Error
 	for i := range users {
 		if users[i].Role != nil && users[i].Role.Permissions != "" {

@@ -31,7 +31,8 @@ func main() {
 
 	// Inicia o Fiber
 	app := fiber.New(fiber.Config{
-		AppName: "Dental CRM API (Golang)",
+		AppName:   "Dental CRM API (Golang)",
+		BodyLimit: 50 * 1024 * 1024, // Limite de 50MB para suportar Raio-X pesados
 	})
 
 	// Middlewares globais

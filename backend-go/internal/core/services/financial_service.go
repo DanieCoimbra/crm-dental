@@ -57,16 +57,16 @@ func (s *FinancialService) CreateTransaction(clinicID uint, patientID *uint, txT
 		// Calculate installments
 		baseAmount := totalAmount / int64(totalInstallments)
 		remainder := totalAmount % int64(totalInstallments)
-		
+
 		for i := 1; i <= totalInstallments; i++ {
 			amount := baseAmount
 			if i == 1 {
 				amount += remainder
 			}
-			
+
 			// Increment due date by i-1 months
 			instDueDate := dueDate.AddDate(0, i-1, 0)
-			
+
 			installment := domain.ClinicInstallment{
 				ClinicID:    clinicID,
 				Number:      i,

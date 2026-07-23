@@ -29,14 +29,14 @@ func main() {
 
 	var clinics []Clinic
 	db.Table("clinics").Find(&clinics)
-	
+
 	fmt.Println("=== CLINICS ===")
 	cb, _ := json.MarshalIndent(clinics, "", "  ")
 	fmt.Println(string(cb))
 
 	var users []User
 	db.Table("users").Find(&users)
-	
+
 	fmt.Println("=== USERS ===")
 	ub, _ := json.MarshalIndent(users, "", "  ")
 	fmt.Println(string(ub))

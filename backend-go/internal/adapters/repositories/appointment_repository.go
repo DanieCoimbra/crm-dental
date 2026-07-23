@@ -21,7 +21,7 @@ func (r *AppointmentRepository) Create(appointment *domain.Appointment) error {
 func (r *AppointmentRepository) ListByClinic(clinicID uint, start string, end string) ([]domain.Appointment, error) {
 	var appointments []domain.Appointment
 	query := database.DB.Preload("Doctor").Preload("Patient").Preload("Room").Preload("AppointmentType").Where("clinic_id = ?", clinicID)
-	
+
 	if start != "" {
 		query = query.Where("start_time >= ?", start)
 	}
@@ -30,7 +30,7 @@ func (r *AppointmentRepository) ListByClinic(clinicID uint, start string, end st
 		// Let's assume start_time <= end for simpler period filtering.
 		query = query.Where("start_time <= ?", end)
 	}
-	
+
 	err := query.Order("start_time asc").Find(&appointments).Error
 	return appointments, err
 }

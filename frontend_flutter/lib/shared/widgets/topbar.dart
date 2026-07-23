@@ -7,6 +7,7 @@ import 'package:frontend_flutter/features/auth/widgets/room_selector.dart';
 import 'package:frontend_flutter/features/auth/presentation/widgets/profile_dialog.dart';
 import 'package:frontend_flutter/shared/widgets/theme_toggle_button.dart';
 import 'package:go_router/go_router.dart';
+import 'package:frontend_flutter/features/inventory/presentation/widgets/inventory_alert_badge.dart';
 
 class Topbar extends ConsumerWidget implements PreferredSizeWidget {
   const Topbar({super.key});
@@ -92,10 +93,7 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
                           ],
                           const ThemeToggleButton(),
                           const SizedBox(width: 8),
-                          IconButton(
-                            icon: Icon(LucideIcons.bell, color: theme.iconTheme.color),
-                            onPressed: () {},
-                          ),
+                          const InventoryAlertBadge(),
                           const SizedBox(width: 16),
                           avatarUrl != null && avatarUrl.isNotEmpty
                               ? Container(

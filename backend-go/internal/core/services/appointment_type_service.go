@@ -20,7 +20,7 @@ func (s *AppointmentTypeService) ListTypes(clinicID uint) ([]domain.AppointmentT
 	return s.typeRepo.ListByClinic(clinicID)
 }
 
-func (s *AppointmentTypeService) CreateType(clinicID uint, name string, description string, durationMinutes int, color string) (*domain.AppointmentType, error) {
+func (s *AppointmentTypeService) CreateType(clinicID uint, name string, description string, durationMinutes int, color string, materials []domain.ProcedureMaterial) (*domain.AppointmentType, error) {
 	if name == "" {
 		return nil, errors.New("o nome da especialidade é obrigatório")
 	}
@@ -31,6 +31,7 @@ func (s *AppointmentTypeService) CreateType(clinicID uint, name string, descript
 		Description:     description,
 		DurationMinutes: durationMinutes,
 		Color:           color,
+		Materials:       materials,
 	}
 
 	if err := s.typeRepo.Create(apptType); err != nil {
@@ -44,7 +45,7 @@ func (s *AppointmentTypeService) DeleteType(clinicID, id, deletedBy uint) error 
 	return s.typeRepo.Delete(id, clinicID, deletedBy)
 }
 
-func (s *AppointmentTypeService) UpdateType(clinicID, id uint, name string, description string, durationMinutes int, color string) (*domain.AppointmentType, error) {
+func (s *AppointmentTypeService) UpdateType(clinicID, id uint, name string, description string, durationMinutes int, color string, materials []domain.ProcedureMaterial) (*domain.AppointmentType, error) {
 	apptType, err := s.typeRepo.FindByID(id, clinicID)
 	if err != nil {
 		return nil, errors.New("especialidade não encontrada")
@@ -61,6 +62,9 @@ func (s *AppointmentTypeService) UpdateType(clinicID, id uint, name string, desc
 	if color != "" {
 		apptType.Color = color
 	}
+
+	// Replace materials
+	apptType.Materials = materials
 
 	if err := s.typeRepo.Update(apptType); err != nil {
 		return nil, err

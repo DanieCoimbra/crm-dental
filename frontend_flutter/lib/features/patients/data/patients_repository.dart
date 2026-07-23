@@ -110,9 +110,9 @@ class PatientsRepository {
     return data.map((json) => ClinicalEvolution.fromJson(json)).toList();
   }
 
-  Future<ClinicalEvolution> createEvolution(int patientId, String content) async {
+  Future<ClinicalEvolution> createEvolution(int patientId, String contentHtml) async {
     final response = await _dio.post('/patients/$patientId/evolutions', data: {
-      'content': content,
+      'content_html': contentHtml,
     });
     return ClinicalEvolution.fromJson(response.data);
   }
@@ -128,33 +128,38 @@ class PatientsRepository {
     if (file.bytes == null) {
       throw Exception('Os dados do arquivo estão vazios. Certifique-se de usar withData: true no FilePicker.');
     }
-    final formData = FormData.fromMap({
-      'category': category,
-      'file': MultipartFile.fromBytes(file.bytes!, filename: file.name),
-    });
     
-    final response = await _dio.post(
-      '/patients/$patientId/files',
-      data: formData,
-    );
-    return PatientFile.fromJson(response.data);
+    int retries = 3;
+    int delay = 1;
+    
+    while (retries > 0) {
+      try {
+        final formData = FormData.fromMap({
+          'category': category,
+          'file': MultipartFile.fromBytes(file.bytes!, filename: file.name),
+        });
+        
+        final response = await _dio.post(
+          '/patients/$patientId/files',
+          data: formData,
+        );
+        return PatientFile.fromJson(response.data);
+      } catch (e) {
+        retries--;
+        if (retries == 0) rethrow;
+        await Future.delayed(Duration(seconds: delay));
+        delay *= 2; // Exponential backoff
+      }
+    }
+    throw Exception('Falha ao fazer upload após 3 tentativas.');
   }
 
   Future<void> deletePatientFile(int fileId) async {
     await _dio.delete('/files/$fileId');
   }
 
-  Future<void> openPatientFile(String filePath) async {
-    // A API salva como "./uploads/arquivo.png". Limpar isso.
-    String cleanPath = filePath.replaceFirst('./', '');
-    if (cleanPath.startsWith('/')) {
-      cleanPath = cleanPath.substring(1);
-    }
-    
-    // baseUrl: http://localhost:8080/api/v1
-    final baseUrl = _dio.options.baseUrl.replaceAll('/api/v1', '');
-    final url = Uri.parse('$baseUrl/$cleanPath');
-    
+  Future<void> openPatientFile(String supabaseUrl) async {
+    final url = Uri.parse(supabaseUrl);
     if (!await launchUrl(url)) {
       throw Exception('Não foi possível abrir o arquivo');
     }

@@ -58,7 +58,7 @@ func (h *DashboardHandler) GetStats(c *fiber.Ctx) error {
 	for i := 0; i < 7; i++ {
 		dayStart := weekStart.AddDate(0, 0, i)
 		dayEnd := dayStart.Add(24 * time.Hour)
-		
+
 		// Appointments count
 		var count int64
 		database.DB.Table("appointments").
@@ -81,7 +81,7 @@ func (h *DashboardHandler) GetStats(c *fiber.Ctx) error {
 	database.DB.Table("appointments").
 		Where("clinic_id = ? AND start_time >= ? AND status IN ('cancelled', 'no_show')", clinicID, monthStart).
 		Count(&cancellations)
-	
+
 	cancellationRateStr := "0%"
 	if totalAppointmentsThisMonth > 0 {
 		rate := (float64(cancellations) / float64(totalAppointmentsThisMonth)) * 100
@@ -95,7 +95,7 @@ func (h *DashboardHandler) GetStats(c *fiber.Ctx) error {
 		Where("clinic_installments.clinic_id = ? AND clinic_installments.status = 'paid' AND clinic_installments.updated_at >= ? AND clinic_transactions.type = 'income'", clinicID, monthStart).
 		Select("COALESCE(SUM(clinic_installments.amount_cents), 0)").
 		Scan(&monthlyRevenueCents)
-	
+
 	monthlyRevenue := float64(monthlyRevenueCents) / 100.0
 
 	// Status Distribution for PieChart
@@ -109,7 +109,7 @@ func (h *DashboardHandler) GetStats(c *fiber.Ctx) error {
 		Where("clinic_id = ? AND start_time >= ?", clinicID, monthStart).
 		Group("status").
 		Scan(&statuses)
-	
+
 	statusMap := make(map[string]int64)
 	for _, s := range statuses {
 		statusMap[s.Status] = s.Count

@@ -3,7 +3,7 @@ class PatientFile {
   final int clinicId;
   final int patientId;
   final String fileName;
-  final String filePath;
+  final String supabaseUrl;
   final String fileType;
   final String category;
   final DateTime createdAt;
@@ -14,7 +14,7 @@ class PatientFile {
     required this.clinicId,
     required this.patientId,
     required this.fileName,
-    required this.filePath,
+    required this.supabaseUrl,
     required this.fileType,
     required this.category,
     required this.createdAt,
@@ -27,7 +27,7 @@ class PatientFile {
       clinicId: json['clinic_id'] ?? 0,
       patientId: json['patient_id'] ?? 0,
       fileName: json['file_name'] ?? '',
-      filePath: json['file_path'] ?? '',
+      supabaseUrl: json['supabase_url'] ?? '',
       fileType: json['file_type'] ?? '',
       category: json['category'] ?? '',
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
@@ -41,7 +41,7 @@ class PatientFile {
       'clinic_id': clinicId,
       'patient_id': patientId,
       'file_name': fileName,
-      'file_path': filePath,
+      'supabase_url': supabaseUrl,
       'file_type': fileType,
       'category': category,
       'created_at': createdAt.toIso8601String(),

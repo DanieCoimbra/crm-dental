@@ -60,7 +60,7 @@ func (h *WaitlistHandler) Create(c *fiber.Ctx) error {
 
 func (h *WaitlistHandler) Delete(c *fiber.Ctx) error {
 	clinicID := uint(c.Locals("clinic_id").(float64))
-	
+
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})

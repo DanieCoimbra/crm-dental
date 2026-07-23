@@ -34,6 +34,11 @@ func Connect() {
 
 func RunMigrations() {
 	log.Println("Rodando AutoMigrate...")
+
+	// Limpar tabelas legado que continham UUID ao invés de Uint para evitar erros de cast
+	DB.Migrator().DropTable(&domain.ReferralPartner{})
+	DB.Migrator().DropTable(&domain.PromoCode{})
+
 	// O GORM criará as tabelas/colunas faltantes no Supabase automaticamente
 	err := DB.AutoMigrate(
 		&domain.Clinic{},
@@ -53,16 +58,18 @@ func RunMigrations() {
 		&domain.ClinicInstallment{},
 		&domain.InventoryItem{},
 		&domain.InventoryTransaction{},
+		&domain.ProcedureMaterial{},
 		&domain.Affiliate{},
 		&domain.Coupon{},
 		&domain.ReferralPartner{},
 		&domain.PromoCode{},
+		&domain.Subscription{},
 	)
 	if err != nil {
 		log.Fatal("❌ Erro ao rodar migrations: ", err)
 	}
 	log.Println("✅ AutoMigrate concluído!")
-	
+
 	SeedRoles()
 }
 
@@ -87,4 +94,3 @@ func SeedRoles() {
 		}
 	}
 }
-

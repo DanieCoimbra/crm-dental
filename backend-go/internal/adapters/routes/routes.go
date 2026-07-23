@@ -5,8 +5,11 @@ import (
 	"dental-crm-api/internal/adapters/repositories"
 	"dental-crm-api/internal/database"
 	"dental-crm-api/internal/middleware"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cache"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 )
 
 func SetupRoutes(app *fiber.App) {
@@ -48,24 +51,48 @@ func SetupRoutes(app *fiber.App) {
 	// Rotas Públicas
 	authGroup := v1.Group("/auth")
 	authGroup.Post("/register", authHandler.Register)
-	authGroup.Post("/login", authHandler.Login)
+
+	loginLimiter := limiter.New(limiter.Config{
+		Max:        5,
+		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error_code": "RATE_LIMIT_EXCEEDED",
+				"message":    "Muitas tentativas de login. Tente novamente em 1 minuto.",
+			})
+		},
+	})
+	authGroup.Post("/login", loginLimiter, authHandler.Login)
+
+	// Webhooks (Public)
+	webhookHandler := handlers.NewWebhookHandler()
+	v1.Post("/webhooks/stripe", webhookHandler.HandleStripe)
 
 	// Rotas Privadas (Exigem Autenticação)
-	private := v1.Group("/", middleware.AuthRequired)
-	
+	private := v1.Group("/", middleware.AuthRequired, middleware.RequireActiveSubscription())
+
 	// User Profile
 	private.Get("/user", authHandler.Profile)
 	private.Put("/profile", authHandler.UpdateProfile)
 	private.Post("/profile/avatar", authHandler.UpdateAvatar)
 	private.Post("/profile/room", authHandler.UpdateRoom)
 	private.Put("/users/preferences", authHandler.UpdatePreferences)
-	
-	// Dashboard
-	private.Get("/dashboard/stats", dashboardHandler.GetStats)
-	
+
 	// Team and Roles
 	adminOnly := middleware.RoleRequired("admin", "owner")
 	adminOrManager := middleware.RoleRequired("admin", "manager", "owner")
+
+	// Dashboard (Com cache de 5 minutos agrupado pelo id da clínica)
+	private.Get("/dashboard/stats", adminOnly, cache.New(cache.Config{
+		Expiration: 5 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			clinicID := c.Locals("clinic_id").(float64)
+			return "dashboard_" + string(rune(clinicID))
+		},
+	}), dashboardHandler.GetStats)
 
 	private.Get("/users", authHandler.ListUsers)
 	private.Get("/roles", roleHandler.List)
@@ -86,10 +113,10 @@ func SetupRoutes(app *fiber.App) {
 	private.Delete("/patients/:id", adminOnly, patientHandler.Delete)
 	private.Post("/patients-import", adminOrManager, patientHandler.Import)
 	private.Get("/patients-export", adminOrManager, patientHandler.Export)
-	
+
 	// Public but scoped
 	v1.Get("/patients-import-template", patientHandler.DownloadTemplate)
-	
+
 	// Rooms
 	private.Get("/rooms", roomHandler.List)
 	private.Get("/rooms/:id", roomHandler.GetByID)
@@ -153,7 +180,7 @@ func SetupRoutes(app *fiber.App) {
 	private.Get("/shift-assignments", shiftAssignmentHandler.List)
 	private.Post("/shift-assignments", shiftAssignmentHandler.Create)
 	private.Delete("/shift-assignments/:id", shiftAssignmentHandler.Delete)
-	
+
 	// Team / Users CRUD
 	teamHandler := handlers.NewTeamHandler()
 	private.Get("/team", authHandler.ListUsers)
@@ -186,7 +213,7 @@ func SetupRoutes(app *fiber.App) {
 	private.Get("/marketing/promo-codes", adminOrManager, marketingHandler.GetPromoCodes)
 	private.Post("/marketing/promo-codes", adminOrManager, marketingHandler.CreatePromoCode)
 	private.Delete("/marketing/promo-codes/:id", adminOrManager, marketingHandler.DeletePromoCode)
-	
+
 	private.Get("/marketing/partners", adminOrManager, marketingHandler.GetPartners)
 	private.Post("/marketing/partners", adminOrManager, marketingHandler.CreatePartner)
 	private.Delete("/marketing/partners/:id", adminOrManager, marketingHandler.DeletePartner)

@@ -51,7 +51,7 @@ func (s *PatientService) DeletePatient(clinicID uint, patientID uint, deletedBy 
 	if err != nil {
 		return errors.New("paciente não encontrado ou não pertence a esta clínica")
 	}
-	
+
 	return s.patientRepo.Delete(patientID, deletedBy)
 }
 

@@ -4,6 +4,8 @@ import (
 	"dental-crm-api/internal/adapters/repositories"
 	"dental-crm-api/internal/core/domain"
 	"errors"
+
+	"github.com/microcosm-cc/bluemonday"
 )
 
 type ClinicalEvolutionService struct {
@@ -16,16 +18,20 @@ func NewClinicalEvolutionService() *ClinicalEvolutionService {
 	}
 }
 
-func (s *ClinicalEvolutionService) CreateEvolution(clinicID, patientID, userID uint, content string) (*domain.ClinicalEvolution, error) {
-	if content == "" {
+func (s *ClinicalEvolutionService) CreateEvolution(clinicID, patientID, userID uint, contentHtml string) (*domain.ClinicalEvolution, error) {
+	if contentHtml == "" {
 		return nil, errors.New("o conteúdo da evolução é obrigatório")
 	}
 
+	// Sanitização rigorosa do HTML para prevenir XSS
+	p := bluemonday.UGCPolicy()
+	sanitizedHtml := p.Sanitize(contentHtml)
+
 	evolution := &domain.ClinicalEvolution{
-		ClinicID:  clinicID,
-		PatientID: patientID,
-		UserID:    userID,
-		Content:   content,
+		ClinicID:    clinicID,
+		PatientID:   patientID,
+		UserID:      userID,
+		ContentHtml: sanitizedHtml,
 	}
 
 	err := s.evolutionRepo.Create(evolution)

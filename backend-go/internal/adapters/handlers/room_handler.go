@@ -53,7 +53,7 @@ func (h *RoomHandler) Create(c *fiber.Ctx) error {
 func (h *RoomHandler) Delete(c *fiber.Ctx) error {
 	clinicID := uint(c.Locals("clinic_id").(float64))
 	deletedBy := uint(c.Locals("user_id").(float64))
-	
+
 	roomID, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})
@@ -69,7 +69,7 @@ func (h *RoomHandler) Delete(c *fiber.Ctx) error {
 
 func (h *RoomHandler) Update(c *fiber.Ctx) error {
 	clinicID := uint(c.Locals("clinic_id").(float64))
-	
+
 	roomID, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})
@@ -90,7 +90,7 @@ func (h *RoomHandler) Update(c *fiber.Ctx) error {
 
 func (h *RoomHandler) GetByID(c *fiber.Ctx) error {
 	clinicID := uint(c.Locals("clinic_id").(float64))
-	
+
 	roomID, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})

@@ -99,28 +99,37 @@ func (h *SaaSHandler) ApplyCoupon(c *fiber.Ctx) error {
 	}
 
 	// Update clinic subscription
-	// Note: Currently we don't have a specific Subscription model, 
-	// so we will just increment the coupon usage for now and log it.
 	coupon.UsesCount += 1
 	if err := tx.Save(&coupon).Error; err != nil {
 		tx.Rollback()
 		return c.Status(500).JSON(fiber.Map{"error": "Erro ao atualizar uso do cupom"})
 	}
 
-	// Track affiliate if present
-	if coupon.AffiliateID != nil {
-		var affiliate domain.Affiliate
-		if err := tx.Where("id = ?", *coupon.AffiliateID).First(&affiliate).Error; err == nil {
-			// e.g. Add 5000 (R$ 50) balance to affiliate
-			affiliate.Balance += 5000
-			tx.Save(&affiliate)
+	var subscription domain.Subscription
+	if err := tx.Where("clinic_id = ?", clinicID).First(&subscription).Error; err == nil {
+		subscription.CouponID = &coupon.ID
+		if err := tx.Save(&subscription).Error; err != nil {
+			tx.Rollback()
+			return c.Status(500).JSON(fiber.Map{"error": "Erro ao atrelar cupom à assinatura"})
+		}
+	} else {
+		// Se não existe subscription, cria uma básica (pode estar em trial)
+		subscription = domain.Subscription{
+			ClinicID: clinicID,
+			CouponID: &coupon.ID,
+			Status:   "trialing",
+			Plan:     "basic",
+		}
+		if err := tx.Create(&subscription).Error; err != nil {
+			tx.Rollback()
+			return c.Status(500).JSON(fiber.Map{"error": "Erro ao criar assinatura com cupom"})
 		}
 	}
 
 	tx.Commit()
 
 	return c.JSON(fiber.Map{
-		"message": "Cupom aplicado com sucesso",
+		"message":   "Cupom aplicado com sucesso",
 		"clinic_id": clinicID,
 	})
 }

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"dental-crm-api/internal/core/domain"
 	"dental-crm-api/internal/core/services"
 	"strconv"
 
@@ -33,6 +34,10 @@ type CreateAppointmentTypeRequest struct {
 	Description     string `json:"description"`
 	DurationMinutes int    `json:"duration_minutes"`
 	Color           string `json:"color"`
+	Materials       []struct {
+		InventoryItemID uint    `json:"inventory_item_id"`
+		Quantity        float64 `json:"quantity"`
+	} `json:"materials"`
 }
 
 func (h *AppointmentTypeHandler) Create(c *fiber.Ctx) error {
@@ -48,7 +53,15 @@ func (h *AppointmentTypeHandler) Create(c *fiber.Ctx) error {
 		req.DurationMinutes = 30
 	}
 
-	apptType, err := h.typeService.CreateType(clinicID, req.Name, req.Description, req.DurationMinutes, req.Color)
+	var materialReqs []domain.ProcedureMaterial
+	for _, m := range req.Materials {
+		materialReqs = append(materialReqs, domain.ProcedureMaterial{
+			InventoryItemID: m.InventoryItemID,
+			Quantity:        m.Quantity,
+		})
+	}
+
+	apptType, err := h.typeService.CreateType(clinicID, req.Name, req.Description, req.DurationMinutes, req.Color, materialReqs)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
 	}
@@ -73,7 +86,7 @@ func (h *AppointmentTypeHandler) Delete(c *fiber.Ctx) error {
 
 func (h *AppointmentTypeHandler) Update(c *fiber.Ctx) error {
 	clinicID := uint(c.Locals("clinic_id").(float64))
-	
+
 	typeID, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})
@@ -84,7 +97,15 @@ func (h *AppointmentTypeHandler) Update(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Dados inválidos"})
 	}
 
-	apptType, err := h.typeService.UpdateType(clinicID, uint(typeID), req.Name, req.Description, req.DurationMinutes, req.Color)
+	var materialReqs []domain.ProcedureMaterial
+	for _, m := range req.Materials {
+		materialReqs = append(materialReqs, domain.ProcedureMaterial{
+			InventoryItemID: m.InventoryItemID,
+			Quantity:        m.Quantity,
+		})
+	}
+
+	apptType, err := h.typeService.UpdateType(clinicID, uint(typeID), req.Name, req.Description, req.DurationMinutes, req.Color, materialReqs)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
 	}
@@ -94,7 +115,7 @@ func (h *AppointmentTypeHandler) Update(c *fiber.Ctx) error {
 
 func (h *AppointmentTypeHandler) GetByID(c *fiber.Ctx) error {
 	clinicID := uint(c.Locals("clinic_id").(float64))
-	
+
 	typeID, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})

@@ -21,7 +21,7 @@ func AuthRequired(c *fiber.Ctx) error {
 	}
 
 	if tokenString == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Token não fornecido ou inválido"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error_code": "MISSING_TOKEN", "message": "Token não fornecido ou inválido"})
 	}
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -33,12 +33,12 @@ func AuthRequired(c *fiber.Ctx) error {
 	})
 
 	if err != nil || !token.Valid {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Token inválido ou expirado"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error_code": "EXPIRED_TOKEN", "message": "Token inválido ou expirado"})
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Falha ao extrair claims do token"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error_code": "INVALID_TOKEN_CLAIMS", "message": "Falha ao extrair claims do token"})
 	}
 
 	// Injetar dados cruciais para o Multi-Tenancy (Clean Code / Segurança)

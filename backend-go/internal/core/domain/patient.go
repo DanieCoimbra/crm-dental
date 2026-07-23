@@ -9,22 +9,22 @@ import (
 )
 
 type Patient struct {
-	ID              uint           `gorm:"primaryKey" json:"id"`
-	ClinicID        uint           `gorm:"not null" json:"clinic_id"`
-	Clinic          *Clinic        `gorm:"foreignKey:ClinicID" json:"clinic,omitempty"`
-	Name            string         `gorm:"size:255;not null" json:"name"`
-	CPF             string         `gorm:"size:20" json:"cpf"`
-	Email           string         `gorm:"size:255" json:"email"`
-	Phone           string         `gorm:"size:20" json:"phone"`
-	Cep             string         `gorm:"size:20" json:"cep"`
-	Street          string         `gorm:"size:255" json:"street"`
-	Neighborhood    string         `gorm:"size:255" json:"neighborhood"`
-	Number          string         `gorm:"size:50" json:"number"`
-	HealthInsurance string         `gorm:"size:100" json:"health_insurance"`
-	BirthDate       *time.Time     `gorm:"type:date" json:"birth_date"`
-	MedicalHistory  string         `gorm:"type:text" json:"medical_history"` // Encrypted no PHP
-	Notes           string         `gorm:"type:text" json:"notes"`           // Encrypted no PHP
-	Weight          float64        `json:"weight"`
+	ID              uint       `gorm:"primaryKey" json:"id"`
+	ClinicID        uint       `gorm:"not null" json:"clinic_id"`
+	Clinic          *Clinic    `gorm:"foreignKey:ClinicID" json:"clinic,omitempty"`
+	Name            string     `gorm:"size:255;not null" json:"name"`
+	CPF             string     `gorm:"size:20" json:"cpf"`
+	Email           string     `gorm:"size:255" json:"email"`
+	Phone           string     `gorm:"size:20" json:"phone"`
+	Cep             string     `gorm:"size:20" json:"cep"`
+	Street          string     `gorm:"size:255" json:"street"`
+	Neighborhood    string     `gorm:"size:255" json:"neighborhood"`
+	Number          string     `gorm:"size:50" json:"number"`
+	HealthInsurance string     `gorm:"size:100" json:"health_insurance"`
+	BirthDate       *time.Time `gorm:"type:date" json:"birth_date"`
+	MedicalHistory  string     `gorm:"type:text" json:"medical_history"` // Encrypted no PHP
+	Notes           string     `gorm:"type:text" json:"notes"`           // Encrypted no PHP
+	Weight          float64    `json:"weight"`
 
 	DeletedBy *uint `json:"deleted_by"`
 

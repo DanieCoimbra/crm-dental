@@ -12,8 +12,8 @@ type Waitlist struct {
 	PatientID uint     `gorm:"not null" json:"patient_id"`
 	Patient   *Patient `gorm:"foreignKey:PatientID" json:"patient,omitempty"`
 
-	DoctorID *uint  `json:"doctor_id"` // Optional
-	Doctor   *User  `gorm:"foreignKey:DoctorID" json:"doctor,omitempty"`
+	DoctorID *uint `json:"doctor_id"` // Optional
+	Doctor   *User `gorm:"foreignKey:DoctorID" json:"doctor,omitempty"`
 
 	AppointmentTypeID *uint            `json:"appointment_type_id"` // Optional
 	AppointmentType   *AppointmentType `gorm:"foreignKey:AppointmentTypeID" json:"appointment_type,omitempty"`

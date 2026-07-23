@@ -141,7 +141,7 @@ func (h *AppointmentHandler) Finish(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
 	}
-	
+
 	h.auditService.LogAction(clinicID, uint(c.Locals("user_id").(float64)), "update", "appointment", appt.ID, c.IP(), c.Get("User-Agent"), "Finalizou atendimento")
 
 	return c.JSON(appt)

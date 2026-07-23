@@ -17,8 +17,7 @@ func NewMarketingHandler(repo *repositories.MarketingRepository) *MarketingHandl
 }
 
 func (h *MarketingHandler) GetPromoCodes(c *fiber.Ctx) error {
-	clinicIDStr := c.Locals("clinic_id").(string)
-	clinicID, _ := uuid.Parse(clinicIDStr)
+	clinicID := uint(c.Locals("clinic_id").(float64))
 
 	codes, err := h.Repo.GetPromoCodesByClinic(clinicID)
 	if err != nil {
@@ -28,8 +27,7 @@ func (h *MarketingHandler) GetPromoCodes(c *fiber.Ctx) error {
 }
 
 func (h *MarketingHandler) CreatePromoCode(c *fiber.Ctx) error {
-	clinicIDStr := c.Locals("clinic_id").(string)
-	clinicID, _ := uuid.Parse(clinicIDStr)
+	clinicID := uint(c.Locals("clinic_id").(float64))
 
 	var req domain.PromoCode
 	if err := c.BodyParser(&req); err != nil {
@@ -45,8 +43,7 @@ func (h *MarketingHandler) CreatePromoCode(c *fiber.Ctx) error {
 }
 
 func (h *MarketingHandler) DeletePromoCode(c *fiber.Ctx) error {
-	clinicIDStr := c.Locals("clinic_id").(string)
-	clinicID, _ := uuid.Parse(clinicIDStr)
+	clinicID := uint(c.Locals("clinic_id").(float64))
 
 	codeIDStr := c.Params("id")
 	codeID, err := uuid.Parse(codeIDStr)
@@ -62,8 +59,7 @@ func (h *MarketingHandler) DeletePromoCode(c *fiber.Ctx) error {
 }
 
 func (h *MarketingHandler) GetPartners(c *fiber.Ctx) error {
-	clinicIDStr := c.Locals("clinic_id").(string)
-	clinicID, _ := uuid.Parse(clinicIDStr)
+	clinicID := uint(c.Locals("clinic_id").(float64))
 
 	partners, err := h.Repo.GetPartnersByClinic(clinicID)
 	if err != nil {
@@ -73,8 +69,7 @@ func (h *MarketingHandler) GetPartners(c *fiber.Ctx) error {
 }
 
 func (h *MarketingHandler) CreatePartner(c *fiber.Ctx) error {
-	clinicIDStr := c.Locals("clinic_id").(string)
-	clinicID, _ := uuid.Parse(clinicIDStr)
+	clinicID := uint(c.Locals("clinic_id").(float64))
 
 	var req domain.ReferralPartner
 	if err := c.BodyParser(&req); err != nil {
@@ -90,8 +85,7 @@ func (h *MarketingHandler) CreatePartner(c *fiber.Ctx) error {
 }
 
 func (h *MarketingHandler) DeletePartner(c *fiber.Ctx) error {
-	clinicIDStr := c.Locals("clinic_id").(string)
-	clinicID, _ := uuid.Parse(clinicIDStr)
+	clinicID := uint(c.Locals("clinic_id").(float64))
 
 	partnerIDStr := c.Params("id")
 	partnerID, err := uuid.Parse(partnerIDStr)

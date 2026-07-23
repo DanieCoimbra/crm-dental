@@ -2,10 +2,10 @@ package handlers
 
 import (
 	"dental-crm-api/internal/core/services"
-	
+
 	"github.com/gofiber/fiber/v2"
-	"time"
 	"strconv"
+	"time"
 )
 
 type FinancialHandler struct {
@@ -19,19 +19,19 @@ func NewFinancialHandler() *FinancialHandler {
 }
 
 type CreateTransactionRequest struct {
-	PatientID         *uint   `json:"patient_id"`
-	Type              string  `json:"type"`     // "income" or "expense"
-	Category          string  `json:"category"`
-	Description       string  `json:"description"`
-	TotalAmountCents  int64   `json:"total_amount_cents"`
-	PaymentMethod     string  `json:"payment_method"`
-	DueDate           string  `json:"due_date"`
-	TotalInstallments int     `json:"total_installments"`
+	PatientID         *uint  `json:"patient_id"`
+	Type              string `json:"type"` // "income" or "expense"
+	Category          string `json:"category"`
+	Description       string `json:"description"`
+	TotalAmountCents  int64  `json:"total_amount_cents"`
+	PaymentMethod     string `json:"payment_method"`
+	DueDate           string `json:"due_date"`
+	TotalInstallments int    `json:"total_installments"`
 }
 
 func (h *FinancialHandler) CreateTransaction(c *fiber.Ctx) error {
 	clinicID := uint(c.Locals("clinic_id").(float64))
-	
+
 	var req CreateTransactionRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})

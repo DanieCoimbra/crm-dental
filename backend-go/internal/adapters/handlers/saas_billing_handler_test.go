@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/glebarez/sqlite"
+	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
 

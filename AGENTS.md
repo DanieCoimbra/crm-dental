@@ -11,7 +11,8 @@
 **Backend (`backend-go/`)**
 - **Linguagem:** Go 1.26
 - **Framework Web:** Fiber (v2)
-- **Banco de Dados:** PostgreSQL com GORM
+- **Banco de Dados & Storage:** Supabase (PostgreSQL + Supabase Storage)
+- **Hospedagem/Deploy:** Render (Backend API - Discos efêmeros)
 - **Autenticação:** JWT (golang-jwt)
 - **Configurações:** godotenv
 
@@ -60,8 +61,8 @@
 ### Backend (Go)
 ```bash
 cd backend-go
-go run cmd/main.go       # Iniciar servidor de desenvolvimento (ajuste o caminho se necessário)
-go build -o server cmd/main.go # Compilar para produção
+go run cmd/server/main.go       # Iniciar servidor de desenvolvimento
+go build -o server cmd/server/main.go # Compilar para produção
 go mod tidy              # Limpar/atualizar dependências
 go test ./...            # Rodar todos os testes
 ```
@@ -116,13 +117,11 @@ flutter test             # Rodar testes
 O arquivo `.env` deve ser configurado dentro da pasta `backend-go/`.
 (Adapte as variáveis conforme o projeto necessita, por exemplo:)
 ```
-PORT=3000
-DB_HOST=localhost
-DB_USER=postgres
-DB_PASSWORD=secret
-DB_NAME=dental_crm
-DB_PORT=5432
+PORT=8080
+DATABASE_URL="postgresql://postgres:suasenha@db.seusupabase.supabase.co:5432/postgres"
 JWT_SECRET=your_jwt_secret
+SUPABASE_URL="https://seusupabase.supabase.co"
+SUPABASE_KEY="sua_anon_key_ou_service_role"
 ```
 
 ## Tarefas Comuns

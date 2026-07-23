@@ -19,7 +19,7 @@ type ClinicalEvolution struct {
 	UserID uint  `gorm:"not null" json:"user_id"`
 	User   *User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 
-	Content string `gorm:"type:text;not null" json:"content"` // Encrypted no PHP
+	ContentHtml string `gorm:"type:text;not null;column:content_html" json:"content_html"` // Encrypted no PHP
 
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
@@ -27,10 +27,10 @@ type ClinicalEvolution struct {
 }
 
 func (e *ClinicalEvolution) BeforeSave(tx *gorm.DB) (err error) {
-	if e.Content != "" && !strings.HasPrefix(e.Content, "eyJpdiI6") {
-		encrypted, err := encryption.Encrypt(e.Content)
+	if e.ContentHtml != "" && !strings.HasPrefix(e.ContentHtml, "eyJpdiI6") {
+		encrypted, err := encryption.Encrypt(e.ContentHtml)
 		if err == nil {
-			e.Content = encrypted
+			e.ContentHtml = encrypted
 		}
 	}
 	return
@@ -41,10 +41,10 @@ func (e *ClinicalEvolution) AfterSave(tx *gorm.DB) (err error) {
 }
 
 func (e *ClinicalEvolution) AfterFind(tx *gorm.DB) (err error) {
-	if e.Content != "" {
-		decrypted, err := encryption.Decrypt(e.Content)
+	if e.ContentHtml != "" {
+		decrypted, err := encryption.Decrypt(e.ContentHtml)
 		if err == nil {
-			e.Content = decrypted
+			e.ContentHtml = decrypted
 		}
 	}
 	return

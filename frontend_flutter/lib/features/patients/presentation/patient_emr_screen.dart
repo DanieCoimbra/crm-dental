@@ -282,7 +282,7 @@ class _EvolutionsHistoryDialog extends ConsumerWidget {
                       final ev = evolutions[index];
                       quill.QuillController? readOnlyController;
                       try {
-                        final doc = quill.Document.fromJson(jsonDecode(ev.content));
+                        final doc = quill.Document.fromJson(jsonDecode(ev.contentHtml));
                         readOnlyController = quill.QuillController(
                           document: doc,
                           selection: const TextSelection.collapsed(offset: 0),
@@ -313,7 +313,7 @@ class _EvolutionsHistoryDialog extends ConsumerWidget {
                                   controller: readOnlyController,
                                 )
                               else
-                                Text(ev.content),
+                                Text(ev.contentHtml),
                             ],
                           ),
                         ),

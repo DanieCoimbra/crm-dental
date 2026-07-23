@@ -53,7 +53,7 @@ func (h *SettingHandler) Save(c *fiber.Ctx) error {
 
 func (h *SettingHandler) Holidays(c *fiber.Ctx) error {
 	clinicID := uint(c.Locals("clinic_id").(float64))
-	
+
 	yearStr := c.Query("year", strconv.Itoa(time.Now().Year()))
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
@@ -79,7 +79,7 @@ func (h *SettingHandler) Import(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"message": "Importação concluída com sucesso! (Mock)",
+		"message":  "Importação concluída com sucesso! (Mock)",
 		"filename": file.Filename,
 	})
 }
