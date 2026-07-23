@@ -3,6 +3,7 @@ package database
 import (
 	"log"
 	"os"
+	"strings"
 
 	"dental-crm-api/internal/core/domain"
 
@@ -13,25 +14,43 @@ import (
 
 var DB *gorm.DB
 
+func maskDSN(dsn string) string {
+	if len(dsn) < 10 {
+		return "***"
+	}
+	if idx := strings.Index(dsn, "@"); idx != -1 {
+		if protoIdx := strings.Index(dsn, "://"); protoIdx != -1 {
+			return dsn[:protoIdx+3] + "***" + dsn[idx:]
+		}
+	}
+	return dsn
+}
+
 func Connect() {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		log.Fatal("DATABASE_URL não configurada no .env")
+		log.Fatal("❌ DATABASE_URL não está configurada nas variáveis de ambiente.")
 	}
 
-	db, err := gorm.Open(postgres.New(postgres.Config{
-		DSN:                  dsn,
-		PreferSimpleProtocol: true, // Desabilita prepared statements para compatibilidade com o Pooler do Supabase
-	}), &gorm.Config{
+	log.Printf("🔌 Conectando ao banco de dados: %s", maskDSN(dsn))
+
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info), // Mostra as queries no console
 	})
+	if err != nil {
+		log.Fatalf("❌ Falha ao conectar ao banco de dados Supabase: %v", err)
+	}
+	if db == nil {
+		log.Fatal("❌ Instância de banco de dados retornou nil")
+	}
+
 	sqlDB, err := db.DB()
 	if err != nil {
-		log.Fatal("❌ Falha ao obter SQL DB do GORM: ", err)
+		log.Fatalf("❌ Falha ao obter SQL DB do GORM: %v", err)
 	}
 
 	if err := sqlDB.Ping(); err != nil {
-		log.Fatal("❌ Falha ao realizar ping no banco de dados Supabase: ", err)
+		log.Fatalf("❌ Falha ao realizar ping no banco de dados Supabase: %v", err)
 	}
 
 	log.Println("✅ Conectado com sucesso ao Supabase via GORM!")
