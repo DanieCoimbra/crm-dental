@@ -17,7 +17,11 @@ func main() {
 		return
 	}
 
-	db, _ := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		fmt.Printf("Erro ao conectar no DB: %v\n", err)
+		return
+	}
 
 	var count int64
 	db.Table("users").Count(&count)
