@@ -38,8 +38,8 @@ func (s *AuthService) RegisterClinicOwner(clinicName, cnpj, userEmail, userName,
 	cleanEmail := strings.ToLower(strings.TrimSpace(userEmail))
 
 	if sessionID != "" {
-		var used domain.UsedCheckoutSession
-		if err := database.DB.Where("session_id = ?", sessionID).First(&used).Error; err == nil {
+		var count int64
+		if err := database.DB.Model(&domain.UsedCheckoutSession{}).Where("session_id = ?", sessionID).Count(&count).Error; err == nil && count > 0 {
 			return nil, errors.New("Sessão de pagamento já utilizada")
 		}
 	}

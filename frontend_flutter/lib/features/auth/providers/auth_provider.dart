@@ -49,6 +49,11 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  Future<void> registerClinic(Map<String, dynamic> payload) async {
+    final dio = ref.read(dioProvider);
+    await dio.post('/auth/register-clinic', data: payload);
+  }
+
   Future<void> switchRole(String newRole) async {
     await _storage.write(key: 'user_role', value: newRole);
     state = AuthState(isLoading: false, isAuthenticated: state.isAuthenticated, role: newRole);

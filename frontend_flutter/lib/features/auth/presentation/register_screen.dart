@@ -67,7 +67,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     
     setState(() => _isLoading = true);
     try {
-      final dio = ref.read(dioProvider);
       final payload = {
         'clinic_name': _clinicNameCtrl.text,
         'cnpj': _cnpjCtrl.text,
@@ -79,7 +78,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         payload['session_id'] = sessionId;
       }
 
-      await dio.post('/auth/register-clinic', data: payload);
+      await ref.read(authProvider.notifier).registerClinic(payload);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Clínica registrada com sucesso! Faça login.'), backgroundColor: Colors.green));

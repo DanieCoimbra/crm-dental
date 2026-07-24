@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/stripe/stripe-go/v78"
 	"github.com/stripe/stripe-go/v78/webhook"
+	"gorm.io/gorm"
 )
 
 type WebhookHandler struct{}
@@ -61,13 +62,11 @@ func (h *WebhookHandler) HandleStripe(c *fiber.Ctx) error {
 			if sub.CouponID != nil {
 				var coupon domain.Coupon
 				if err := database.DB.Preload("Affiliate").First(&coupon, *sub.CouponID).Error; err == nil && coupon.Affiliate != nil {
-					affiliate := coupon.Affiliate
 					amountPaidCents := invoice.AmountPaid
-					commission := float64(amountPaidCents) * (affiliate.CommissionPct / 100.0)
+					commission := float64(amountPaidCents) * (coupon.Affiliate.CommissionPct / 100.0)
 
-					affiliate.Balance += commission
-					database.DB.Save(affiliate)
-					log.Printf("💰 Comissão de R$ %.2f adicionada ao afiliado %s", commission/100.0, affiliate.Name)
+					database.DB.Model(&domain.Affiliate{}).Where("id = ?", coupon.Affiliate.ID).UpdateColumn("balance", gorm.Expr("balance + ?", commission))
+					log.Printf("💰 Comissão de R$ %.2f adicionada ao afiliado %s", commission/100.0, coupon.Affiliate.Name)
 				}
 			}
 
