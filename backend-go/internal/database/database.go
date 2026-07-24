@@ -102,6 +102,7 @@ func RunMigrations() {
 		&domain.ReferralPartner{},
 		&domain.PromoCode{},
 		&domain.Subscription{},
+		&domain.UsedCheckoutSession{},
 	)
 	if err != nil {
 		log.Fatal("❌ Erro ao rodar migrations: ", err)

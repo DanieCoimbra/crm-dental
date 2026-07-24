@@ -69,6 +69,11 @@ func SetupRoutes(app *fiber.App) {
 	})
 	authGroup.Post("/login", loginLimiter, authHandler.Login)
 
+	// SaaS (Public)
+	saasGroup := v1.Group("/saas")
+	saasGroup.Post("/create-checkout-session", saasHandler.CreateCheckoutSession)
+	saasGroup.Get("/validate-session", saasHandler.ValidateCheckoutSession)
+
 	// Webhooks (Public)
 	webhookHandler := handlers.NewWebhookHandler()
 	v1.Post("/webhooks/stripe", webhookHandler.HandleStripe)
@@ -215,8 +220,8 @@ func SetupRoutes(app *fiber.App) {
 	private.Get("/saas/coupons", adminOnly, saasHandler.ListCoupons)
 	private.Post("/saas/coupons", adminOnly, saasHandler.CreateCoupon)
 	private.Post("/saas/validate-coupon", adminOrManager, saasHandler.ValidateCoupon)
-	private.Post("/saas/apply-coupon", adminOrManager, saasHandler.ApplyCoupon)
-	private.Post("/saas/change-plan", adminOrManager, saasHandler.ChangePlan)
+	private.Post("/saas/apply-coupon", middleware.RequireRole("OWNER"), saasHandler.ApplyCoupon)
+	private.Post("/saas/change-plan", middleware.RequireRole("OWNER"), saasHandler.ChangePlan)
 
 	// Lote 8: Marketing da Clínica (Cupons e Afiliados para Pacientes)
 	private.Get("/marketing/promo-codes", adminOrManager, marketingHandler.GetPromoCodes)

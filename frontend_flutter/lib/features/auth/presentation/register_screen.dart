@@ -23,6 +23,35 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  bool _isSessionValidating = false;
+  bool _isSessionValid = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _validateSession();
+    });
+  }
+
+  Future<void> _validateSession() async {
+    final sessionId = GoRouterState.of(context).uri.queryParameters['session_id'];
+    if (sessionId == null || sessionId.isEmpty) return;
+
+    setState(() => _isSessionValidating = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.get('/saas/validate-session', queryParameters: {'session_id': sessionId});
+      if (response.data['valid'] == true) {
+        setState(() => _isSessionValid = true);
+      }
+    } catch (_) {
+      setState(() => _isSessionValid = false);
+    } finally {
+      if (mounted) setState(() => _isSessionValidating = false);
+    }
+  }
+
   @override
   void dispose() {
     _clinicNameCtrl.dispose();
@@ -33,19 +62,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit(String? sessionId) async {
     if (!_formKey.currentState!.validate()) return;
     
     setState(() => _isLoading = true);
     try {
       final dio = ref.read(dioProvider);
-      final response = await dio.post('/auth/register-clinic', data: {
+      final payload = {
         'clinic_name': _clinicNameCtrl.text,
         'cnpj': _cnpjCtrl.text,
         'owner_name': _nameCtrl.text,
         'email': _emailCtrl.text,
         'password': _passwordCtrl.text,
-      });
+      };
+      if (sessionId != null && sessionId.isNotEmpty) {
+        payload['session_id'] = sessionId;
+      }
+
+      await dio.post('/auth/register-clinic', data: payload);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Clínica registrada com sucesso! Faça login.'), backgroundColor: Colors.green));
@@ -67,6 +101,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final sessionId = GoRouterState.of(context).uri.queryParameters['session_id'];
+    final selectedPlan = GoRouterState.of(context).uri.queryParameters['plan'] ?? 'trial';
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: Center(
@@ -100,12 +137,72 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Crie sua conta no sistema SaaS',
-                    style: TextStyle(color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 32),
+                  if (sessionId != null)
+                    if (_isSessionValidating)
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+                            SizedBox(width: 8),
+                            Text('Validando sessão de pagamento...', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
+                      )
+                    else if (_isSessionValid)
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.green[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green[300]!),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(LucideIcons.checkCircle, color: Colors.green, size: 16),
+                            SizedBox(width: 6),
+                            Text('Pagamento Aprovado - Plano Ativo', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.red[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red[300]!),
+                        ),
+                        child: const Text(
+                          'Sessão de pagamento inválida ou expirada',
+                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        selectedPlan == 'trial' ? 'Modo Trial - 14 Dias Grátis' : 'Plano Selecionado: ${selectedPlan.toUpperCase()}',
+                        style: TextStyle(color: Colors.blue[900], fontWeight: FontWeight.bold, fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  const SizedBox(height: 16),
                   TextFormField(
                     controller: _clinicNameCtrl,
                     textInputAction: TextInputAction.next,
@@ -166,12 +263,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       border: const OutlineInputBorder(),
                     ),
-                    onFieldSubmitted: (_) => _submit(),
+                    onFieldSubmitted: (_) => _submit(sessionId),
                     validator: (v) => v!.length < 8 || !RegExp(r'^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z\d\W_]{8,}$').hasMatch(v) ? 'Mínimo 8 caracteres (letras e números)' : null,
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: _isLoading ? null : _submit,
+                    onPressed: _isLoading ? null : () => _submit(sessionId),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

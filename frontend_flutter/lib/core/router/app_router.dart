@@ -14,6 +14,7 @@ import 'package:frontend_flutter/features/financial/presentation/financial_dashb
 import 'package:frontend_flutter/features/inventory/presentation/inventory_screen.dart';
 import 'package:frontend_flutter/features/marketing/presentation/marketing_screen.dart';
 import 'package:frontend_flutter/features/saas/presentation/saas_checkout_screen.dart';
+import 'package:frontend_flutter/features/saas/presentation/plans_screen.dart';
 
 import 'package:frontend_flutter/shared/widgets/tenant_guard_overlay.dart';
 
@@ -25,8 +26,11 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       if (authState.isLoading) return null; // Wait for initial check
 
-      final isAuthRoute = state.uri.toString() == '/login' || state.uri.toString() == '/register';
-      
+      final isAuthRoute = state.uri.toString() == '/login' ||
+          state.uri.toString() == '/register' ||
+          state.uri.toString().startsWith('/register-clinic') ||
+          state.uri.toString().startsWith('/plans');
+
       if (!authState.isAuthenticated && !isAuthRoute) {
         return '/login'; // Block unauthenticated access
       }
@@ -41,7 +45,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
+        path: '/plans',
+        builder: (context, state) => const PlansScreen(),
+      ),
+      GoRoute(
         path: '/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/register-clinic',
         builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(

@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend_flutter/core/network/offline_interceptor.dart';
 import 'package:frontend_flutter/features/auth/providers/auth_provider.dart';
+import 'package:frontend_flutter/features/settings/data/settings_provider.dart';
 
 const _storage = FlutterSecureStorage();
 
@@ -44,6 +45,13 @@ final dioProvider = Provider<Dio>((ref) {
         options.headers['Authorization'] = 'Bearer $token';
       }
       return handler.next(options);
+    },
+    onResponse: (response, handler) {
+      final graceHeader = response.headers.value('x-grace-period') ?? response.headers.value('X-Grace-Period');
+      if (graceHeader == 'true') {
+        ref.invalidate(myClinicProvider);
+      }
+      return handler.next(response);
     },
     onError: (DioException e, handler) async {
       if (e.response?.statusCode == 401) {

@@ -90,8 +90,16 @@ func (h *WebhookHandler) HandleStripe(c *fiber.Ctx) error {
 		customerID := invoice.Customer.ID
 		var sub domain.Subscription
 		if err := database.DB.Where("stripe_customer_id = ?", customerID).First(&sub).Error; err == nil {
-			sub.Status = "past_due"
+			sub.Status = "grace_period"
+			graceEnds := time.Now().Add(3 * 24 * time.Hour)
+			sub.GracePeriodEndsAt = &graceEnds
 			database.DB.Save(&sub)
+
+			var clinic domain.Clinic
+			if err := database.DB.First(&clinic, sub.ClinicID).Error; err == nil {
+				clinic.Status = "grace_period"
+				database.DB.Save(&clinic)
+			}
 		}
 
 	case "customer.subscription.deleted":
@@ -105,6 +113,12 @@ func (h *WebhookHandler) HandleStripe(c *fiber.Ctx) error {
 		if err := database.DB.Where("stripe_subscription_id = ?", subscription.ID).First(&sub).Error; err == nil {
 			sub.Status = "canceled"
 			database.DB.Save(&sub)
+
+			var clinic domain.Clinic
+			if err := database.DB.First(&clinic, sub.ClinicID).Error; err == nil {
+				clinic.Status = "canceled"
+				database.DB.Save(&clinic)
+			}
 		}
 	}
 

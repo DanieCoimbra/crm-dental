@@ -152,10 +152,14 @@ class SettingsRepository {
   }
 
   Future<void> applyCoupon(String code) async {
-    await _dio.post('/saas/apply-coupon', data: {'code': code});
+    await _dio.post('/saas/apply-coupon', data: {'coupon_code': code, 'code': code});
   }
 
-  Future<void> changePlan(String plan) async {
-    await _dio.post('/saas/change-plan', data: {'plan': plan});
+  Future<void> changePlan(String plan, {String billingCycle = 'monthly'}) async {
+    await _dio.post('/saas/change-plan', data: {
+      'new_plan': plan,
+      'plan': plan,
+      'billing_cycle': billingCycle,
+    });
   }
 }

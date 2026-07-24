@@ -34,8 +34,15 @@ func (s *AuthService) GetUserRepository() *repositories.UserRepository {
 }
 
 // RegisterClinicOwner registra a clínica e o dono ao mesmo tempo
-func (s *AuthService) RegisterClinicOwner(clinicName, cnpj, userEmail, userName, password string) (*domain.User, error) {
+func (s *AuthService) RegisterClinicOwner(clinicName, cnpj, userEmail, userName, password, sessionID string) (*domain.User, error) {
 	cleanEmail := strings.ToLower(strings.TrimSpace(userEmail))
+
+	if sessionID != "" {
+		var used domain.UsedCheckoutSession
+		if err := database.DB.Where("session_id = ?", sessionID).First(&used).Error; err == nil {
+			return nil, errors.New("Sessão de pagamento já utilizada")
+		}
+	}
 
 	// Verificar se CNPJ já existe
 	if _, err := s.clinicRepo.FindByCNPJ(cnpj); err == nil {
@@ -55,11 +62,15 @@ func (s *AuthService) RegisterClinicOwner(clinicName, cnpj, userEmail, userName,
 
 	// Criar a clínica
 	trialEndsAt := time.Now().Add(14 * 24 * time.Hour)
+	status := "trial"
+	if sessionID != "" {
+		status = "active"
+	}
 	clinic := &domain.Clinic{
 		Name:        strings.TrimSpace(clinicName),
 		CNPJ:        strings.TrimSpace(cnpj),
 		Email:       cleanEmail,
-		Status:      "trial",
+		Status:      status,
 		TrialEndsAt: &trialEndsAt,
 	}
 
@@ -71,7 +82,10 @@ func (s *AuthService) RegisterClinicOwner(clinicName, cnpj, userEmail, userName,
 		}
 
 		// Obter role "owner"
-		ownerRole, _ := s.roleRepo.FindByName("owner")
+		ownerRole, err := s.roleRepo.FindByName("owner")
+		if err != nil || ownerRole == nil {
+			return errors.New("cargo owner não encontrado no sistema")
+		}
 
 		// Criar o Usuário
 		user = &domain.User{
@@ -84,6 +98,16 @@ func (s *AuthService) RegisterClinicOwner(clinicName, cnpj, userEmail, userName,
 
 		if err := tx.Create(user).Error; err != nil {
 			return err
+		}
+
+		if sessionID != "" {
+			usedSession := &domain.UsedCheckoutSession{
+				SessionID: sessionID,
+				ClinicID:  clinic.ID,
+			}
+			if err := tx.Create(usedSession).Error; err != nil {
+				return err
+			}
 		}
 		return nil
 	})
