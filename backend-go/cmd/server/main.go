@@ -37,9 +37,18 @@ func main() {
 
 	// Middlewares globais
 	app.Use(logger.New())
+
+	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
+	if allowedOrigins == "" {
+		allowedOrigins = "https://crm-clinica-ten.vercel.app,http://localhost:3000,http://localhost:8080,http://localhost:5000"
+	}
+
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*", // Permite acesso de qualquer porta do Flutter Web
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowOrigins:     allowedOrigins,
+		AllowCredentials: true,
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",
+		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+		MaxAge:           86400,
 	}))
 
 	// Registra as rotas

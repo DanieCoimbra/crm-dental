@@ -1,14 +1,14 @@
 package handlers
 
 import (
-	"dental-crm-api/internal/core/services"
 	"fmt"
-	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"dental-crm-api/internal/core/services"
+	"dental-crm-api/internal/pkg/storage"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -64,31 +64,12 @@ func (h *PatientFileHandler) Create(c *fiber.Ctx) error {
 	defer fileContent.Close()
 
 	fileName := fmt.Sprintf("%d_%s", time.Now().Unix(), file.Filename)
-	supabaseUrl := os.Getenv("SUPABASE_URL")
-	supabaseKey := os.Getenv("SUPABASE_KEY")
-	bucket := "patients_files" // O bucket configurado no supabase
+	bucket := "patients_files"
 
-	uploadUrl := fmt.Sprintf("%s/storage/v1/object/%s/%s", supabaseUrl, bucket, fileName)
-
-	// Stream file directly using fileContent (io.Reader) - sem usar AWS SDK
-	reqSupabase, err := http.NewRequest("POST", uploadUrl, fileContent)
+	publicUrl, err := storage.UploadToSupabase(bucket, fileName, fileContent, file.Size, file.Header.Get("Content-Type"))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Erro ao construir requisição para Supabase"})
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "Erro de Timeout ou recusa do Supabase Storage: " + err.Error()})
 	}
-
-	reqSupabase.ContentLength = file.Size // EVITA ENVIO CHUNKED QUE CAUSA FALHAS
-
-	reqSupabase.Header.Set("Authorization", "Bearer "+supabaseKey)
-	reqSupabase.Header.Set("Content-Type", file.Header.Get("Content-Type"))
-
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(reqSupabase)
-	if err != nil || resp.StatusCode >= 400 {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"message": "Erro de Timeout ou recusa do Supabase Storage"})
-	}
-	defer resp.Body.Close()
-
-	publicUrl := fmt.Sprintf("%s/storage/v1/object/public/%s/%s", supabaseUrl, bucket, fileName)
 
 	fileRecord, err := h.fileService.CreateFile(clinicID, uint(patientID), file.Filename, publicUrl, file.Header.Get("Content-Type"), category)
 	if err != nil {

@@ -8,9 +8,9 @@ Este documento centraliza a inteligência arquitetural, padrões de código e ma
 
 O software foi projetado como um **SaaS Multi-tenant**, preparado para abrigar múltiplas clínicas (`clinics`) rodando de forma isolada no mesmo banco de dados. 
 
-- **Backend:** Go 1.26 operando estritamente como API RESTful.
+- **Backend:** Go 1.26 operando estritamente como API RESTful (Hospedado no Render: `https://crm-clinica-gjss.onrender.com`).
 - **Framework Web:** Fiber (v2) de alta performance.
-- **Frontend:** Flutter com Dart (Web e Mobile), utilizando Clean Architecture para a organização das features.
+- **Frontend:** Flutter com Dart (Web e Mobile), utilizando Clean Architecture para a organização das features (Hospedado na Vercel via script de build automatizado `build.sh`).
 - **Gerenciamento de Estado (Front):** Riverpod para reatividade e injeção de dependências global.
 - **Banco de Dados & Storage:** Supabase (PostgreSQL) com GORM como ORM relacional no Backend.
 - **Autenticação:** JWT (golang-jwt) integrado ao Fiber via middlewares.
@@ -101,3 +101,16 @@ Para adicionar uma nova funcionalidade, siga este checklist:
    - Crie os Data Models e Providers em `lib/features/sua_feature`.
    - Nunca modifique UI sem componentizar adequadamente.
    - Use os widgets padrão globais (do `lib/shared/widgets`) para consistência.
+
+---
+
+## 6. Infraestrutura de Deploy & CI/CD
+
+- **Backend API (Go):** Hospedado no Render (`https://crm-clinica-gjss.onrender.com`).
+  - **Punto de Entrada:** `cmd/server/main.go` compila o binário `server`. Todos os utilitários CLI ficam organizados em `cmd/` para evitar conflitos de build no Render.
+  - **Conexão de Banco (Supabase IPv4 / Pooler):** O Render não suporta tráfego de saída IPv6. A conexão com o Supabase utiliza a URL do **Connection Pooler (Supavisor)** em modo de sessão (porta `5432`) com o nome de usuário formatado com `.[PROJECT_REF]` (ex: `postgres.hecpazxguibzkcsibpjq`).
+  - **Sanitização Automatizada (`cleanDSN`):** O módulo `database.go` limpa automaticamente caracteres de controle, quebras de linha (`\n`, `\r`) e aspas provenientes de cópia de variáveis de ambiente no Render.
+- **Frontend Web (Flutter):** Hospedado na Vercel.
+  - **Script de Build Automatizado:** `frontend_flutter/build.sh` realiza o clone com `--depth 1` do Flutter SDK e gera a versão web release (`build/web`).
+  - **Suporte a Roteamento SPA:** `frontend_flutter/vercel.json` gerencia as reescritas de URLs para impedir erros 404 ao recarregar rotas do `go_router`.
+  - **Integração de APIs:** O `api_client.dart` está configurado para consumir o backend via HTTPS por padrão, com suporte a variáveis de ambiente (`API_BASE_URL`).

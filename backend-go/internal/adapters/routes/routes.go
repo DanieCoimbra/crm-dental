@@ -16,9 +16,9 @@ import (
 
 func SetupRoutes(app *fiber.App) {
 	// Rota de Health Check
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"status": "ok", "message": "Dental CRM API em Golang está rodando!"})
-	})
+	healthHandler := handlers.NewHealthHandler()
+	app.Get("/health", healthHandler.Check)
+	app.Get("/healthz", healthHandler.Check)
 
 	// Agrupamento da API v1
 	api := app.Group("/api")
