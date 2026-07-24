@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	"dental-crm-api/internal/adapters/routes"
 	"dental-crm-api/internal/database"
@@ -39,12 +40,25 @@ func main() {
 	app.Use(logger.New())
 
 	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
-	if allowedOrigins == "" {
-		allowedOrigins = "https://crm-clinica-ten.vercel.app,http://localhost:3000,http://localhost:8080,http://localhost:5000"
-	}
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     allowedOrigins,
+		AllowOriginsFunc: func(origin string) bool {
+			if allowedOrigins == "*" {
+				return true
+			}
+			// Aceita qualquer subdomínio da Vercel (*.vercel.app) e localhost
+			if strings.HasSuffix(origin, ".vercel.app") || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+				return true
+			}
+			if allowedOrigins != "" {
+				for _, allowed := range strings.Split(allowedOrigins, ",") {
+					if strings.TrimSpace(allowed) == origin {
+						return true
+					}
+				}
+			}
+			return origin == "https://crm-clinica-ten.vercel.app"
+		},
 		AllowCredentials: true,
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS, PATCH",
