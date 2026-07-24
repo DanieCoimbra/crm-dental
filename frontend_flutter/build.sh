@@ -22,6 +22,6 @@ echo "=> Baixando dependências do projeto (pub get)..."
 flutter pub get
 
 echo "=> Compilando versão Web (Release)..."
-flutter build web --release
+flutter build web --release --dart-define=API_BASE_URL=https://crm-clinica-gjss.onrender.com
 
 echo "=== Build concluída com sucesso! ==="

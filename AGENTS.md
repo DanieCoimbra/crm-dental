@@ -12,16 +12,17 @@
 - **Linguagem:** Go 1.26
 - **Framework Web:** Fiber (v2)
 - **Banco de Dados & Storage:** Supabase (PostgreSQL + Supabase Storage)
-- **Hospedagem/Deploy:** Render (Backend API - Discos efêmeros)
+- **Hospedagem/Deploy:** Render (`https://crm-clinica-gjss.onrender.com` - Backend API - Discos efêmeros)
 - **Autenticação:** JWT (golang-jwt)
 - **Configurações:** godotenv
 
 **Frontend (`frontend_flutter/`)**
 - **Linguagem:** Dart (SDK ^3.12.2)
-- **Framework:** Flutter
+- **Framework:** Flutter (Web e Mobile)
+- **Hospedagem/Deploy:** Vercel (Flutter Web via `build.sh` e `vercel.json`)
 - **Gerenciamento de Estado:** Riverpod
 - **Roteamento:** go_router
-- **Cliente HTTP:** Dio
+- **Cliente HTTP:** Dio (Configurado com `API_BASE_URL` apontando para o Render)
 - **Armazenamento Local:** Hive & flutter_secure_storage
 - **UI/Componentes:** Material Design, Google Fonts, Lucide Icons
 
@@ -74,6 +75,7 @@ flutter pub get          # Instalar dependências
 flutter run              # Iniciar o aplicativo no dispositivo/emulador padrão
 flutter build apk        # Build para Android (APK)
 flutter build web        # Build para Web
+bash build.sh            # Script de build automatizado para Vercel
 flutter analyze          # Rodar o linter (Dart Analyzer)
 flutter test             # Rodar testes
 ```
@@ -112,17 +114,24 @@ flutter test             # Rodar testes
 - Não misture regras de negócio nos arquivos de rota do Fiber ou diretamente na UI do Flutter.
 - Não altere o código legado (`backend-api-legacy` ou `frontend-next-legacy`) a menos que explicitamente solicitado.
 
-## Variáveis de Ambiente
+## Variáveis de Ambiente e Conexão com Banco de Dados (Supabase + Render)
 
 O arquivo `.env` deve ser configurado dentro da pasta `backend-go/`.
 (Adapte as variáveis conforme o projeto necessita, por exemplo:)
-```
+```env
 PORT=8080
-DATABASE_URL="postgresql://postgres:suasenha@db.seusupabase.supabase.co:5432/postgres"
+DATABASE_URL="postgresql://postgres.hecpazxguibzkcsibpjq:suasenha@aws-0-us-east-1.pooler.supabase.com:5432/postgres"
 JWT_SECRET=your_jwt_secret
-SUPABASE_URL="https://seusupabase.supabase.co"
+SUPABASE_URL="https://hecpazxguibzkcsibpjq.supabase.co"
 SUPABASE_KEY="sua_anon_key_ou_service_role"
 ```
+
+> ⚠️ **Atenção ao Deploy no Render (Supabase IPv4 / Pooler):**
+> - **Endereço do Pooler:** O Render não suporta conexões de saída IPv6. Por isso, **nunca** use o endereço direto do Supabase (`db.[ref].supabase.co`) em produção no Render. Use sempre o endereço do **Connection Pooler (Supavisor)** (ex: `aws-0-[regiao].pooler.supabase.com:5432`).
+> - **Formato do Usuário:** No Pooler do Supabase, o nome de usuário do banco exige o sufixo `.[PROJECT_REF]` (ex: `postgres.hecpazxguibzkcsibpjq`).
+> - **Modo de Sessão (Porta 5432):** Use a porta `5432` (Session Mode) no Pooler para total compatibilidade com o GORM.
+> - **Sanitização de DSN (`cleanDSN`):** O código em `database.go` limpa automaticamente aspas, quebras de linha (`\n`, `\r`) e espaços em branco que possam ser colados por engano nas variáveis do Render.
+> - **Estrutura do `cmd/`:** Ponto de entrada do servidor é estritamente `backend-go/cmd/server/main.go`. **Nunca** crie arquivos com `package main` na raiz da pasta `backend-go/`, pois o compilador do Render irá tentar executá-los no lugar do servidor.
 
 ## Tarefas Comuns
 

@@ -17,6 +17,7 @@ Este documento armazena as ideias de funcionalidades, melhorias e requisitos fut
 ✅ **Visibilidade de Senhas (UX)**: Adicionar o ícone de "olho" (👁️) em todos os campos de senha do sistema para alternar a visibilidade da digitação. (Concluído)
 ✅ **Redundância e Offline (Local First)**: Criar mecanismos de contingência (ex: cache no navegador tipo PWA ou banco de dados secundário local) para que a clínica não perca dados ou pare de operar caso a internet caia temporariamente. (Concluído com Serwist, IndexedDB e SWR Queue)
 ✅ **Importador/Exportador**: Suportar a importação de planilhas Excel/CSV de outros sistemas (pacientes, histórico) e exportação de dados do CRM. (Concluído)
+✅ **Deploy Automatizado (Vercel & Render)**: Configuração de build automatizado do Flutter Web na Vercel (`build.sh` + `vercel.json`) integrado com a API Backend Go no Render (`https://crm-clinica-gjss.onrender.com`).
 ## 🎯 Próximas Funcionalidades / Prioridades
 
 ## Principais

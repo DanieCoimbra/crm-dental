@@ -1,9 +1,12 @@
 package handlers
 
 import (
-	"dental-crm-api/internal/core/services"
 	"fmt"
 	"regexp"
+	"time"
+
+	"dental-crm-api/internal/core/services"
+	"dental-crm-api/internal/pkg/storage"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -146,14 +149,23 @@ func (h *AuthHandler) UpdateAvatar(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Arquivo não encontrado"})
 	}
 
-	filename := fmt.Sprintf("avatar_%.0f_%s", c.Locals("user_id").(float64), file.Filename)
-	savePath := "./uploads/" + filename
-
-	if err := c.SaveFile(file, savePath); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Erro ao salvar arquivo"})
+	fileContent, err := file.Open()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Erro ao ler arquivo do avatar"})
 	}
+	defer fileContent.Close()
 
-	avatarUrl := "/uploads/" + filename
+	filename := fmt.Sprintf("avatar_%.0f_%d_%s", c.Locals("user_id").(float64), time.Now().Unix(), file.Filename)
+
+	avatarUrl, err := storage.UploadToSupabase("avatars", filename, fileContent, file.Size, file.Header.Get("Content-Type"))
+	if err != nil {
+		// Fallback para disco local caso as variáveis do Supabase não estejam configuradas em dev
+		savePath := "./uploads/" + filename
+		if saveErr := c.SaveFile(file, savePath); saveErr != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Erro ao salvar arquivo de avatar"})
+		}
+		avatarUrl = "/uploads/" + filename
+	}
 
 	user, err := h.authService.UpdateAvatar(userID, avatarUrl)
 	if err != nil {
