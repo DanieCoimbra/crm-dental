@@ -71,7 +71,7 @@ class _TransactionFormDialogState extends ConsumerState<TransactionFormDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: _type,
+                  initialValue: _type,
                   decoration: const InputDecoration(labelText: 'Tipo'),
                   items: const [
                     DropdownMenuItem(value: 'income', child: Text('Receita (Entrada)')),
@@ -84,7 +84,7 @@ class _TransactionFormDialogState extends ConsumerState<TransactionFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _category,
+                  initialValue: _category,
                   decoration: const InputDecoration(labelText: 'Categoria'),
                   items: _type == 'income'
                       ? ['Procedimento', 'Venda', 'Outros'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList()
@@ -106,7 +106,7 @@ class _TransactionFormDialogState extends ConsumerState<TransactionFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _paymentMethod,
+                  initialValue: _paymentMethod,
                   decoration: const InputDecoration(labelText: 'Forma de Pagamento'),
                   items: ['Pix', 'Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto']
                       .map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
@@ -114,7 +114,7 @@ class _TransactionFormDialogState extends ConsumerState<TransactionFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  value: _installments,
+                  initialValue: _installments,
                   decoration: const InputDecoration(labelText: 'Parcelamento (Qtd)'),
                   items: List.generate(12, (i) => i + 1).map((i) => DropdownMenuItem(value: i, child: Text('${i}x'))).toList(),
                   onChanged: (val) => setState(() => _installments = val!),

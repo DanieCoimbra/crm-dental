@@ -40,7 +40,7 @@ class FinancialRepository {
       'payment_method': paymentMethod,
       'due_date': dueDate,
       'total_installments': totalInstallments,
-      if (patientId != null) 'patient_id': patientId,
+      'patient_id': ?patientId,
     });
     return ClinicTransaction.fromJson(response.data);
   }

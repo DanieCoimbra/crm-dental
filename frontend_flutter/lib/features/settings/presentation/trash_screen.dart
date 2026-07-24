@@ -139,10 +139,12 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
   Widget _buildTable(List items, String type, String userRole) {
     if (items.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(48.0),
-          child: Text('A lixeira está vazia para esta categoria.', style: TextStyle(color: Colors.grey, fontSize: 16)),
+      return Builder(
+        builder: (context) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(48.0),
+            child: Text('A lixeira está vazia para esta categoria.', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 16)),
+          ),
         ),
       );
     }
@@ -151,6 +153,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final theme = Theme.of(context);
         return SingleChildScrollView(
           scrollDirection: Axis.vertical,
           child: SingleChildScrollView(
@@ -160,7 +163,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
               child: DataTable(
                 dataRowMaxHeight: double.infinity,
                 dataRowMinHeight: 60,
-                headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                headingRowColor: WidgetStateProperty.all(theme.colorScheme.surfaceContainerHighest),
                 columns: const [
                   DataColumn(label: Text('DETALHES DO REGISTRO', style: TextStyle(fontWeight: FontWeight.bold))),
                   DataColumn(label: Text('EXCLUÍDO EM', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -175,7 +178,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(item['name'] ?? 'Desconhecido', style: const TextStyle(fontWeight: FontWeight.w600)),
-                        Text('CPF: ${item['cpf'] ?? ''}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        Text('CPF: ${item['cpf'] ?? ''}', style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color)),
                       ],
                     );
                   } else if (type == 'user') {
@@ -189,12 +192,12 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4)),
+                              decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(4)),
                               child: Text(item['role'] ?? '', style: const TextStyle(fontSize: 10)),
                             ),
                           ],
                         ),
-                        Text('E-mail: ${item['email'] ?? ''}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        Text('E-mail: ${item['email'] ?? ''}', style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color)),
                       ],
                     );
                   } else {
@@ -203,7 +206,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text('Consulta: ${_getName(item['patient'])}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                        Text('Médico: ${_getName(item['doctor'])} | Data: ${_formatDate(item['start_time'])}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        Text('Médico: ${_getName(item['doctor'])} | Data: ${_formatDate(item['start_time'])}', style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color)),
                       ],
                     );
                   }
@@ -257,11 +260,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     final trashAsync = ref.watch(trashProvider);
     final statusAsync = ref.watch(trashStatusProvider);
     final userRole = ref.watch(authProvider).role.toLowerCase();
+    final theme = Theme.of(context);
     
     final canViewAllTabs = ['owner', 'manager', 'admin'].contains(userRole);
 
     return Scaffold(
-
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -279,8 +282,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Lixeira do Sistema', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.titleLarge?.color)),
-                          Text('Visualize registros excluídos, audite quem os apagou e restaure se necessário.', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                          Text('Lixeira do Sistema', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: theme.textTheme.titleLarge?.color)),
+                          Text('Visualize registros excluídos, audite quem os apagou e restaure se necessário.', style: TextStyle(color: theme.textTheme.bodyMedium?.color, fontSize: 14)),
                         ],
                       ),
                     ),
@@ -305,7 +308,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                   );
                 },
                 loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
               ),
             ],
           ),
@@ -331,17 +334,17 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200),
+                      side: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Container(
-                          color: Colors.grey.shade50,
+                          color: theme.colorScheme.surfaceContainerHighest,
                           child: TabBar(
-                            labelColor: Colors.blue.shade700,
-                            unselectedLabelColor: Colors.grey.shade600,
-                            indicatorColor: Colors.blue.shade700,
+                            labelColor: theme.colorScheme.primary,
+                            unselectedLabelColor: theme.textTheme.bodyMedium?.color,
+                            indicatorColor: theme.colorScheme.primary,
                             tabs: [
                               if (canViewAllTabs)
                                 Tab(

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend_flutter/features/inventory/providers/inventory_provider.dart';
-import 'package:frontend_flutter/core/theme/app_theme.dart';
 
 class InventoryAlertBadge extends ConsumerWidget {
   const InventoryAlertBadge({super.key});
@@ -67,7 +66,7 @@ class InventoryAlertBadge extends ConsumerWidget {
         icon: Icon(LucideIcons.bell, color: theme.iconTheme.color),
         onPressed: () {},
       ),
-      error: (_, __) => IconButton(
+      error: (_, _) => IconButton(
         icon: Icon(LucideIcons.bell, color: theme.iconTheme.color),
         onPressed: () {},
       ),

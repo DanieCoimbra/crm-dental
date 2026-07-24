@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:frontend_flutter/features/patients/data/patients_provider.dart';
 import 'package:frontend_flutter/features/patients/data/patients_repository.dart';
 import 'package:frontend_flutter/shared/widgets/require_role.dart';
@@ -105,7 +106,7 @@ class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
                       CircleAvatar(
                         radius: 32,
                         backgroundColor: Theme.of(context).dividerTheme.color,
-                        child: Icon(Icons.person, size: 32, color: Theme.of(context).textTheme.bodyMedium?.color),
+                        child: Icon(LucideIcons.user, size: 32, color: Theme.of(context).textTheme.bodyMedium?.color),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -129,19 +130,15 @@ class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
                     ],
                   ),
                 ),
-                // TabBar
-                Container(
-
-                  child: TabBar(
-                    labelColor: Theme.of(context).colorScheme.primary,
-                    unselectedLabelColor: Theme.of(context).textTheme.bodyMedium?.color,
-                    indicatorColor: Theme.of(context).colorScheme.primary,
-                    tabs: const [
-                      Tab(text: 'Resumo'),
-                      Tab(text: 'Evolução Clínica'),
-                      Tab(text: 'Arquivos'),
-                    ],
-                  ),
+                TabBar(
+                  labelColor: Theme.of(context).colorScheme.primary,
+                  unselectedLabelColor: Theme.of(context).textTheme.bodyMedium?.color,
+                  indicatorColor: Theme.of(context).colorScheme.primary,
+                  tabs: const [
+                    Tab(text: 'Resumo'),
+                    Tab(text: 'Evolução Clínica'),
+                    Tab(text: 'Arquivos'),
+                  ],
                 ),
                 const Divider(height: 1),
                 // TabBarView
@@ -162,7 +159,7 @@ class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.lock, size: 64, color: Colors.red.shade300),
+                              Icon(LucideIcons.lock, size: 64, color: Colors.red.shade300),
                               const SizedBox(height: 16),
                               const Text('Acesso Restrito', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 8),
@@ -186,7 +183,7 @@ class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
                                         builder: (context) => _EvolutionsHistoryDialog(patientId: widget.patientId),
                                       );
                                     },
-                                    icon: const Icon(Icons.history),
+                                    icon: const Icon(LucideIcons.history),
                                     label: const Text('Ver Histórico'),
                                   ),
                                 ],
@@ -217,7 +214,7 @@ class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
                               const SizedBox(height: 16),
                               ElevatedButton.icon(
                                 onPressed: _isSaving ? null : _saveEmr,
-                                icon: _isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save),
+                                icon: _isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(LucideIcons.save),
                                 label: const Text('Salvar Evolução'),
                               ),
                             ],
@@ -262,9 +259,13 @@ class _EvolutionsHistoryDialog extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Histórico de Evoluções', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
+                Semantics(
+                  label: 'Fechar histórico de evoluções',
+                  button: true,
+                  child: IconButton(
+                    icon: const Icon(LucideIcons.x),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
                 ),
               ],
             ),
@@ -304,7 +305,7 @@ class _EvolutionsHistoryDialog extends ConsumerWidget {
                                     '${ev.createdAt.day.toString().padLeft(2, '0')}/${ev.createdAt.month.toString().padLeft(2, '0')}/${ev.createdAt.year}',
                                     style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
                                   ),
-                                  Text(ev.userName ?? 'Médico', style: const TextStyle(color: Colors.grey)),
+                                  Text(ev.userName ?? 'Médico', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color)),
                                 ],
                               ),
                               const Divider(),
@@ -313,7 +314,7 @@ class _EvolutionsHistoryDialog extends ConsumerWidget {
                                   controller: readOnlyController,
                                 )
                               else
-                                Text(ev.contentHtml),
+                                SelectableText(ev.contentHtml),
                             ],
                           ),
                         ),

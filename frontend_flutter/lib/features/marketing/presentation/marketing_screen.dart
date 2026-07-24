@@ -61,7 +61,7 @@ class _CouponsTab extends ConsumerWidget {
           children: [
             TextField(controller: codeCtrl, decoration: const InputDecoration(labelText: 'Código (ex: VERAO20)')),
             DropdownButtonFormField<String>(
-              value: type,
+              initialValue: type,
               decoration: const InputDecoration(labelText: 'Tipo'),
               items: const [
                 DropdownMenuItem(value: 'percentage', child: Text('Porcentagem (%)')),

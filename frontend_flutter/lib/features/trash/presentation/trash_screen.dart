@@ -54,12 +54,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     return Scaffold(
 
       appBar: AppBar(
-        title: Text('Lixeira (Soft Deletes)', style: TextStyle(fontWeight: FontWeight.bold)),
-
+        title: const Text('Lixeira (Soft Deletes)', style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
-          child: Container(color: Colors.grey.shade200, height: 1.0),
+          child: Container(color: Theme.of(context).dividerTheme.color, height: 1.0),
         ),
       ),
       body: Padding(
@@ -74,16 +73,15 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
             const SizedBox(height: 8),
             Text(
               'Restaure itens apagados acidentalmente ou realize a exclusão definitiva seguindo as normas da LGPD.',
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
             ),
             const SizedBox(height: 24),
             Expanded(
               child: Card(
-
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200),
+                  side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outline),
                 ),
                 child: trashItemsAsync.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
@@ -95,7 +93,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
 
                     return ListView.separated(
                       itemCount: items.length,
-                      separatorBuilder: (_, _) => Divider(color: Colors.grey.shade200, height: 1),
+                      separatorBuilder: (_, _) => Divider(color: Theme.of(context).dividerTheme.color, height: 1),
                       itemBuilder: (context, index) {
                         final item = items[index];
                         return ListTile(

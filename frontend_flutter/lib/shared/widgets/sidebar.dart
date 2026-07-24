@@ -26,11 +26,11 @@ class Sidebar extends ConsumerWidget {
     final bool showFinancial = currentPlan == 'premium';
 
     return Container(
-      width: 250,
+      width: 260,
       decoration: BoxDecoration(
-        color: theme.drawerTheme.backgroundColor ?? theme.colorScheme.surface,
+        color: theme.colorScheme.surface.withValues(alpha: 0.95),
         border: Border(
-          right: BorderSide(color: theme.dividerTheme.color ?? Colors.grey.shade200, width: 1),
+          right: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline, width: 1),
         ),
       ),
       child: Column(
@@ -124,7 +124,7 @@ class Sidebar extends ConsumerWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Column(
@@ -162,17 +162,18 @@ class Sidebar extends ConsumerWidget {
   Widget _buildLogo(BuildContext context) {
     return Container(
       height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       alignment: Alignment.centerLeft,
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              color: const Color(0xFF2563EB).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3), width: 1),
             ),
-            child: Icon(Icons.medical_services, color: Theme.of(context).colorScheme.primary),
+            child: const Icon(LucideIcons.activity, color: Color(0xFF2563EB), size: 22),
           ),
           const SizedBox(width: 12),
           Text(
@@ -180,7 +181,8 @@ class Sidebar extends ConsumerWidget {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Theme.of(context).textTheme.titleLarge?.color ?? Colors.black87,
+              letterSpacing: -0.5,
+              color: Theme.of(context).textTheme.titleLarge?.color ?? Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ],
@@ -205,37 +207,53 @@ class _SidebarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
-    final textSecondaryColor = theme.textTheme.bodyMedium?.color ?? Colors.grey.shade700;
+    final primaryColor = const Color(0xFF2563EB); // Royal Blue
+    final textSecondaryColor = theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurfaceVariant;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 4),
+      margin: const EdgeInsets.only(bottom: 6),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          hoverColor: primaryColor.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(10),
+          hoverColor: primaryColor.withValues(alpha: 0.08),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected ? primaryColor.withValues(alpha: 0.1) : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
+              color: isSelected ? primaryColor.withValues(alpha: 0.12) : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              border: isSelected
+                  ? Border.all(color: primaryColor.withValues(alpha: 0.3), width: 1)
+                  : Border.all(color: Colors.transparent, width: 1),
             ),
             child: Row(
               children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 4,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: isSelected ? primaryColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Icon(
                   icon,
                   size: 20,
                   color: isSelected ? primaryColor : textSecondaryColor,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected ? primaryColor : textSecondaryColor,
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: isSelected ? primaryColor : textSecondaryColor,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -246,3 +264,4 @@ class _SidebarItem extends StatelessWidget {
     );
   }
 }
+

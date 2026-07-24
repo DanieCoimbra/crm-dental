@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:frontend_flutter/core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend_flutter/features/auth/providers/auth_provider.dart';
 import 'package:frontend_flutter/features/auth/widgets/room_selector.dart';
@@ -23,9 +22,9 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
     return Container(
       height: 70,
       decoration: BoxDecoration(
-        color: theme.appBarTheme.backgroundColor,
+        color: theme.colorScheme.surface.withValues(alpha: 0.95),
         border: Border(
-          bottom: BorderSide(color: theme.dividerTheme.color ?? AppTheme.border, width: 1),
+          bottom: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline, width: 1),
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -35,21 +34,32 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
           Expanded(
             child: Row(
               children: [
-                const Icon(LucideIcons.activity, color: AppTheme.primary, size: 28),
-                const SizedBox(width: 8),
-                const Flexible(
-                  child: Text(
-                    'Clínica Go',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.primary,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3), width: 1),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(LucideIcons.activity, color: Color(0xFF2563EB), size: 20),
+                      SizedBox(width: 6),
+                      Text(
+                        'DentalCRM',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF2563EB),
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 16),
-                Container(width: 1, height: 24, color: theme.dividerTheme.color ?? AppTheme.border),
+                Container(width: 1, height: 24, color: theme.dividerTheme.color ?? theme.colorScheme.outline),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
@@ -57,7 +67,7 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: theme.textTheme.titleLarge?.color ?? AppTheme.textPrimary,
+                      color: theme.textTheme.titleLarge?.color ?? theme.colorScheme.onSurface,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -79,7 +89,7 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
                               : user.name.substring(0, user.name.length > 1 ? 2 : 1))
                           : 'US';
                       
-                      final isDoctor = user.role?.name == 'doctor' || authState.role == 'doctor' || authState.role == 'medico';
+                      final isDoctor = user.role?.name == 'doctor' || user.role?.name == 'dentist' || authState.role == 'doctor' || authState.role == 'medico';
 
                       String? avatarUrl = user.avatar;
                       if (avatarUrl != null && avatarUrl.isNotEmpty && avatarUrl.startsWith('/uploads')) {
@@ -102,7 +112,7 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
                                   width: 40,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: AppTheme.primary, width: 2),
+                                    border: Border.all(color: const Color(0xFF2563EB), width: 2),
                                     image: DecorationImage(
                                       image: NetworkImage(avatarUrl),
                                       fit: BoxFit.cover,
@@ -113,15 +123,15 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
                                   height: 40,
                                   width: 40,
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primaryLight,
+                                    color: const Color(0xFF2563EB).withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: AppTheme.primary, width: 2),
+                                    border: Border.all(color: const Color(0xFF2563EB), width: 2),
                                   ),
                                   child: Center(
                                     child: Text(
                                       initials.toUpperCase(),
                                       style: const TextStyle(
-
+                                        color: Color(0xFF2563EB),
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -137,15 +147,39 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: theme.textTheme.titleLarge?.color ?? AppTheme.textPrimary,
+                                  color: theme.textTheme.titleLarge?.color ?? theme.colorScheme.onSurface,
                                 ),
                               ),
-                              Text(
-                                user.role?.name ?? authState.role,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: theme.textTheme.bodyMedium?.color ?? AppTheme.textSecondary,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    user.role?.name ?? authState.role,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  if (isDoctor) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3), width: 1),
+                                      ),
+                                      child: const Text(
+                                        'CRO',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF10B981),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ],
                           ),
@@ -177,11 +211,15 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
                     },
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    icon: Icon(LucideIcons.menu, color: theme.iconTheme.color, size: 28),
-                    onPressed: () {
-                      Scaffold.of(context).openEndDrawer();
-                    },
+                  Semantics(
+                    label: 'Abrir menu de navegação lateral',
+                    button: true,
+                    child: IconButton(
+                      icon: Icon(LucideIcons.menu, color: theme.iconTheme.color, size: 28),
+                      onPressed: () {
+                        Scaffold.of(context).openEndDrawer();
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -200,6 +238,10 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
     if (path.startsWith('/patients')) return 'Pacientes';
     if (path.startsWith('/communications')) return 'Comunicações';
     if (path.startsWith('/schedule')) return 'Agenda';
+    if (path.startsWith('/financial')) return 'Financeiro';
+    if (path.startsWith('/inventory')) return 'Estoque';
+    if (path.startsWith('/trash')) return 'Lixeira (LGPD)';
+    if (path.startsWith('/marketing')) return 'Marketing';
     if (path.startsWith('/settings')) return 'Configurações';
     return 'Painel de Controle';
   }

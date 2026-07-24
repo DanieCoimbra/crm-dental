@@ -114,7 +114,7 @@ class _ImportExportDialogState extends ConsumerState<ImportExportDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                 border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
               ),
@@ -193,7 +193,7 @@ class _ImportExportDialogState extends ConsumerState<ImportExportDialog> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(32),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: _selectedFile != null ? Theme.of(context).colorScheme.primary : Theme.of(context).dividerColor,

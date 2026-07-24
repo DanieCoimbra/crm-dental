@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
-import 'package:frontend_flutter/core/network/api_client.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 import 'package:frontend_flutter/features/auth/providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -79,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
-                            Icons.medical_services, // using material icon for simplicity, could use lucide
+                            LucideIcons.activity,
                             color: Theme.of(context).colorScheme.primary,
                             size: 32,
                           ),
@@ -126,7 +127,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         labelText: 'E-mail',
-                        prefixIcon: Icon(Icons.email_outlined),
+                        prefixIcon: Icon(LucideIcons.mail),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -136,7 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onSubmitted: (_) => _login(),
                       decoration: const InputDecoration(
                         labelText: 'Senha',
-                        prefixIcon: Icon(Icons.lock_outline),
+                        prefixIcon: Icon(LucideIcons.lock),
                       ),
                     ),
                     const SizedBox(height: 32),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:calendar_view/calendar_view.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:frontend_flutter/features/schedule/data/schedule_provider.dart';
 import 'package:frontend_flutter/features/schedule/data/appointment_model.dart';
 import 'package:frontend_flutter/features/schedule/data/waitlist_model.dart';
@@ -66,18 +67,18 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                       margin: const EdgeInsets.all(16),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        border: Border.all(color: Colors.blue.shade200),
+                        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
+                        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.lightbulb_outline, color: Colors.blue),
+                          Icon(LucideIcons.lightbulb, color: Theme.of(context).colorScheme.primary),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               'Há ${_smartBookingMatches!.length} paciente(s) na fila de espera que podem ser encaixados no horário liberado.',
-                              style: TextStyle(color: Colors.blue.shade900),
+                              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
                             ),
                           ),
                           TextButton(
@@ -95,9 +96,13 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                             },
                             child: const Text('Ver Sugestões'),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.blue),
-                            onPressed: () => setState(() => _smartBookingMatches = null),
+                          Semantics(
+                            label: 'Fechar sugestões de encaixe',
+                            button: true,
+                            child: IconButton(
+                              icon: Icon(LucideIcons.x, color: Theme.of(context).colorScheme.primary),
+                              onPressed: () => setState(() => _smartBookingMatches = null),
+                            ),
                           )
                         ],
                       ),
@@ -121,7 +126,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                         startHour: 0,
                         showHalfHours: true,
                         halfHourIndicatorSettings: HourIndicatorSettings(
-                          color: Colors.grey.shade300,
+                          color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outlineVariant,
                         ),
                         weekNumberBuilder: (date) => const SizedBox.shrink(),
                         heightPerMinute: 1.5,
@@ -134,7 +139,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                               child: Text(
                                 DateFormat('HH:mm').format(date),
                                 textAlign: TextAlign.right,
-                                style: const TextStyle(fontSize: 12, color: Colors.black54),
+                                style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).colorScheme.onSurfaceVariant),
                               ),
                             ),
                           );
@@ -145,7 +150,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(
 
-                              border: Border(bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200)),
+                              border: Border(bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outlineVariant)),
                             ),
                             child: Wrap(
                               alignment: WrapAlignment.spaceBetween,
@@ -155,21 +160,29 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.chevron_left),
-                                      onPressed: () => _weekViewStateKey.currentState?.previousPage(),
-                                      tooltip: 'Semana Anterior',
+                                    Semantics(
+                                      label: 'Semana anterior',
+                                      button: true,
+                                      child: IconButton(
+                                        icon: const Icon(LucideIcons.chevronLeft),
+                                        onPressed: () => _weekViewStateKey.currentState?.previousPage(),
+                                        tooltip: 'Semana Anterior',
+                                      ),
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
                                       '${DateFormat('dd/MM/yyyy').format(startDate)} a ${DateFormat('dd/MM/yyyy').format(endDate)}',
-                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+                                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyMedium?.color),
                                     ),
                                     const SizedBox(width: 4),
-                                    IconButton(
-                                      icon: const Icon(Icons.chevron_right),
-                                      onPressed: () => _weekViewStateKey.currentState?.nextPage(),
-                                      tooltip: 'Próxima Semana',
+                                    Semantics(
+                                      label: 'Próxima semana',
+                                      button: true,
+                                      child: IconButton(
+                                        icon: const Icon(LucideIcons.chevronRight),
+                                        onPressed: () => _weekViewStateKey.currentState?.nextPage(),
+                                        tooltip: 'Próxima Semana',
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -179,19 +192,23 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                   crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     TextButton.icon(
-                                      icon: const Icon(Icons.today, size: 18),
+                                      icon: const Icon(LucideIcons.calendar, size: 18),
                                       label: const Text('Hoje'),
                                       onPressed: () {
                                         _weekViewStateKey.currentState?.jumpToWeek(DateTime.now());
                                       },
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.refresh),
-                                      tooltip: 'Atualizar',
-                                      onPressed: () => ref.invalidate(appointmentsProvider(null)),
+                                    Semantics(
+                                      label: 'Atualizar agenda',
+                                      button: true,
+                                      child: IconButton(
+                                        icon: const Icon(LucideIcons.refreshCw),
+                                        tooltip: 'Atualizar',
+                                        onPressed: () => ref.invalidate(appointmentsProvider(null)),
+                                      ),
                                     ),
                                     ElevatedButton.icon(
-                                      icon: const Icon(Icons.add, size: 18),
+                                      icon: const Icon(LucideIcons.plus, size: 18),
                                       label: const Text('Nova Consulta'),
                                       onPressed: () async {
                                         final result = await showDialog(
@@ -275,7 +292,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: statusColor.withOpacity(0.1),
+                                            color: statusColor.withValues(alpha: 0.1),
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Text(
@@ -299,11 +316,11 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                     ],
                                     if (actualEnd != null) ...[
                                       const SizedBox(height: 4),
-                                      Text('Fim Real: $actualEnd', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
+                                      Text('Fim Real: $actualEnd', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontWeight: FontWeight.w500)),
                                     ],
                                     const SizedBox(height: 12),
                                     const Text('Comentário:', style: TextStyle(fontWeight: FontWeight.bold)),
-                                    Text(appt.notes.isEmpty ? 'Nenhum comentário.' : appt.notes),
+                                    SelectableText(appt.notes.isEmpty ? 'Nenhum comentário.' : appt.notes),
                                   ],
                                 ),
                               ),
@@ -432,7 +449,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               width: 320,
               decoration: BoxDecoration(
 
-                border: Border(left: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200)),
+                border: Border(left: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outlineVariant)),
               ),
               child: const _WaitlistPanel(),
             ),
@@ -458,6 +475,7 @@ class _WaitlistPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final waitlistAsync = ref.watch(waitlistsProvider);
+    final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -465,30 +483,34 @@ class _WaitlistPanel extends ConsumerWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200)),
+            border: Border(bottom: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outlineVariant)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.list_alt, size: 20, color: Colors.black54),
-                  SizedBox(width: 8),
-                  Text(
+                  Icon(LucideIcons.list, size: 20, color: theme.textTheme.bodyMedium?.color),
+                  const SizedBox(width: 8),
+                  const Text(
                     'Lista de Espera',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
-              IconButton(
-                icon: const Icon(Icons.add, color: Colors.blue),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const WaitlistFormDialog(),
-                  );
-                },
-                tooltip: 'Adicionar Paciente',
+              Semantics(
+                label: 'Adicionar paciente na fila de espera',
+                button: true,
+                child: IconButton(
+                  icon: Icon(LucideIcons.plus, color: theme.colorScheme.primary),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const WaitlistFormDialog(),
+                    );
+                  },
+                  tooltip: 'Adicionar Paciente',
+                ),
               ),
             ],
           ),
@@ -499,8 +521,8 @@ class _WaitlistPanel extends ConsumerWidget {
             error: (e, _) => Center(child: Text('Erro: $e')),
             data: (list) {
               if (list.isEmpty) {
-                return const Center(
-                  child: Text('Nenhum paciente na fila.', style: TextStyle(color: Colors.black54)),
+                return Center(
+                  child: Text('Nenhum paciente na fila.', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
                 );
               }
               return ListView.separated(
@@ -568,7 +590,7 @@ class _WaitlistPanel extends ConsumerWidget {
                                     ],
                                   )
                                 );
-                                if (confirm == true) {
+                                if (confirm == true && context.mounted) {
                                   Navigator.pop(context);
                                   try {
                                     await ref.read(scheduleRepositoryProvider).deleteWaitlist(w.id);
@@ -592,9 +614,9 @@ class _WaitlistPanel extends ConsumerWidget {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-
+                        color: theme.colorScheme.surface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: theme.dividerTheme.color ?? theme.colorScheme.outlineVariant),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.02),
@@ -610,9 +632,9 @@ class _WaitlistPanel extends ConsumerWidget {
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              const Icon(Icons.warning_amber, size: 14, color: Colors.orange),
+                              const Icon(LucideIcons.alertTriangle, size: 14, color: Colors.orange),
                               const SizedBox(width: 4),
-                              Text('Urgência: ${w.urgencyLevel}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                              Text('Urgência: ${w.urgencyLevel}', style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color)),
                             ],
                           ),
                           if (w.notes.isNotEmpty) ...[

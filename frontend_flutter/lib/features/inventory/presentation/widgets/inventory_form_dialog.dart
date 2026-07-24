@@ -97,7 +97,7 @@ class _InventoryFormDialogState extends ConsumerState<InventoryFormDialog> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _unit,
+                initialValue: _unit,
                 decoration: const InputDecoration(labelText: 'Unidade'),
                 items: ['Unidade', 'Caixa', 'Pacote', 'Kit', 'ML', 'Gramas']
                     .map((u) => DropdownMenuItem(value: u, child: Text(u)))

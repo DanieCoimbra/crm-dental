@@ -87,14 +87,27 @@ flutter test             # Rodar testes
 - Utilize injeção de dependências para facilitar os testes.
 - **Arquitetura:** O projeto utiliza uma arquitetura em camadas (`internal/core`, `internal/adapters`). Mantenha a lógica de negócio separada da infraestrutura web (Fiber).
 - **Tratamento de Erros:** Não ignore erros. Sempre retorne ou trate adequadamente e utilize logs quando necessário.
-- **Formatação:** Sempre utilize `go fmt` antes de commitar o código.
+- **Formatação:** Sempre utilize `go fmt ./...` antes de commitar o código.
+- **Histórico Clínico & LGPD:** Evoluções clínicas devem suportar formato Quill Delta JSON, incluir paginação (`page`, `limit`) e registrar logs de auditoria assíncronos (`audit_logs`) para consultas, criações e exclusões.
 
 ### Frontend (Flutter)
 - Utilize **Riverpod** para gerenciamento de estado e injeção de dependência.
+- **Design System ("Clinical Precision Glass"):**
+  - Paleta base: Deep Slate (`#0F172A`), Superfícies (`#1E293B` no escuro / `#FFFFFF` no claro), Bordas cirúrgicas (`#334155` / `#E2E8F0`), Azul Royal (`#2563EB`) e Verde Esmeralda (`#10B981`).
+  - Suporte nativo e dinâmico para **Modo Claro (Light)** e **Modo Escuro (Dark)** usando `Theme.of(context)`. Proibido usar cores estáticas (*hardcoded*).
+- **Acessibilidade & UX (WCAG 2.1):**
+  - Botões com apenas ícone devem ser envolvidos em `Semantics(label: '...', button: true)`.
+  - Textos de histórico médico e notas clínicas devem utilizar `SelectableText` para facilitar cópia.
+  - Alvos de clique/toque com tamanho mínimo de 44x44px.
+- **Ícones:** Padronização estrita com `LucideIcons`.
 - Separe as funcionalidades por **features** (`lib/features/`). Cada feature deve ter sua própria organização de UI, lógica e estado.
 - Utilize componentes reutilizáveis da pasta `lib/shared/` para garantir consistência visual.
 - Nomes de arquivos e pastas em minúsculas com underscores (ex: `patient_card.dart`).
 - Nomes de classes em `PascalCase` (ex: `PatientCard`).
+
+## Design & Protótipos no Stitch
+- **Projeto Stitch:** `Dental Clinic CRM - Premium` (ID: `3046150886637043753`)
+- **Estilo Base:** Glassmorphism clínico, alta visibilidade em turnos médicos, gráficos de fluxo de caixa e prontuário estruturado.
 
 ## Limites e Regras
 
@@ -103,6 +116,7 @@ flutter test             # Rodar testes
 - Siga a organização de pastas existente (`internal/` no Go, `features/` no Flutter).
 - Tipagem estrita em Dart e uso correto de tipagem estática no Go.
 - Escreva código modular e testável.
+- Execute `flutter analyze` no frontend e `go test ./...` no backend antes de considerar uma tarefa concluída.
 
 ### Pergunte Primeiro
 - Antes de adicionar novas dependências pesadas (`go.mod` ou `pubspec.yaml`).

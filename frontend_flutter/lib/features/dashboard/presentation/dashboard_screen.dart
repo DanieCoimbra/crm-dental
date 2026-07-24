@@ -23,25 +23,26 @@ class DashboardScreen extends ConsumerWidget {
     final bool showFinancial = currentPlan == 'premium';
 
     final theme = Theme.of(context);
-    return Scaffold(
+    final gridColor = theme.dividerTheme.color ?? const Color(0xFF334155);
 
+    return Scaffold(
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // KPIs Row (Apenas Admin pode ver)
+            // KPIs Row (Apenas Admin/Owner pode ver)
             RequireRole(
               allowedRoles: const ['admin', 'owner'],
               fallback: Padding(
-                padding: EdgeInsets.only(bottom: 24.0),
+                padding: const EdgeInsets.only(bottom: 24.0),
                 child: Text(
                   'Bem-vindo ao DentalCRM!\nAcesso Rápido disponível abaixo.',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: theme.textTheme.titleLarge?.color),
                 ),
               ),
               child: statsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator())),
                 error: (e, _) => Center(child: Text('Erro ao carregar dashboard: $e')),
                 data: (stats) {
                   final formatCurrency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
@@ -51,23 +52,74 @@ class DashboardScreen extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          Expanded(child: _buildKpiCard('Total de Pacientes', '${stats['totalPatients'] ?? 0}', '+ ${stats['newPatientsThisMonth'] ?? 0} novos este mês', LucideIcons.users, Colors.blue)),
+                          Expanded(
+                            child: _buildKpiCard(
+                              context,
+                              'Total de Pacientes',
+                              '${stats['totalPatients'] ?? 0}',
+                              '+ ${stats['newPatientsThisMonth'] ?? 0} novos este mês',
+                              LucideIcons.users,
+                              const Color(0xFF2563EB),
+                              growthBadge: '+12%',
+                            ),
+                          ),
                           const SizedBox(width: 16),
-                          Expanded(child: _buildKpiCard('Agendamentos Hoje', '${stats['appointmentsToday'] ?? 0}', 'geral', LucideIcons.calendarClock, Colors.orange)),
+                          Expanded(
+                            child: _buildKpiCard(
+                              context,
+                              'Agendamentos Hoje',
+                              '${stats['appointmentsToday'] ?? 0}',
+                              'atendimentos previstos hoje',
+                              LucideIcons.calendarClock,
+                              const Color(0xFFF59E0B),
+                              growthBadge: '+5%',
+                            ),
+                          ),
                           const SizedBox(width: 16),
-                          Expanded(child: _buildKpiCard('Taxa de Retorno', stats['returnRate'] ?? '0%', 'retorno do mês', LucideIcons.trendingUp, Colors.green)),
+                          Expanded(
+                            child: _buildKpiCard(
+                              context,
+                              'Taxa de Retorno',
+                              stats['returnRate'] ?? '0%',
+                              'retorno do mês',
+                              LucideIcons.trendingUp,
+                              const Color(0xFF10B981),
+                              growthBadge: '+8%',
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
                       Row(
                         children: [
                           if (showFinancial) ...[
-                            Expanded(child: _buildKpiCard('Faturamento Mensal', formatCurrency.format(monthlyRev), 'recebido no mês atual', LucideIcons.wallet, Colors.teal)),
+                            Expanded(
+                              child: _buildKpiCard(
+                                context,
+                                'Faturamento Mensal',
+                                formatCurrency.format(monthlyRev),
+                                'recebido no mês atual',
+                                LucideIcons.wallet,
+                                const Color(0xFF10B981),
+                                growthBadge: '+15%',
+                              ),
+                            ),
                             const SizedBox(width: 16),
                           ],
-                          Expanded(child: _buildKpiCard('Taxa de Faltas/Cancel.', stats['cancellationRate'] ?? '0%', 'do mês atual', LucideIcons.userX, Colors.red)),
+                          Expanded(
+                            child: _buildKpiCard(
+                              context,
+                              'Taxa de Faltas/Cancel.',
+                              stats['cancellationRate'] ?? '0%',
+                              'do mês atual',
+                              LucideIcons.userX,
+                              const Color(0xFFEF4444),
+                              growthBadge: '-2%',
+                              isPositiveGrowth: false,
+                            ),
+                          ),
                           const SizedBox(width: 16),
-                          Expanded(child: Container()), // Espaço vazio para manter o layout se necessário
+                          Expanded(child: Container()),
                           if (!showFinancial) ...[
                             const SizedBox(width: 16),
                             Expanded(child: Container()),
@@ -85,7 +137,7 @@ class DashboardScreen extends ConsumerWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Main Chart (Apenas Admin)
+                // Main Chart (Apenas Admin/Owner)
                 RequireRole(
                   allowedRoles: const ['admin', 'owner'],
                   child: Expanded(
@@ -93,18 +145,41 @@ class DashboardScreen extends ConsumerWidget {
                     child: Card(
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: theme.dividerTheme.color ?? Colors.grey.shade200),
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline, width: 1),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(24.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Fluxo de Consultas (Últimos 7 dias)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Fluxo de Consultas (Últimos 7 dias)',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.textTheme.titleLarge?.color,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'Semanal',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF2563EB)),
+                                  ),
+                                ),
+                              ],
+                            ),
                             const SizedBox(height: 24),
                             SizedBox(
-                              height: 300,
+                              height: 280,
                               child: BarChart(
                                 BarChartData(
                                   alignment: BarChartAlignment.spaceAround,
@@ -116,7 +191,11 @@ class DashboardScreen extends ConsumerWidget {
                                       sideTitles: SideTitles(
                                         showTitles: true,
                                         getTitlesWidget: (double value, TitleMeta meta) {
-                                          const style = TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12);
+                                          final style = TextStyle(
+                                            color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          );
                                           String text;
                                           switch (value.toInt()) {
                                             case 0: text = 'Seg'; break;
@@ -139,7 +218,13 @@ class DashboardScreen extends ConsumerWidget {
                                       sideTitles: SideTitles(
                                         showTitles: true,
                                         reservedSize: 30,
-                                        getTitlesWidget: (value, meta) => Text(value.toInt().toString(), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                        getTitlesWidget: (value, meta) => Text(
+                                          value.toInt().toString(),
+                                          style: TextStyle(
+                                            color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                     topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -148,7 +233,10 @@ class DashboardScreen extends ConsumerWidget {
                                   gridData: FlGridData(
                                     show: true,
                                     drawVerticalLine: false,
-                                    getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                                    getDrawingHorizontalLine: (value) => FlLine(
+                                      color: gridColor.withValues(alpha: 0.5),
+                                      strokeWidth: 1,
+                                    ),
                                   ),
                                   borderData: FlBorderData(show: false),
                                   barGroups: statsAsync.maybeWhen(
@@ -165,14 +253,46 @@ class DashboardScreen extends ConsumerWidget {
                               ),
                             ),
                             if (showFinancial) ...[
+                              const SizedBox(height: 32),
+                              const Divider(),
                               const SizedBox(height: 24),
-                              const Text('Faturamento (Últimos 7 dias)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Fluxo de Caixa (Últimos 7 dias)',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.textTheme.titleLarge?.color,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text(
+                                      'Receita R\$',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF10B981)),
+                                    ),
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 24),
                               SizedBox(
-                                height: 250,
+                                height: 260,
                                 child: LineChart(
                                   LineChartData(
-                                    gridData: FlGridData(show: true, drawVerticalLine: false),
+                                    gridData: FlGridData(
+                                      show: true,
+                                      drawVerticalLine: false,
+                                      getDrawingHorizontalLine: (value) => FlLine(
+                                        color: gridColor.withValues(alpha: 0.5),
+                                        strokeWidth: 1,
+                                      ),
+                                    ),
                                     titlesData: FlTitlesData(
                                       show: true,
                                       rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -181,7 +301,11 @@ class DashboardScreen extends ConsumerWidget {
                                         sideTitles: SideTitles(
                                           showTitles: true,
                                           getTitlesWidget: (double value, TitleMeta meta) {
-                                            const style = TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12);
+                                            final style = TextStyle(
+                                              color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            );
                                             String text;
                                             switch (value.toInt()) {
                                               case 0: text = 'Seg'; break;
@@ -200,8 +324,14 @@ class DashboardScreen extends ConsumerWidget {
                                       leftTitles: AxisTitles(
                                         sideTitles: SideTitles(
                                           showTitles: true,
-                                          reservedSize: 45,
-                                          getTitlesWidget: (value, meta) => Text(NumberFormat.compactCurrency(symbol: 'R\$').format(value), style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                                          reservedSize: 50,
+                                          getTitlesWidget: (value, meta) => Text(
+                                            NumberFormat.compactCurrency(symbol: 'R\$').format(value),
+                                            style: TextStyle(
+                                              color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
+                                              fontSize: 10,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -219,13 +349,29 @@ class DashboardScreen extends ConsumerWidget {
                                           orElse: () => [],
                                         ),
                                         isCurved: true,
-                                        color: Colors.teal,
-                                        barWidth: 4,
+                                        curveSmoothness: 0.35,
+                                        color: const Color(0xFF2563EB),
+                                        barWidth: 3,
                                         isStrokeCapRound: true,
-                                        dotData: const FlDotData(show: true),
+                                        dotData: FlDotData(
+                                          show: true,
+                                          getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                                            radius: 4,
+                                            color: const Color(0xFF2563EB),
+                                            strokeWidth: 2,
+                                            strokeColor: Colors.white,
+                                          ),
+                                        ),
                                         belowBarData: BarAreaData(
                                           show: true,
-                                          color: Colors.teal.withValues(alpha: 0.2),
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              const Color(0xFF2563EB).withValues(alpha: 0.35),
+                                              const Color(0xFF10B981).withValues(alpha: 0.05),
+                                            ],
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -245,7 +391,7 @@ class DashboardScreen extends ConsumerWidget {
                   child: const SizedBox(width: 24),
                 ),
                 
-                // Quick Actions
+                // Quick Actions & Status Distribution
                 Expanded(
                   flex: 1,
                   child: Column(
@@ -253,19 +399,26 @@ class DashboardScreen extends ConsumerWidget {
                       Card(
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: theme.dividerTheme.color ?? Colors.grey.shade200),
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline, width: 1),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(24.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const Text('Ações Rápidas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              Text(
+                                'Ações Rápidas',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.textTheme.titleLarge?.color,
+                                ),
+                              ),
                               const SizedBox(height: 16),
                               ElevatedButton.icon(
                                 onPressed: () => context.go('/schedule'),
-                                icon: const Icon(Icons.add),
+                                icon: const Icon(LucideIcons.plus),
                                 label: const Text('Novo Agendamento'),
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.all(16),
@@ -275,7 +428,7 @@ class DashboardScreen extends ConsumerWidget {
                               const SizedBox(height: 12),
                               OutlinedButton.icon(
                                 onPressed: () => context.go('/patients'),
-                                icon: const Icon(Icons.person_add),
+                                icon: const Icon(LucideIcons.userPlus),
                                 label: const Text('Cadastrar Paciente'),
                                 style: OutlinedButton.styleFrom(
                                   padding: const EdgeInsets.all(16),
@@ -292,15 +445,22 @@ class DashboardScreen extends ConsumerWidget {
                         child: Card(
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: theme.dividerTheme.color ?? Colors.grey.shade200),
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline, width: 1),
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(24.0),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                const Text('Status de Consultas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                Text(
+                                  'Status de Consultas',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.textTheme.titleLarge?.color,
+                                  ),
+                                ),
                                 const SizedBox(height: 24),
                                 SizedBox(
                                   height: 200,
@@ -318,10 +478,10 @@ class DashboardScreen extends ConsumerWidget {
                                         if (count > 0) {
                                           Color c;
                                           switch(key) {
-                                            case 'completed': c = Colors.green; break;
-                                            case 'cancelled': c = Colors.red; break;
-                                            case 'no_show': c = Colors.orange; break;
-                                            default: c = Colors.blue; break; // scheduled
+                                            case 'completed': c = const Color(0xFF10B981); break; // Emerald Green
+                                            case 'cancelled': c = const Color(0xFFEF4444); break; // Red
+                                            case 'no_show': c = const Color(0xFFF59E0B); break; // Amber/Orange
+                                            default: c = const Color(0xFF2563EB); break; // Royal Blue
                                           }
                                           sections.add(PieChartSectionData(
                                             color: c,
@@ -344,15 +504,15 @@ class DashboardScreen extends ConsumerWidget {
                                     orElse: () => const Center(child: CircularProgressIndicator()),
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 20),
                                 Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
+                                  spacing: 12,
+                                  runSpacing: 8,
                                   children: [
-                                    _buildLegendItem('Concluído', Colors.green),
-                                    _buildLegendItem('Agendado', Colors.blue),
-                                    _buildLegendItem('Falta', Colors.orange),
-                                    _buildLegendItem('Cancelado', Colors.red),
+                                    _buildLegendItem('Concluído', const Color(0xFF10B981)),
+                                    _buildLegendItem('Agendado', const Color(0xFF2563EB)),
+                                    _buildLegendItem('Falta', const Color(0xFFF59E0B)),
+                                    _buildLegendItem('Cancelado', const Color(0xFFEF4444)),
                                   ],
                                 ),
                               ],
@@ -371,46 +531,125 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildKpiCard(String title, String value, String subtitle, IconData icon, MaterialColor color) {
-    return Builder(
-      builder: (context) {
-        final theme = Theme.of(context);
-        final isDark = theme.brightness == Brightness.dark;
-        
-        return Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: theme.dividerTheme.color ?? Colors.grey.shade200),
-          ),
+  Widget _buildKpiCard(
+    BuildContext context,
+    String title,
+    String value,
+    String subtitle,
+    IconData icon,
+    Color accentColor, {
+    String? growthBadge,
+    bool isPositiveGrowth = true,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(title, style: TextStyle(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600)),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: theme.textTheme.bodyMedium?.color,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isDark ? color.shade900.withValues(alpha: 0.3) : color.shade50, 
-                    borderRadius: BorderRadius.circular(8)
+                    color: accentColor.withValues(alpha: isDark ? 0.2 : 0.1), 
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1),
                   ),
-                  child: Icon(icon, color: isDark ? color.shade200 : color.shade600, size: 20),
+                  child: Icon(icon, color: accentColor, size: 20),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            Text(value, style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.textTheme.bodyLarge?.color)),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Expanded(
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                      color: theme.textTheme.bodyLarge?.color,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (growthBadge != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isPositiveGrowth 
+                          ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                          : const Color(0xFFEF4444).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isPositiveGrowth
+                            ? const Color(0xFF10B981).withValues(alpha: 0.3)
+                            : const Color(0xFFEF4444).withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isPositiveGrowth ? LucideIcons.arrowUpRight : LucideIcons.arrowDownRight,
+                          size: 12,
+                          color: isPositiveGrowth ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          growthBadge,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isPositiveGrowth ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
             const SizedBox(height: 8),
-            Text(subtitle, style: TextStyle(color: isDark ? color.shade300 : color.shade700, fontWeight: FontWeight.w500, fontSize: 13)),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: theme.textTheme.bodySmall?.color ?? Colors.grey,
+                fontWeight: FontWeight.w500,
+                fontSize: 12,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),
     );
-    });
   }
 
   BarChartGroupData _makeGroupData(int x, double normais, double urgencias) {
@@ -419,28 +658,38 @@ class DashboardScreen extends ConsumerWidget {
       barRods: [
         BarChartRodData(
           toY: normais,
-          color: Colors.blue.shade400,
+          color: const Color(0xFF2563EB),
           width: 16,
-          borderRadius: const BorderRadius.only(topLeft: Radius.circular(4), topRight: Radius.circular(4)),
+          borderRadius: const BorderRadius.only(topLeft: Radius.circular(6), topRight: Radius.circular(6)),
         ),
-        BarChartRodData(
-          toY: urgencias,
-          color: Colors.orange.shade400,
-          width: 16,
-          borderRadius: const BorderRadius.only(topLeft: Radius.circular(4), topRight: Radius.circular(4)),
-        ),
+        if (urgencias > 0)
+          BarChartRodData(
+            toY: urgencias,
+            color: const Color(0xFFF59E0B),
+            width: 16,
+            borderRadius: const BorderRadius.only(topLeft: Radius.circular(6), topRight: Radius.circular(6)),
+          ),
       ],
     );
   }
 
   Widget _buildLegendItem(String label, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12)),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+        ],
+      ),
     );
   }
 }
+

@@ -162,7 +162,7 @@ class _AppointmentTypeDialogState extends ConsumerState<AppointmentTypeDialog> {
                           shape: BoxShape.circle,
                           border: isSelected ? Border.all(color: Colors.black87, width: 3) : Border.all(color: Colors.transparent, width: 3),
                           boxShadow: [
-                            if (isSelected) BoxShadow(color: color.withOpacity(0.5), blurRadius: 4, spreadRadius: 1)
+                            if (isSelected) BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 4, spreadRadius: 1)
                           ],
                         ),
                         child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
@@ -213,7 +213,7 @@ class _AppointmentTypeDialogState extends ConsumerState<AppointmentTypeDialog> {
                               flex: 2,
                               child: DropdownButtonFormField<InventoryItem>(
                                 decoration: const InputDecoration(labelText: 'Selecionar Produto', isDense: true),
-                                value: selectedItem,
+                                initialValue: selectedItem,
                                 isExpanded: true,
                                 items: items.map((i) => DropdownMenuItem(
                                   value: i,

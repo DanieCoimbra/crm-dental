@@ -27,17 +27,17 @@ class PlansScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0,
         title: Row(
           children: [
             Icon(LucideIcons.activity, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
-            const Text(
+            Text(
               'DentalCRM',
-              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+              style: TextStyle(color: theme.textTheme.titleLarge?.color, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -57,15 +57,15 @@ class PlansScreen extends ConsumerWidget {
             child: Column(
               children: [
                 // Header
-                const Text(
+                Text(
                   'Planos e Preços',
-                  style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.black87),
+                  style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: theme.textTheme.displaySmall?.color ?? theme.textTheme.titleLarge?.color),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'Escolha o plano ideal para a sua clínica dental e comece a transformar seu atendimento hoje mesmo.',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                  style: TextStyle(fontSize: 16, color: theme.textTheme.bodyMedium?.color),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
@@ -74,7 +74,7 @@ class PlansScreen extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
+                    color: theme.colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: Row(
@@ -91,7 +91,7 @@ class PlansScreen extends ConsumerWidget {
                           child: Text(
                             'Mensal',
                             style: TextStyle(
-                              color: !isAnnual ? Colors.white : Colors.black87,
+                              color: !isAnnual ? Colors.white : theme.textTheme.bodyLarge?.color,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -110,7 +110,7 @@ class PlansScreen extends ConsumerWidget {
                               Text(
                                 'Anual',
                                 style: TextStyle(
-                                  color: isAnnual ? Colors.white : Colors.black87,
+                                  color: isAnnual ? Colors.white : theme.textTheme.bodyLarge?.color,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -156,8 +156,8 @@ class PlansScreen extends ConsumerWidget {
                             period: 'por 14 dias',
                             isPopular: false,
                             buttonText: 'Testar Grátis',
-                            buttonColor: Colors.blue[50]!,
-                            textColor: Colors.blue[900]!,
+                            buttonColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                            textColor: theme.colorScheme.primary,
                             features: [
                               'Acesso total ao sistema',
                               'Sem cartão de crédito',
@@ -179,8 +179,8 @@ class PlansScreen extends ConsumerWidget {
                             period: '/mês',
                             isPopular: false,
                             buttonText: 'Assinar Start',
-                            buttonColor: Colors.grey[900]!,
-                            textColor: Colors.white,
+                            buttonColor: theme.colorScheme.onSurface,
+                            textColor: theme.colorScheme.surface,
                             features: [
                               '1 Odontólogo',
                               'Prontuário Eletrônico',
@@ -227,8 +227,8 @@ class PlansScreen extends ConsumerWidget {
                             period: '/mês',
                             isPopular: false,
                             buttonText: 'Assinar Enterprise',
-                            buttonColor: Colors.grey[900]!,
-                            textColor: Colors.white,
+                            buttonColor: theme.colorScheme.onSurface,
+                            textColor: theme.colorScheme.surface,
                             features: [
                               'Odontólogos Ilimitados',
                               'Gestão Multi-Salas',
@@ -276,10 +276,10 @@ class PlansScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isPopular ? theme.colorScheme.primary : Colors.grey[200]!,
+          color: isPopular ? theme.colorScheme.primary : (theme.dividerTheme.color ?? theme.colorScheme.outline),
           width: isPopular ? 2 : 1,
         ),
         boxShadow: [
@@ -310,17 +310,17 @@ class PlansScreen extends ConsumerWidget {
                     style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
-              Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              Text(title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: theme.textTheme.titleLarge?.color)),
               const SizedBox(height: 4),
-              Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(subtitle, style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color)),
               const SizedBox(height: 20),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
-                  Text(price, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                  Text(price, style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.textTheme.headlineMedium?.color)),
                   const SizedBox(width: 4),
-                  Text(period, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                  Text(period, style: TextStyle(fontSize: 14, color: theme.textTheme.bodySmall?.color)),
                 ],
               ),
               const Divider(height: 32),
@@ -330,7 +330,7 @@ class PlansScreen extends ConsumerWidget {
                       children: [
                         const Icon(LucideIcons.check, size: 16, color: Colors.green),
                         const SizedBox(width: 8),
-                        Expanded(child: Text(f, style: const TextStyle(fontSize: 13))),
+                        Expanded(child: Text(f, style: TextStyle(fontSize: 13, color: theme.textTheme.bodyMedium?.color))),
                       ],
                     ),
                   )),

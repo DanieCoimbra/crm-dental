@@ -138,7 +138,7 @@ class _ClinicProfileTabState extends ConsumerState<_ClinicProfileTab> {
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200),
+                      side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outline),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -207,11 +207,10 @@ class _ClinicProfileTabState extends ConsumerState<_ClinicProfileTab> {
                   ),
                   const SizedBox(height: 24),
                   Card(
-
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200),
+                      side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outline),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -220,7 +219,7 @@ class _ClinicProfileTabState extends ConsumerState<_ClinicProfileTab> {
                         children: [
                           const Text('Backup e Restauração', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 8),
-                          const Text('Gerencie a base de dados de pacientes.', style: TextStyle(color: Colors.grey)),
+                          Text('Gerencie a base de dados de pacientes.', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color)),
                           const SizedBox(height: 16),
                           Row(
                             children: [
@@ -267,11 +266,10 @@ class _TeamTab extends ConsumerWidget {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 800),
               child: Card(
-
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200),
+                  side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outline),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
@@ -319,7 +317,7 @@ class _TeamTab extends ConsumerWidget {
                           final user = users[index];
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: Colors.blue.shade100,
+                              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                               child: Text(user.name.substring(0, 1).toUpperCase()),
                             ),
                             title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -330,7 +328,7 @@ class _TeamTab extends ConsumerWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
+                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Text(
@@ -397,11 +395,10 @@ class _AuditTab extends ConsumerWidget {
         child: Container(
           constraints: const BoxConstraints(maxWidth: 900),
           child: Card(
-
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200),
+              side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outline),
             ),
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -410,7 +407,7 @@ class _AuditTab extends ConsumerWidget {
                 children: [
                   const Text('Logs de Segurança e Acesso', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  const Text('Histórico imutável de ações críticas no sistema (Compliance LGPD).', style: TextStyle(color: Colors.grey)),
+                  Text('Histórico imutável de ações críticas no sistema (Compliance LGPD).', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color)),
                   const SizedBox(height: 24),
                   logsAsync.when(
                     loading: () => const Center(child: CircularProgressIndicator()),
@@ -422,7 +419,7 @@ class _AuditTab extends ConsumerWidget {
                       return SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: DataTable(
-                          headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                          headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.titleSmall?.color),
                           columns: const [
                             DataColumn(label: Text('Data/Hora')),
                             DataColumn(label: Text('Usuário')),
@@ -479,11 +476,10 @@ class _AppointmentTypesTab extends ConsumerWidget {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 800),
               child: Card(
-
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200),
+                  side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outline),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
@@ -593,11 +589,10 @@ class _RoomsTab extends ConsumerWidget {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 800),
               child: Card(
-
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200),
+                  side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outline),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
@@ -720,7 +715,6 @@ class _ClinicRulesTabState extends ConsumerState<_ClinicRulesTab> {
         orElse: () => AppSetting(id: 0, key: 'custom_holidays', value: '[]')
       );
       
-      // Parse current
       final currentList = customHolidaysSetting.value.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '').split(',').where((e) => e.isNotEmpty).toList();
       currentList.add(dateStr);
       
@@ -769,11 +763,10 @@ class _ClinicRulesTabState extends ConsumerState<_ClinicRulesTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Card(
-
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200),
+                      side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outline),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -800,11 +793,10 @@ class _ClinicRulesTabState extends ConsumerState<_ClinicRulesTab> {
                   ),
                   const SizedBox(height: 24),
                   Card(
-
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200),
+                      side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Theme.of(context).colorScheme.outline),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),

@@ -152,7 +152,7 @@ class _WaitlistFormDialogState extends ConsumerState<WaitlistFormDialog> {
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                           ),
                           hint: const Text('Selecione o paciente'),
-                          value: _selectedPatientId,
+                          initialValue: _selectedPatientId,
                           items: patients.map((p) => DropdownMenuItem(
                             value: p.id,
                             child: Text('${p.name} - ${p.phone}'),
@@ -183,7 +183,7 @@ class _WaitlistFormDialogState extends ConsumerState<WaitlistFormDialog> {
                                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                       ),
                                       hint: const Text('Qualquer Médico'),
-                                      value: _selectedDoctorId,
+                                      initialValue: _selectedDoctorId,
                                       items: doctors.map((d) => DropdownMenuItem(
                                         value: d.id,
                                         child: Text(d.name),
@@ -212,7 +212,7 @@ class _WaitlistFormDialogState extends ConsumerState<WaitlistFormDialog> {
                                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                     ),
                                     hint: const Text('Qualquer Tipo'),
-                                    value: _selectedAppointmentTypeId,
+                                    initialValue: _selectedAppointmentTypeId,
                                     items: types.map((t) => DropdownMenuItem(
                                       value: t.id,
                                       child: Text(t.name),
@@ -231,17 +231,23 @@ class _WaitlistFormDialogState extends ConsumerState<WaitlistFormDialog> {
 
                       // Urgency
                       const Text('Nível de Emergência', style: TextStyle(fontWeight: FontWeight.bold)),
-                      Row(
-                        children: [
-                          Radio<String>(value: 'low', groupValue: _urgencyLevel, onChanged: (v) => setState(() => _urgencyLevel = v!)),
-                          const Text('Baixa'),
-                          const SizedBox(width: 16),
-                          Radio<String>(value: 'medium', groupValue: _urgencyLevel, onChanged: (v) => setState(() => _urgencyLevel = v!)),
-                          const Text('Média'),
-                          const SizedBox(width: 16),
-                          Radio<String>(value: 'high', groupValue: _urgencyLevel, onChanged: (v) => setState(() => _urgencyLevel = v!)),
-                          const Text('Alta'),
-                        ],
+                      RadioGroup<String>(
+                        groupValue: _urgencyLevel,
+                        onChanged: (v) {
+                          if (v != null) setState(() => _urgencyLevel = v);
+                        },
+                        child: Row(
+                          children: const [
+                            Radio<String>(value: 'low'),
+                            Text('Baixa'),
+                            SizedBox(width: 16),
+                            Radio<String>(value: 'medium'),
+                            Text('Média'),
+                            SizedBox(width: 16),
+                            Radio<String>(value: 'high'),
+                            Text('Alta'),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 16),
 
@@ -283,7 +289,7 @@ class _WaitlistFormDialogState extends ConsumerState<WaitlistFormDialog> {
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         ),
-                        value: _preferredTimeRange,
+                        initialValue: _preferredTimeRange,
                         items: const [
                           DropdownMenuItem(value: 'qualquer', child: Text('Qualquer Horário')),
                           DropdownMenuItem(value: 'manhã', child: Text('Apenas Manhã')),

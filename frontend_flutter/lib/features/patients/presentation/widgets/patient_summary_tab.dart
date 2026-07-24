@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:frontend_flutter/features/patients/data/patient_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend_flutter/features/patients/data/patients_provider.dart';
@@ -29,10 +30,10 @@ class PatientSummaryTab extends ConsumerWidget {
                       const Text('Dados do Paciente', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const Divider(),
                       const SizedBox(height: 16),
-                      _buildInfoRow(Icons.person, 'Nome', patient.name),
-                      _buildInfoRow(Icons.email, 'E-mail', patient.email ?? '-'),
-                      _buildInfoRow(Icons.phone, 'Telefone', patient.phone ?? '-'),
-                      _buildInfoRow(Icons.cake, 'Idade', _calculateAge(patient.birthDate)),
+                      _buildInfoRow(LucideIcons.user, 'Nome', patient.name),
+                      _buildInfoRow(LucideIcons.mail, 'E-mail', patient.email ?? '-'),
+                      _buildInfoRow(LucideIcons.phone, 'Telefone', patient.phone ?? '-'),
+                      _buildInfoRow(LucideIcons.cake, 'Idade', _calculateAge(patient.birthDate)),
                     ],
                   ),
                 ),
@@ -61,7 +62,7 @@ class PatientSummaryTab extends ConsumerWidget {
                             itemBuilder: (context, index) {
                               final ev = evolutions[index];
                               return ListTile(
-                                leading: const Icon(Icons.history, color: Colors.blue),
+                                leading: const Icon(LucideIcons.history, color: Colors.blue),
                                 title: Text('Dr(a). ${ev.userName ?? '-'}'),
                                 subtitle: Text('${ev.createdAt.day.toString().padLeft(2, '0')}/${ev.createdAt.month.toString().padLeft(2, '0')}/${ev.createdAt.year}'),
                               );
@@ -109,10 +110,9 @@ class PatientSummaryTab extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                Text(
+                SelectableText(
                   value, 
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
