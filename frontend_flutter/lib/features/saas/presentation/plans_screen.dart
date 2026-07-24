@@ -3,7 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-final isAnnualBillingProvider = StateProvider<bool>((ref) => false);
+class AnnualBillingNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void setAnnual(bool val) => state = val;
+}
+
+final isAnnualBillingProvider = NotifierProvider<AnnualBillingNotifier, bool>(AnnualBillingNotifier.new);
 
 class PlansScreen extends ConsumerWidget {
   const PlansScreen({super.key});
@@ -13,7 +19,7 @@ class PlansScreen extends ConsumerWidget {
     final billingParam = GoRouterState.of(context).uri.queryParameters['billing'];
     if (billingParam == 'annual' && !ref.read(isAnnualBillingProvider)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(isAnnualBillingProvider.notifier).state = true;
+        ref.read(isAnnualBillingProvider.notifier).setAnnual(true);
       });
     }
 
@@ -75,7 +81,7 @@ class PlansScreen extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       GestureDetector(
-                        onTap: () => ref.read(isAnnualBillingProvider.notifier).state = false,
+                        onTap: () => ref.read(isAnnualBillingProvider.notifier).setAnnual(false),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                           decoration: BoxDecoration(
@@ -92,7 +98,7 @@ class PlansScreen extends ConsumerWidget {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () => ref.read(isAnnualBillingProvider.notifier).state = true,
+                        onTap: () => ref.read(isAnnualBillingProvider.notifier).setAnnual(true),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                           decoration: BoxDecoration(
@@ -136,7 +142,7 @@ class PlansScreen extends ConsumerWidget {
                     final isMobile = constraints.maxWidth < 900;
                     return Flex(
                       direction: isMobile ? Axis.vertical : Axis.horizontal,
-                      cross: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         // Trial Card

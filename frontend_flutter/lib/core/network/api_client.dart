@@ -25,7 +25,7 @@ String get backendBaseUrl {
 
 String get apiBaseUrl => '$backendBaseUrl/api/v1';
 
-final dioProvider = Provider<Dio>((ref) {
+final Provider<Dio> dioProvider = Provider<Dio>((ref) {
   final dio = Dio(BaseOptions(
     baseUrl: apiBaseUrl,
     connectTimeout: const Duration(seconds: 30),

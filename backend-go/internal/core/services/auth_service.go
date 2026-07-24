@@ -164,7 +164,7 @@ func (s *AuthService) Login(email, password string) (string, *domain.User, *time
 	secret := os.Getenv("JWT_SECRET")
 	tokenString, err := token.SignedString([]byte(secret))
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	return tokenString, user, nil, nil

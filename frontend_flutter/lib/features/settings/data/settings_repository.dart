@@ -7,7 +7,7 @@ import 'package:frontend_flutter/features/settings/data/user_model.dart';
 import 'package:frontend_flutter/features/settings/data/role_model.dart';
 import 'package:frontend_flutter/features/settings/data/setting_model.dart';
 
-final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
+final Provider<SettingsRepository> settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
   return SettingsRepository(ref.read(dioProvider));
 });
 

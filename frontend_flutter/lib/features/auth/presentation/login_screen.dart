@@ -133,7 +133,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     TextField(
                       controller: _passwordController,
                       obscureText: true,
-                      onFieldSubmitted: (_) => _login(),
+                      onSubmitted: (_) => _login(),
                       decoration: const InputDecoration(
                         labelText: 'Senha',
                         prefixIcon: Icon(Icons.lock_outline),

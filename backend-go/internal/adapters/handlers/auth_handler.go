@@ -61,7 +61,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "A senha deve ter no mínimo 8 caracteres, contendo letras e números"})
 	}
 
-	user, err := h.authService.RegisterClinicOwner(req.ClinicName, req.CNPJ, req.Email, req.OwnerName, req.Password, req.SessionID)
+	_, err := h.authService.RegisterClinicOwner(req.ClinicName, req.CNPJ, req.Email, req.OwnerName, req.Password, req.SessionID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}

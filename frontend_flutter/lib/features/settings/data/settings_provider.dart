@@ -6,7 +6,7 @@ import 'package:frontend_flutter/features/settings/data/room_model.dart';
 import 'package:frontend_flutter/features/settings/data/setting_model.dart';
 import 'package:frontend_flutter/features/settings/data/settings_repository.dart';
 
-final myClinicProvider = FutureProvider<Clinic>((ref) {
+final FutureProvider<Clinic> myClinicProvider = FutureProvider<Clinic>((ref) {
   final repository = ref.watch(settingsRepositoryProvider);
   return repository.getMyClinic();
 });
