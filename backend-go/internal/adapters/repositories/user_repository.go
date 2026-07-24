@@ -42,9 +42,21 @@ func (r *UserRepository) FindByID(id uint) (*domain.User, error) {
 	return &user, nil
 }
 
-func (r *UserRepository) ListByRole(roleName string) ([]domain.User, error) {
+func (r *UserRepository) FindByIDAndClinic(id uint, clinicID uint) (*domain.User, error) {
+	var user domain.User
+	err := database.DB.Preload("Role").Preload("Clinic").Where("id = ? AND clinic_id = ?", id, clinicID).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	if user.Role != nil && user.Role.Permissions != "" {
+		json.Unmarshal([]byte(user.Role.Permissions), &user.PermissionsList)
+	}
+	return &user, nil
+}
+
+func (r *UserRepository) ListByRole(clinicID uint, roleName string) ([]domain.User, error) {
 	var users []domain.User
-	query := database.DB.Preload("Role").Preload("Clinic")
+	query := database.DB.Preload("Role").Preload("Clinic").Where("users.clinic_id = ?", clinicID)
 
 	if roleName != "" {
 		query = query.Joins("JOIN roles ON roles.id = users.role_id").Where("roles.name = ?", roleName)
@@ -63,11 +75,11 @@ func (r *UserRepository) Update(user *domain.User) error {
 	return database.DB.Save(user).Error
 }
 
-func (r *UserRepository) Delete(id uint, deletedBy uint) error {
+func (r *UserRepository) Delete(id uint, clinicID uint, deletedBy uint) error {
 	return database.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&domain.User{}).Where("id = ?", id).Update("deleted_by", deletedBy).Error; err != nil {
+		if err := tx.Model(&domain.User{}).Where("id = ? AND clinic_id = ?", id, clinicID).Update("deleted_by", deletedBy).Error; err != nil {
 			return err
 		}
-		return tx.Delete(&domain.User{}, id).Error
+		return tx.Where("id = ? AND clinic_id = ?", id, clinicID).Delete(&domain.User{}).Error
 	})
 }

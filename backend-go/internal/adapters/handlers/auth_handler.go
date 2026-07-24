@@ -99,14 +99,19 @@ func (h *AuthHandler) Profile(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-// ListUsers retorna a lista de usuários, opcionalmente filtrando por role
+// ListUsers retorna a lista de usuários da clínica autenticada, opcionalmente filtrando por role
 func (h *AuthHandler) ListUsers(c *fiber.Ctx) error {
+	clinicIDVal := c.Locals("clinic_id")
+	if clinicIDVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Clínica não identificada"})
+	}
+	clinicID := uint(clinicIDVal.(float64))
+
 	roleQuery := c.Query("role")
 	userRepo := h.authService.GetUserRepository()
 
-	users, err := userRepo.ListByRole(roleQuery)
+	users, err := userRepo.ListByRole(clinicID, roleQuery)
 	if err != nil {
-		// Mock temporário se o método ListByRole falhar ou não existir
 		return c.JSON([]map[string]interface{}{})
 	}
 

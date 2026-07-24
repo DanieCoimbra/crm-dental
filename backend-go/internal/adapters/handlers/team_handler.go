@@ -34,6 +34,12 @@ type TeamRequest struct {
 }
 
 func (h *TeamHandler) Create(c *fiber.Ctx) error {
+	clinicIDVal := c.Locals("clinic_id")
+	if clinicIDVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Clínica não identificada"})
+	}
+	clinicID := uint(clinicIDVal.(float64))
+
 	var req TeamRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Dados inválidos"})
@@ -51,13 +57,6 @@ func (h *TeamHandler) Create(c *fiber.Ctx) error {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Erro ao gerar senha"})
-	}
-
-	authUserID := c.Locals("user_id").(float64)
-	authUser, err := h.userRepo.FindByID(uint(authUserID))
-	var clinicID uint = 1
-	if err == nil {
-		clinicID = authUser.ClinicID
 	}
 
 	user := domain.User{
@@ -81,6 +80,12 @@ func (h *TeamHandler) Create(c *fiber.Ctx) error {
 }
 
 func (h *TeamHandler) Update(c *fiber.Ctx) error {
+	clinicIDVal := c.Locals("clinic_id")
+	if clinicIDVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Clínica não identificada"})
+	}
+	clinicID := uint(clinicIDVal.(float64))
+
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})
@@ -97,9 +102,9 @@ func (h *TeamHandler) Update(c *fiber.Ctx) error {
 		}
 	}
 
-	user, err := h.userRepo.FindByID(uint(id))
+	user, err := h.userRepo.FindByIDAndClinic(uint(id), clinicID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Funcionário não encontrado"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Funcionário não encontrado nesta clínica"})
 	}
 
 	var role domain.Role
@@ -131,6 +136,12 @@ func (h *TeamHandler) Update(c *fiber.Ctx) error {
 }
 
 func (h *TeamHandler) Delete(c *fiber.Ctx) error {
+	clinicIDVal := c.Locals("clinic_id")
+	if clinicIDVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Clínica não identificada"})
+	}
+	clinicID := uint(clinicIDVal.(float64))
+
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})
@@ -144,13 +155,13 @@ func (h *TeamHandler) Delete(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Dados inválidos"})
 	}
 
-	authUserID := c.Locals("user_id").(float64)
-	authUser, err := h.userRepo.FindByID(uint(authUserID))
+	authUserID := uint(c.Locals("user_id").(float64))
+	authUser, err := h.userRepo.FindByIDAndClinic(authUserID, clinicID)
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(authUser.Password), []byte(req.Password)) != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"message": "Senha incorreta"})
 	}
 
-	if err := h.userRepo.Delete(uint(id), uint(authUserID)); err != nil {
+	if err := h.userRepo.Delete(uint(id), clinicID, authUserID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Erro ao deletar funcionário"})
 	}
 
@@ -158,11 +169,17 @@ func (h *TeamHandler) Delete(c *fiber.Ctx) error {
 }
 
 func (h *TeamHandler) GetByID(c *fiber.Ctx) error {
+	clinicIDVal := c.Locals("clinic_id")
+	if clinicIDVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Clínica não identificada"})
+	}
+	clinicID := uint(clinicIDVal.(float64))
+
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})
 	}
-	user, err := h.userRepo.FindByID(uint(id))
+	user, err := h.userRepo.FindByIDAndClinic(uint(id), clinicID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Funcionário não encontrado"})
 	}
