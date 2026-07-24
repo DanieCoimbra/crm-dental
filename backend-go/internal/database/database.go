@@ -4,9 +4,11 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"dental-crm-api/internal/core/domain"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -107,6 +109,7 @@ func RunMigrations() {
 	log.Println("✅ AutoMigrate concluído!")
 
 	SeedRoles()
+	SeedDefaultUser()
 }
 
 func SeedRoles() {
@@ -127,6 +130,50 @@ func SeedRoles() {
 			// Atualizar permissões caso existam
 			existingRole.Permissions = role.Permissions
 			DB.Save(&existingRole)
+		}
+	}
+}
+
+func SeedDefaultUser() {
+	var count int64
+	DB.Model(&domain.User{}).Count(&count)
+	if count == 0 {
+		var ownerRole domain.Role
+		if err := DB.Where("name = ?", "owner").First(&ownerRole).Error; err != nil {
+			log.Println("Aviso: cargo owner não encontrado para seed de usuário padrão")
+			return
+		}
+
+		trialEndsAt := time.Now().Add(365 * 24 * time.Hour)
+		clinic := domain.Clinic{
+			Name:        "Clínica Odontológica Demo",
+			CNPJ:        "00.000.000/0001-00",
+			Email:       "admin@clinica.com",
+			Status:      "active",
+			TrialEndsAt: &trialEndsAt,
+		}
+		if err := DB.Create(&clinic).Error; err != nil {
+			log.Printf("Aviso: erro ao criar clínica demo: %v", err)
+			return
+		}
+
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
+		if err != nil {
+			log.Printf("Aviso: erro ao gerar hash de senha para usuário padrão: %v", err)
+			return
+		}
+
+		user := domain.User{
+			Name:     "Administrador Demo",
+			Email:    "admin@clinica.com",
+			Password: string(hashedPassword),
+			ClinicID: clinic.ID,
+			RoleID:   &ownerRole.ID,
+		}
+		if err := DB.Create(&user).Error; err != nil {
+			log.Printf("Aviso: erro ao criar usuário padrão: %v", err)
+		} else {
+			log.Println("✅ Usuário padrão criado: admin@clinica.com / 123456")
 		}
 	}
 }
