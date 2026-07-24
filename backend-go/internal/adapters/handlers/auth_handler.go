@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"time"
 
 	"dental-crm-api/internal/core/services"
@@ -26,8 +27,8 @@ func NewAuthHandler() *AuthHandler {
 // DTOs para Request e Response
 type RegisterRequest struct {
 	ClinicName string `json:"clinic_name"`
-	ClinicCNPJ string `json:"clinic_cnpj"`
-	Name       string `json:"name"`
+	CNPJ       string `json:"cnpj"`
+	OwnerName  string `json:"owner_name"`
 	Email      string `json:"email"`
 	Password   string `json:"password"`
 }
@@ -37,50 +38,66 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+type LoginUserResponse struct {
+	ID       string `json:"id"`
+	ClinicID string `json:"clinic_id"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Role     string `json:"role"`
+}
+
 func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	var req RegisterRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Dados inválidos"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Dados inválidos"})
 	}
 
 	if match, _ := regexp.MatchString(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`, req.Email); !match {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "E-mail inválido"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "E-mail inválido"})
 	}
 
-	user, err := h.authService.RegisterClinicOwner(req.ClinicName, req.ClinicCNPJ, req.Email, req.Name, req.Password)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
+	if len(req.Password) < 8 || !regexp.MustCompile(`[a-zA-Z]`).MatchString(req.Password) || !regexp.MustCompile(`[0-9]`).MatchString(req.Password) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "A senha deve ter no mínimo 8 caracteres, contendo letras e números"})
 	}
 
-	// Faz login automático após registro
-	token, _, err := h.authService.Login(req.Email, req.Password)
+	user, err := h.authService.RegisterClinicOwner(req.ClinicName, req.CNPJ, req.Email, req.OwnerName, req.Password)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Erro ao gerar token"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "Cadastro realizado com sucesso",
-		"token":   token,
-		"user":    user,
+		"message": "Clínica registrada com sucesso",
 	})
 }
 
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error_code": "INVALID_REQUEST", "message": "Dados inválidos"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Dados inválidos"})
 	}
 
-	token, user, err := h.authService.Login(req.Email, req.Password)
+	token, user, lockTime, err := h.authService.Login(req.Email, req.Password)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error_code": "INVALID_CREDENTIALS", "message": err.Error()})
+		if lockTime != nil {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error":        err.Error(),
+				"locked_until": lockTime,
+			})
+		}
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	h.auditService.LogAction(user.ClinicID, user.ID, "login", "auth", user.ID, c.IP(), c.Get("User-Agent"), "Usuário logou no sistema")
 
 	return c.JSON(fiber.Map{
 		"token": token,
-		"user":  user,
+		"user": LoginUserResponse{
+			ID:       strconv.FormatUint(uint64(user.ID), 10),
+			ClinicID: strconv.FormatUint(uint64(user.ClinicID), 10),
+			Name:     user.Name,
+			Email:    user.Email,
+			Role:     user.Role.Name,
+		},
 	})
 }
 

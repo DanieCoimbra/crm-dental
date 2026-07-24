@@ -17,11 +17,15 @@ class RequireRole extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final userRoleUpper = authState.role.toUpperCase();
+    final allowedUpper = allowedRoles.map((r) => r.toUpperCase()).toList();
     
-    if (allowedRoles.contains(authState.role)) {
+    if (allowedUpper.contains(userRoleUpper)) {
       return child;
     }
     
     return fallback;
   }
 }
+
+typedef RoleGuard = RequireRole;

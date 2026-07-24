@@ -32,10 +32,21 @@ class AuthNotifier extends Notifier<AuthState> {
     state = AuthState(isLoading: false, isAuthenticated: token != null, role: role);
   }
 
-  Future<void> login(String token, String role) async {
-    await _storage.write(key: 'jwt_token', value: token);
-    await _storage.write(key: 'user_role', value: role); 
-    state = AuthState(isLoading: false, isAuthenticated: true, role: role);
+  Future<void> login(String email, String password) async {
+    final dio = ref.read(dioProvider);
+    final response = await dio.post('/auth/login', data: {
+      'email': email,
+      'password': password,
+    });
+    
+    final token = response.data['token'];
+    final user = response.data['user'];
+    if (token != null) {
+      final role = user['role']?.toString().toUpperCase() ?? 'ADMIN';
+      await _storage.write(key: 'jwt_token', value: token);
+      await _storage.write(key: 'user_role', value: role); 
+      state = AuthState(isLoading: false, isAuthenticated: true, role: role);
+    }
   }
 
   Future<void> switchRole(String newRole) async {

@@ -3,13 +3,16 @@ package services
 import (
 	"errors"
 	"os"
+	"strings"
 	"time"
 
 	"dental-crm-api/internal/adapters/repositories"
 	"dental-crm-api/internal/core/domain"
+	"dental-crm-api/internal/database"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type AuthService struct {
@@ -32,13 +35,15 @@ func (s *AuthService) GetUserRepository() *repositories.UserRepository {
 
 // RegisterClinicOwner registra a clínica e o dono ao mesmo tempo
 func (s *AuthService) RegisterClinicOwner(clinicName, cnpj, userEmail, userName, password string) (*domain.User, error) {
+	cleanEmail := strings.ToLower(strings.TrimSpace(userEmail))
+
 	// Verificar se CNPJ já existe
 	if _, err := s.clinicRepo.FindByCNPJ(cnpj); err == nil {
 		return nil, errors.New("CNPJ já cadastrado")
 	}
 
 	// Verificar se Email já existe
-	if _, err := s.userRepo.FindByEmail(userEmail); err == nil {
+	if _, err := s.userRepo.FindByEmail(cleanEmail); err == nil {
 		return nil, errors.New("E-mail já cadastrado")
 	}
 
@@ -51,46 +56,77 @@ func (s *AuthService) RegisterClinicOwner(clinicName, cnpj, userEmail, userName,
 	// Criar a clínica
 	trialEndsAt := time.Now().Add(14 * 24 * time.Hour)
 	clinic := &domain.Clinic{
-		Name:        clinicName,
-		CNPJ:        cnpj,
-		Email:       userEmail,
+		Name:        strings.TrimSpace(clinicName),
+		CNPJ:        strings.TrimSpace(cnpj),
+		Email:       cleanEmail,
 		Status:      "trial",
 		TrialEndsAt: &trialEndsAt,
 	}
-	if err := s.clinicRepo.Create(clinic); err != nil {
-		return nil, err
-	}
 
-	// Obter role "owner"
-	ownerRole, _ := s.roleRepo.FindByName("owner")
+	var user *domain.User
 
-	// Criar o Usuário
-	user := &domain.User{
-		Name:     userName,
-		Email:    userEmail,
-		Password: string(hashedPassword),
-		ClinicID: clinic.ID,
-		RoleID:   &ownerRole.ID,
-	}
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(clinic).Error; err != nil {
+			return err
+		}
 
-	if err := s.userRepo.Create(user); err != nil {
+		// Obter role "owner"
+		ownerRole, _ := s.roleRepo.FindByName("owner")
+
+		// Criar o Usuário
+		user = &domain.User{
+			Name:     strings.TrimSpace(userName),
+			Email:    cleanEmail,
+			Password: string(hashedPassword),
+			ClinicID: clinic.ID,
+			RoleID:   &ownerRole.ID,
+		}
+
+		if err := tx.Create(user).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
 		return nil, err
 	}
 
 	return user, nil
 }
 
-// Login valida o usuário e gera o token JWT
-func (s *AuthService) Login(email, password string) (string, *domain.User, error) {
-	user, err := s.userRepo.FindByEmail(email)
+func (s *AuthService) Login(email, password string) (string, *domain.User, *time.Time, error) {
+	cleanEmail := strings.ToLower(strings.TrimSpace(email))
+	user, err := s.userRepo.FindByEmail(cleanEmail)
 	if err != nil {
-		return "", nil, errors.New("credenciais inválidas")
+		return "", nil, nil, errors.New("credenciais inválidas")
+	}
+
+	// Verificar se a conta está bloqueada
+	if user.LockedUntil != nil && user.LockedUntil.After(time.Now()) {
+		return "", nil, user.LockedUntil, errors.New("Muitas tentativas falhas. Conta bloqueada temporariamente.")
 	}
 
 	// Verificar password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		return "", nil, errors.New("credenciais inválidas")
+		user.FailedAttempts++
+		if user.FailedAttempts >= 5 {
+			lockTime := time.Now().Add(15 * time.Minute)
+			user.LockedUntil = &lockTime
+		}
+		s.userRepo.Update(user)
+		if user.LockedUntil != nil {
+			return "", nil, user.LockedUntil, errors.New("Muitas tentativas falhas. Conta bloqueada temporariamente.")
+		}
+		return "", nil, nil, errors.New("credenciais inválidas")
+	}
+
+	// Se o login for bem-sucedido, reseta as tentativas
+	if user.FailedAttempts > 0 || user.LockedUntil != nil {
+		user.FailedAttempts = 0
+		user.LockedUntil = nil
+		s.userRepo.Update(user)
 	}
 
 	// Gerar JWT
@@ -107,7 +143,7 @@ func (s *AuthService) Login(email, password string) (string, *domain.User, error
 		return "", nil, err
 	}
 
-	return tokenString, user, nil
+	return tokenString, user, nil, nil
 }
 
 func (s *AuthService) UpdateProfile(userID uint, name, email, password string) (*domain.User, error) {

@@ -39,23 +39,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     setState(() => _isLoading = true);
     try {
       final dio = ref.read(dioProvider);
-      final response = await dio.post('/auth/register', data: {
+      final response = await dio.post('/auth/register-clinic', data: {
         'clinic_name': _clinicNameCtrl.text,
-        'clinic_cnpj': _cnpjCtrl.text,
-        'name': _nameCtrl.text,
+        'cnpj': _cnpjCtrl.text,
+        'owner_name': _nameCtrl.text,
         'email': _emailCtrl.text,
         'password': _passwordCtrl.text,
       });
 
-      final token = response.data['token'];
-      final user = response.data['user'];
-      if (token != null) {
-        final role = user?['role']?['name'] ?? 'admin';
-        await ref.read(authProvider.notifier).login(token, role); // Update state to trigger redirect
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Clínica registrada com sucesso! Faça login.'), backgroundColor: Colors.green));
+        context.go('/login');
       }
     } on DioException catch (e) {
       if (mounted) {
-        final msg = e.response?.data['message'] ?? 'Erro no cadastro';
+        final msg = e.response?.data['error'] ?? 'Erro no cadastro';
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
       }
     } catch (e) {
@@ -110,6 +108,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   const SizedBox(height: 32),
                   TextFormField(
                     controller: _clinicNameCtrl,
+                    textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       labelText: 'Nome da Clínica',
                       prefixIcon: Icon(LucideIcons.building),
@@ -120,6 +119,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _cnpjCtrl,
+                    textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       labelText: 'CNPJ',
                       prefixIcon: Icon(LucideIcons.fileText),
@@ -130,6 +130,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   const Divider(height: 32),
                   TextFormField(
                     controller: _nameCtrl,
+                    textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       labelText: 'Seu Nome',
                       prefixIcon: Icon(LucideIcons.user),
@@ -140,6 +141,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _emailCtrl,
+                    textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       labelText: 'E-mail',
                       prefixIcon: Icon(LucideIcons.mail),
@@ -164,7 +166,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       border: const OutlineInputBorder(),
                     ),
-                    validator: (v) => v!.length < 6 ? 'Mínimo 6 caracteres' : null,
+                    onFieldSubmitted: (_) => _submit(),
+                    validator: (v) => v!.length < 8 || !RegExp(r'^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z\d\W_]{8,}$').hasMatch(v) ? 'Mínimo 8 caracteres (letras e números)' : null,
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(

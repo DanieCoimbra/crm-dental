@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 import 'package:frontend_flutter/core/network/api_client.dart';
 import 'package:frontend_flutter/features/auth/providers/auth_provider.dart';
 
@@ -24,22 +25,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      final dio = ref.read(dioProvider);
-      final response = await dio.post('/auth/login', data: {
-        'email': _emailController.text,
-        'password': _passwordController.text,
+      await ref.read(authProvider.notifier).login(
+        _emailController.text,
+        _passwordController.text,
+      );
+      // O GoRouter redirecionará automaticamente
+    } on DioException catch (e) {
+      setState(() {
+        if (e.response?.statusCode == 429) {
+          _errorMessage = e.response?.data['error'] ?? 'Conta bloqueada temporariamente.';
+        } else {
+          _errorMessage = e.response?.data['error'] ?? 'Falha no login. Verifique suas credenciais.';
+        }
       });
-
-      final token = response.data['token'];
-      final user = response.data['user'];
-      if (token != null) {
-        final role = user?['role']?['name'] ?? 'admin';
-        await ref.read(authProvider.notifier).login(token, role);
-        // O GoRouter redirecionará automaticamente
-      }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Falha no login. Verifique suas credenciais.';
+        _errorMessage = 'Erro desconhecido. Tente novamente.';
       });
     } finally {
       if (mounted) {
@@ -122,6 +123,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         labelText: 'E-mail',
                         prefixIcon: Icon(Icons.email_outlined),
@@ -131,6 +133,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     TextField(
                       controller: _passwordController,
                       obscureText: true,
+                      onFieldSubmitted: (_) => _login(),
                       decoration: const InputDecoration(
                         labelText: 'Senha',
                         prefixIcon: Icon(Icons.lock_outline),

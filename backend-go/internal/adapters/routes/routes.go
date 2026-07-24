@@ -52,7 +52,7 @@ func SetupRoutes(app *fiber.App) {
 
 	// Rotas Públicas
 	authGroup := v1.Group("/auth")
-	authGroup.Post("/register", authHandler.Register)
+	authGroup.Post("/register-clinic", authHandler.Register)
 
 	loginLimiter := limiter.New(limiter.Config{
 		Max:        5,
@@ -188,6 +188,10 @@ func SetupRoutes(app *fiber.App) {
 
 	// Team / Users CRUD
 	teamHandler := handlers.NewTeamHandler()
+	employeeHandler := handlers.NewEmployeeHandler()
+	private.Post("/employees", middleware.RequireRole("OWNER"), employeeHandler.Create)
+	private.Get("/employees", middleware.RequireRole("OWNER", "ADMIN"), employeeHandler.List)
+
 	private.Get("/team", authHandler.ListUsers)
 	private.Get("/team/:id", teamHandler.GetByID)
 	private.Post("/team", adminOrManager, teamHandler.Create)

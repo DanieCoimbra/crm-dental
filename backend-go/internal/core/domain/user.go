@@ -31,6 +31,9 @@ type User struct {
 
 	ThemePreference string `gorm:"default:'system'" json:"theme_preference"`
 
+	FailedAttempts int        `gorm:"default:0" json:"failed_attempts"`
+	LockedUntil    *time.Time `json:"locked_until,omitempty"`
+
 	DeletedBy *uint `json:"deleted_by"`
 
 	CreatedAt time.Time      `json:"created_at"`
