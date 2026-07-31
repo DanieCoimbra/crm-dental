@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend_flutter/features/auth/presentation/login_screen.dart';
 import 'package:frontend_flutter/features/auth/presentation/register_screen.dart';
 import 'package:frontend_flutter/features/dashboard/presentation/dashboard_screen.dart';
-import 'package:frontend_flutter/features/settings/presentation/trash_screen.dart';
+import 'package:frontend_flutter/features/trash/presentation/trash_screen.dart';
 import 'package:frontend_flutter/features/patients/presentation/patients_screen.dart';
 import 'package:frontend_flutter/features/patients/presentation/patient_emr_screen.dart';
 import 'package:frontend_flutter/features/schedule/presentation/schedule_screen.dart';

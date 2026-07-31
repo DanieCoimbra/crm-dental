@@ -3,10 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend_flutter/features/auth/providers/auth_provider.dart';
 import 'package:frontend_flutter/features/auth/widgets/room_selector.dart';
-import 'package:frontend_flutter/features/auth/presentation/widgets/profile_dialog.dart';
-import 'package:frontend_flutter/shared/widgets/theme_toggle_button.dart';
 import 'package:go_router/go_router.dart';
-import 'package:frontend_flutter/features/inventory/presentation/widgets/inventory_alert_badge.dart';
 import 'package:frontend_flutter/core/network/api_client.dart';
 
 class Topbar extends ConsumerWidget implements PreferredSizeWidget {
@@ -102,9 +99,6 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
                             const RoomSelector(),
                             const SizedBox(width: 16),
                           ],
-                          const ThemeToggleButton(),
-                          const SizedBox(width: 8),
-                          const InventoryAlertBadge(),
                           const SizedBox(width: 16),
                           avatarUrl != null && avatarUrl.isNotEmpty
                               ? Container(
@@ -203,9 +197,7 @@ class Topbar extends ConsumerWidget implements PreferredSizeWidget {
                       ),
                     ],
                     onSelected: (value) {
-                      if (value == 'profile') {
-                        showDialog(context: context, builder: (_) => const ProfileDialog());
-                      } else if (value == 'logout') {
+                      if (value == 'logout') {
                         ref.read(authProvider.notifier).logout();
                       }
                     },

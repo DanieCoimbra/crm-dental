@@ -26,7 +26,11 @@ func RequireAuth(c *fiber.Ctx) error {
 	}
 
 	if tokenString == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Token não fornecido ou inválido"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "UNAUTHORIZED",
+			"message": "Token de autenticação ausente ou expirado",
+			"details": nil,
+		})
 	}
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -37,12 +41,20 @@ func RequireAuth(c *fiber.Ctx) error {
 	})
 
 	if err != nil || !token.Valid {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Token inválido ou expirado"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "UNAUTHORIZED",
+			"message": "Token de autenticação ausente ou expirado",
+			"details": nil,
+		})
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Falha ao extrair claims do token"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "UNAUTHORIZED",
+			"message": "Token de autenticação ausente ou expirado",
+			"details": nil,
+		})
 	}
 
 	// Injetar dados cruciais para o Multi-Tenancy
@@ -58,7 +70,11 @@ func RequireRole(allowedRoles ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userRole, ok := c.Locals("role").(string)
 		if !ok || userRole == "" {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Acesso negado: permissão insuficiente"})
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":   "FORBIDDEN",
+				"message": "Acesso negado: o perfil não possui permissão para esta rota",
+				"details": nil,
+			})
 		}
 
 		roleUpper := strings.ToUpper(userRole)
@@ -68,6 +84,10 @@ func RequireRole(allowedRoles ...string) fiber.Handler {
 			}
 		}
 
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Acesso negado: permissão insuficiente"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error":   "FORBIDDEN",
+			"message": fmt.Sprintf("Acesso negado: o perfil '%s' não possui permissão para esta rota", userRole),
+			"details": nil,
+		})
 	}
 }

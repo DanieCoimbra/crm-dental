@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend_flutter/features/inventory/providers/inventory_provider.dart';
-import 'package:frontend_flutter/features/inventory/presentation/widgets/inventory_form_dialog.dart';
-import 'package:frontend_flutter/features/inventory/presentation/widgets/inventory_transaction_dialog.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class InventoryScreen extends ConsumerWidget {
@@ -18,16 +16,7 @@ class InventoryScreen extends ConsumerWidget {
         title: const Text('Estoque'),
         scrolledUnderElevation: 0,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (ctx) => const InventoryFormDialog(),
-          );
-        },
-        icon: const Icon(LucideIcons.plus),
-        label: const Text('Novo Item'),
-      ),
+      // Floating action button removed until InventoryFormDialog is implemented
       body: inventoryAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Erro: $e')),
@@ -82,37 +71,6 @@ class InventoryScreen extends ConsumerWidget {
                           if (item.isLowStock)
                             const Text('Estoque Baixo', style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
                         ],
-                      ),
-                      const SizedBox(width: 16),
-                      IconButton(
-                        icon: const Icon(LucideIcons.minusCircle, color: Colors.orange),
-                        tooltip: 'Consumir',
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (ctx) => InventoryTransactionDialog(item: item, type: 'out'),
-                          );
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(LucideIcons.plusCircle, color: Colors.green),
-                        tooltip: 'Adicionar',
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (ctx) => InventoryTransactionDialog(item: item, type: 'in'),
-                          );
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(LucideIcons.edit),
-                        tooltip: 'Editar',
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (ctx) => InventoryFormDialog(item: item),
-                          );
-                        },
                       ),
                     ],
                   ),

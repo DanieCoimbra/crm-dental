@@ -2,8 +2,9 @@ package handlers
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
-	"strconv"
+	"strings"
 	"time"
 
 	"dental-crm-api/internal/core/services"
@@ -26,12 +27,12 @@ func NewAuthHandler() *AuthHandler {
 
 // DTOs para Request e Response
 type RegisterRequest struct {
-	ClinicName string `json:"clinic_name"`
-	CNPJ       string `json:"cnpj"`
-	OwnerName  string `json:"owner_name"`
-	Email      string `json:"email"`
-	Password   string `json:"password"`
-	SessionID  string `json:"session_id,omitempty"`
+	ClinicName  string `json:"clinic_name"`
+	ClinicEmail string `json:"clinic_email"`
+	AdminName   string `json:"admin_name"`
+	AdminEmail  string `json:"admin_email"`
+	Password    string `json:"password"`
+	SessionID   string `json:"session_id,omitempty"`
 }
 
 type LoginRequest struct {
@@ -53,7 +54,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Dados inválidos"})
 	}
 
-	if match, _ := regexp.MatchString(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`, req.Email); !match {
+	if match, _ := regexp.MatchString(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`, req.AdminEmail); !match {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "E-mail inválido"})
 	}
 
@@ -61,13 +62,32 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "A senha deve ter no mínimo 8 caracteres, contendo letras e números"})
 	}
 
-	_, err := h.authService.RegisterClinicOwner(req.ClinicName, req.CNPJ, req.Email, req.OwnerName, req.Password, req.SessionID)
+	user, clinic, err := h.authService.RegisterClinicOwner(req.ClinicName, req.ClinicEmail, req.AdminName, req.AdminEmail, req.Password, req.SessionID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
+	// Como a rota de register também faz "login" segundo o payload, precisamos gerar o token aqui
+	// O token, user, clinic devem ser retornados
+	token, _, _, err := h.authService.Login(req.AdminEmail, req.Password)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Erro ao gerar token"})
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "Clínica registrada com sucesso",
+		"token": token,
+		"user": fiber.Map{
+			"id":    user.ID,
+			"name":  user.Name,
+			"email": user.Email,
+			"role":  "owner", // Assuming admin/owner is the name in DB, hardcoded owner for simplicity or user.Role.Name if preloaded
+		},
+		"clinic": fiber.Map{
+			"id":            clinic.ID,
+			"name":          clinic.Name,
+			"trial_ends_at": clinic.TrialEndsAt,
+			"status":        clinic.Status,
+		},
 	})
 }
 
@@ -90,14 +110,27 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 
 	h.auditService.LogAction(user.ClinicID, user.ID, "login", "auth", user.ID, c.IP(), c.Get("User-Agent"), "Usuário logou no sistema")
 
+	clinicRepo := h.authService.GetClinicRepository()
+	clinic, _ := clinicRepo.FindByID(user.ClinicID)
+
+	roleName := "user"
+	if user.Role != nil {
+		roleName = user.Role.Name
+	}
+
 	return c.JSON(fiber.Map{
 		"token": token,
-		"user": LoginUserResponse{
-			ID:       strconv.FormatUint(uint64(user.ID), 10),
-			ClinicID: strconv.FormatUint(uint64(user.ClinicID), 10),
-			Name:     user.Name,
-			Email:    user.Email,
-			Role:     user.Role.Name,
+		"user": fiber.Map{
+			"id":    user.ID,
+			"name":  user.Name,
+			"email": user.Email,
+			"role":  roleName,
+		},
+		"clinic": fiber.Map{
+			"id":            clinic.ID,
+			"name":          clinic.Name,
+			"trial_ends_at": clinic.TrialEndsAt,
+			"status":        clinic.Status,
 		},
 	})
 }
@@ -114,7 +147,33 @@ func (h *AuthHandler) Profile(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Usuário não encontrado"})
 	}
 
-	return c.JSON(user)
+	clinicRepo := h.authService.GetClinicRepository()
+	clinic, _ := clinicRepo.FindByID(user.ClinicID)
+
+	roleName := "user"
+	if user.Role != nil {
+		roleName = user.Role.Name
+	}
+
+	return c.JSON(fiber.Map{
+		"user": fiber.Map{
+			"id":         user.ID,
+			"name":       user.Name,
+			"email":      user.Email,
+			"role":       roleName,
+			"avatar_url": user.Avatar,
+			"is_active":  true,
+		},
+		"clinic": fiber.Map{
+			"id":            clinic.ID,
+			"name":          clinic.Name,
+			"cnpj_cpf":      clinic.CNPJ,
+			"phone":         clinic.Phone,
+			"email":         clinic.Email,
+			"trial_ends_at": clinic.TrialEndsAt,
+			"status":        clinic.Status,
+		},
+	})
 }
 
 // ListUsers retorna a lista de usuários da clínica autenticada, opcionalmente filtrando por role
@@ -172,13 +231,22 @@ func (h *AuthHandler) UpdateAvatar(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Arquivo não encontrado"})
 	}
 
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	validExts := map[string]bool{
+		".jpg": true, ".jpeg": true, ".png": true, ".webp": true,
+	}
+	if !validExts[ext] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Extensão de arquivo não permitida. Apenas .jpg, .jpeg, .png, .webp são aceitos."})
+	}
+
 	fileContent, err := file.Open()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Erro ao ler arquivo do avatar"})
 	}
 	defer fileContent.Close()
 
-	filename := fmt.Sprintf("avatar_%.0f_%d_%s", c.Locals("user_id").(float64), time.Now().Unix(), file.Filename)
+	safeFilename := filepath.Base(file.Filename)
+	filename := fmt.Sprintf("avatar_%.0f_%d_%s", c.Locals("user_id").(float64), time.Now().Unix(), safeFilename)
 
 	avatarUrl, err := storage.UploadToSupabase("avatars", filename, fileContent, file.Size, file.Header.Get("Content-Type"))
 	if err != nil {

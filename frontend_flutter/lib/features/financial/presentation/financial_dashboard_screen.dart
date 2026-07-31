@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend_flutter/features/financial/providers/financial_provider.dart';
 import 'package:frontend_flutter/features/financial/data/financial_repository.dart';
-import 'package:frontend_flutter/features/financial/presentation/widgets/transaction_form_dialog.dart';
 import 'package:frontend_flutter/features/financial/utils/receipt_generator.dart';
 import 'package:frontend_flutter/features/dashboard/providers/dashboard_provider.dart';
 import 'package:intl/intl.dart';
@@ -19,16 +18,6 @@ class FinancialDashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Financeiro'),
         scrolledUnderElevation: 0,
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (ctx) => const TransactionFormDialog(),
-          );
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Novo Lançamento'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),

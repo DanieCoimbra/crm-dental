@@ -33,14 +33,11 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> login(String email, String password) async {
-    final dio = ref.read(dioProvider);
-    final response = await dio.post('/auth/login', data: {
-      'email': email,
-      'password': password,
-    });
+    final repository = ref.read(authRepositoryProvider);
+    final data = await repository.login(email: email, password: password);
     
-    final token = response.data['token'];
-    final user = response.data['user'];
+    final token = data['token'];
+    final user = data['user'];
     if (token != null) {
       final role = user['role']?.toString().toUpperCase() ?? 'ADMIN';
       await _storage.write(key: 'jwt_token', value: token);
@@ -49,9 +46,30 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  Future<void> registerClinic(Map<String, dynamic> payload) async {
-    final dio = ref.read(dioProvider);
-    await dio.post('/auth/register-clinic', data: payload);
+  Future<void> registerClinic({
+    required String clinicName,
+    required String clinicEmail,
+    required String adminName,
+    required String adminEmail,
+    required String password,
+  }) async {
+    final repository = ref.read(authRepositoryProvider);
+    final data = await repository.registerClinic(
+      clinicName: clinicName,
+      clinicEmail: clinicEmail,
+      adminName: adminName,
+      adminEmail: adminEmail,
+      password: password,
+    );
+    
+    final token = data['token'];
+    final user = data['user'];
+    if (token != null) {
+      final role = user['role']?.toString().toUpperCase() ?? 'ADMIN';
+      await _storage.write(key: 'jwt_token', value: token);
+      await _storage.write(key: 'user_role', value: role); 
+      state = AuthState(isLoading: false, isAuthenticated: true, role: role);
+    }
   }
 
   Future<void> switchRole(String newRole) async {
@@ -70,9 +88,10 @@ final authProvider = NotifierProvider<AuthNotifier, AuthState>(() {
   return AuthNotifier();
 });
 
-final currentUserProvider = FutureProvider<User>((ref) {
+final currentUserProvider = FutureProvider<User>((ref) async {
   final repository = ref.watch(authRepositoryProvider);
-  return repository.getProfile();
+  final profileData = await repository.getProfile();
+  return User.fromJson(profileData['user']);
 });
 
 final currentClinicProvider = FutureProvider<Clinic>((ref) async {

@@ -33,31 +33,31 @@ func (s *AuthService) GetUserRepository() *repositories.UserRepository {
 	return s.userRepo
 }
 
+func (s *AuthService) GetClinicRepository() *repositories.ClinicRepository {
+	return s.clinicRepo
+}
+
 // RegisterClinicOwner registra a clínica e o dono ao mesmo tempo
-func (s *AuthService) RegisterClinicOwner(clinicName, cnpj, userEmail, userName, password, sessionID string) (*domain.User, error) {
-	cleanEmail := strings.ToLower(strings.TrimSpace(userEmail))
+func (s *AuthService) RegisterClinicOwner(clinicName, clinicEmail, userName, userEmail, password, sessionID string) (*domain.User, *domain.Clinic, error) {
+	cleanUserEmail := strings.ToLower(strings.TrimSpace(userEmail))
+	cleanClinicEmail := strings.ToLower(strings.TrimSpace(clinicEmail))
 
 	if sessionID != "" {
 		var count int64
 		if err := database.DB.Model(&domain.UsedCheckoutSession{}).Where("session_id = ?", sessionID).Count(&count).Error; err == nil && count > 0 {
-			return nil, errors.New("Sessão de pagamento já utilizada")
+			return nil, nil, errors.New("Sessão de pagamento já utilizada")
 		}
 	}
 
-	// Verificar se CNPJ já existe
-	if _, err := s.clinicRepo.FindByCNPJ(cnpj); err == nil {
-		return nil, errors.New("CNPJ já cadastrado")
-	}
-
-	// Verificar se Email já existe
-	if _, err := s.userRepo.FindByEmail(cleanEmail); err == nil {
-		return nil, errors.New("E-mail já cadastrado")
+	// Verificar se Email já existe para usuário
+	if _, err := s.userRepo.FindByEmail(cleanUserEmail); err == nil {
+		return nil, nil, errors.New("E-mail do usuário já cadastrado")
 	}
 
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Criar a clínica
@@ -68,8 +68,7 @@ func (s *AuthService) RegisterClinicOwner(clinicName, cnpj, userEmail, userName,
 	}
 	clinic := &domain.Clinic{
 		Name:        strings.TrimSpace(clinicName),
-		CNPJ:        strings.TrimSpace(cnpj),
-		Email:       cleanEmail,
+		Email:       cleanClinicEmail,
 		Status:      status,
 		TrialEndsAt: &trialEndsAt,
 	}
@@ -90,7 +89,7 @@ func (s *AuthService) RegisterClinicOwner(clinicName, cnpj, userEmail, userName,
 		// Criar o Usuário
 		user = &domain.User{
 			Name:     strings.TrimSpace(userName),
-			Email:    cleanEmail,
+			Email:    cleanUserEmail,
 			Password: string(hashedPassword),
 			ClinicID: clinic.ID,
 			RoleID:   &ownerRole.ID,
@@ -113,10 +112,10 @@ func (s *AuthService) RegisterClinicOwner(clinicName, cnpj, userEmail, userName,
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return user, nil
+	return user, clinic, nil
 }
 
 func (s *AuthService) Login(email, password string) (string, *domain.User, *time.Time, error) {

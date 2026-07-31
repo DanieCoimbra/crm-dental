@@ -9,7 +9,11 @@ func RoleRequired(allowedRoles ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userRole, ok := c.Locals("role").(string)
 		if !ok || userRole == "" {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"message": "Acesso negado. Cargo não identificado."})
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":   "FORBIDDEN",
+				"message": "Acesso negado: o perfil não possui permissão para esta rota",
+				"details": nil,
+			})
 		}
 
 		for _, role := range allowedRoles {
@@ -18,6 +22,10 @@ func RoleRequired(allowedRoles ...string) fiber.Handler {
 			}
 		}
 
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"message": "Você não tem permissão para realizar esta ação."})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error":   "FORBIDDEN",
+			"message": "Acesso negado: permissão insuficiente para esta rota",
+			"details": nil,
+		})
 	}
 }

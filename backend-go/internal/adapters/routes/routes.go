@@ -82,6 +82,7 @@ func SetupRoutes(app *fiber.App) {
 	private := v1.Group("/", middleware.AuthRequired, middleware.RequireActiveSubscription())
 
 	// User Profile
+	private.Get("/profile", authHandler.Profile)
 	private.Get("/user", authHandler.Profile)
 	private.Put("/profile", authHandler.UpdateProfile)
 	private.Post("/profile/avatar", authHandler.UpdateAvatar)
@@ -130,16 +131,16 @@ func SetupRoutes(app *fiber.App) {
 	// Rooms
 	private.Get("/rooms", roomHandler.List)
 	private.Get("/rooms/:id", roomHandler.GetByID)
-	private.Post("/rooms", roomHandler.Create)
-	private.Put("/rooms/:id", roomHandler.Update)
-	private.Delete("/rooms/:id", roomHandler.Delete)
+	private.Post("/rooms", adminOrManager, roomHandler.Create)
+	private.Put("/rooms/:id", adminOrManager, roomHandler.Update)
+	private.Delete("/rooms/:id", adminOnly, roomHandler.Delete)
 
 	// Appointment Types
 	private.Get("/appointment-types", appointmentTypeHandler.List)
 	private.Get("/appointment-types/:id", appointmentTypeHandler.GetByID)
-	private.Post("/appointment-types", appointmentTypeHandler.Create)
-	private.Put("/appointment-types/:id", appointmentTypeHandler.Update)
-	private.Delete("/appointment-types/:id", appointmentTypeHandler.Delete)
+	private.Post("/appointment-types", adminOrManager, appointmentTypeHandler.Create)
+	private.Put("/appointment-types/:id", adminOrManager, appointmentTypeHandler.Update)
+	private.Delete("/appointment-types/:id", adminOnly, appointmentTypeHandler.Delete)
 
 	// Settings
 	private.Get("/settings", settingHandler.List)

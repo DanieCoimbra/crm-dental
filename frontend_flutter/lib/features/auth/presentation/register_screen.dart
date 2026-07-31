@@ -16,7 +16,7 @@ class RegisterScreen extends ConsumerStatefulWidget {
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _clinicNameCtrl = TextEditingController();
-  final _cnpjCtrl = TextEditingController();
+  final _clinicEmailCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
@@ -55,7 +55,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   void dispose() {
     _clinicNameCtrl.dispose();
-    _cnpjCtrl.dispose();
+    _clinicEmailCtrl.dispose();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
@@ -67,18 +67,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     
     setState(() => _isLoading = true);
     try {
-      final payload = {
-        'clinic_name': _clinicNameCtrl.text,
-        'cnpj': _cnpjCtrl.text,
-        'owner_name': _nameCtrl.text,
-        'email': _emailCtrl.text,
-        'password': _passwordCtrl.text,
-      };
-      if (sessionId != null && sessionId.isNotEmpty) {
-        payload['session_id'] = sessionId;
-      }
-
-      await ref.read(authProvider.notifier).registerClinic(payload);
+      await ref.read(authProvider.notifier).registerClinic(
+        clinicName: _clinicNameCtrl.text,
+        clinicEmail: _clinicEmailCtrl.text,
+        adminName: _nameCtrl.text,
+        adminEmail: _emailCtrl.text,
+        password: _passwordCtrl.text,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Clínica registrada com sucesso! Faça login.'), backgroundColor: Colors.green));
@@ -214,14 +209,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-                    controller: _cnpjCtrl,
+                    controller: _clinicEmailCtrl,
                     textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
-                      labelText: 'CNPJ',
-                      prefixIcon: Icon(LucideIcons.fileText),
+                      labelText: 'E-mail da Clínica',
+                      prefixIcon: Icon(LucideIcons.mail),
                       border: OutlineInputBorder(),
                     ),
-                    validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
+                    validator: (v) {
+                      if (v!.isEmpty) return 'Obrigatório';
+                      if (!v.contains('@')) return 'E-mail inválido';
+                      return null;
+                    },
                   ),
                   const Divider(height: 32),
                   TextFormField(
