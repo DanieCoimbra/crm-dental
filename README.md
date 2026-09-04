@@ -103,8 +103,8 @@ graph TD
 
 ### 1. Clonar o Repositório
 ```bash
-git clone https://github.com/seu-usuario/crm-clinica.git
-cd crm-clinica
+git clone https://github.com/DanieCoimbra/CRM-Dental.git
+cd CRM-Dental
 ```
 
 ### 2. Configurar e Rodar o Backend (Go)
