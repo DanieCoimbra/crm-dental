@@ -12,7 +12,7 @@
 - **Linguagem:** Go 1.26
 - **Framework Web:** Fiber (v2)
 - **Banco de Dados & Storage:** Supabase (PostgreSQL + Supabase Storage)
-- **Hospedagem/Deploy:** Render (`https://crm-clinica-gjss.onrender.com` - Backend API - Discos efêmeros)
+- **Hospedagem/Deploy:** Render (`https://crm-dental-lap6.onrender.com` - Backend API - Discos efêmeros)
 - **Autenticação:** JWT (golang-jwt)
 - **Configurações:** godotenv
 

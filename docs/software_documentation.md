@@ -8,7 +8,7 @@ Este documento centraliza a inteligência arquitetural, padrões de código e ma
 
 O software foi projetado como um **SaaS Multi-tenant**, preparado para abrigar múltiplas clínicas (`clinics`) rodando de forma isolada no mesmo banco de dados. 
 
-- **Backend:** Go 1.26 operando estritamente como API RESTful (Hospedado no Render: `https://crm-clinica-gjss.onrender.com`).
+- **Backend:** Go 1.26 operando estritamente como API RESTful (Hospedado no Render: `https://crm-dental-lap6.onrender.com`).
 - **Framework Web:** Fiber (v2) de alta performance.
 - **Frontend:** Flutter com Dart (Web e Mobile), utilizando Clean Architecture para a organização das features (Hospedado na Vercel via script de build automatizado `build.sh`).
 - **Gerenciamento de Estado (Front):** Riverpod para reatividade e injeção de dependências global.
@@ -106,7 +106,7 @@ Para adicionar uma nova funcionalidade, siga este checklist:
 
 ## 6. Infraestrutura de Deploy & CI/CD
 
-- **Backend API (Go):** Hospedado no Render (`https://crm-clinica-gjss.onrender.com`).
+- **Backend API (Go):** Hospedado no Render (`https://crm-dental-lap6.onrender.com`).
   - **Punto de Entrada:** `cmd/server/main.go` compila o binário `server`. Todos os utilitários CLI ficam organizados em `cmd/` para evitar conflitos de build no Render.
   - **Conexão de Banco (Supabase IPv4 / Pooler):** O Render não suporta tráfego de saída IPv6. A conexão com o Supabase utiliza a URL do **Connection Pooler (Supavisor)** em modo de sessão (porta `5432`) com o nome de usuário formatado com `.[PROJECT_REF]` (ex: `postgres.hecpazxguibzkcsibpjq`).
   - **Sanitização Automatizada (`cleanDSN`):** O módulo `database.go` limpa automaticamente caracteres de controle, quebras de linha (`\n`, `\r`) e aspas provenientes de cópia de variáveis de ambiente no Render.
