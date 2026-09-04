@@ -1,0 +1,19 @@
+# Configuration for Supabase CLI
+project_id = "dental-crm-api"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true

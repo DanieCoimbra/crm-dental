@@ -1,9 +1,10 @@
 services:
   - type: web
     name: dental-crm-api
-    env: docker
-    dockerContext: backend-go
-    dockerfilePath: backend-go/Dockerfile
+    env: go
+    rootDir: backend-go
+    buildCommand: go build -o server cmd/server/main.go
+    startCommand: ./server
     plan: free
     region: oregon
     healthCheckPath: /health

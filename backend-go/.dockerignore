@@ -1,7 +1,0 @@
-.git
-.gitignore
-.env
-*.exe
-uploads/
-tmp_server
-*.log
