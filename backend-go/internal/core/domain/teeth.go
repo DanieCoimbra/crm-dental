@@ -59,8 +59,8 @@ type TeethStatus struct {
 	PatientID   uint           `gorm:"not null;index:idx_teeth_status_patient" json:"patient_id"`
 	Patient     *Patient       `gorm:"foreignKey:PatientID" json:"patient,omitempty"`
 	ToothNumber int            `gorm:"not null" json:"tooth_number"`
-	Face        ToothFace      `gorm:"type:tooth_face_enum;not null;default:'GERAL'" json:"face"`
-	Condition   ToothCondition `gorm:"type:tooth_condition_enum;not null;default:'HIGIDO'" json:"condition"`
+	Face        ToothFace      `gorm:"type:varchar(50);not null;default:'GERAL'" json:"face"`
+	Condition   ToothCondition `gorm:"type:varchar(50);not null;default:'HIGIDO'" json:"condition"`
 	UpdatedBy   uint           `gorm:"not null" json:"updated_by"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 }
@@ -77,9 +77,9 @@ type TeethHistory struct {
 	Patient           *Patient        `gorm:"foreignKey:PatientID" json:"patient,omitempty"`
 	TeethStatusID     *uint           `json:"teeth_status_id,omitempty"`
 	ToothNumber       int             `gorm:"not null;index:idx_teeth_history_lookup" json:"tooth_number"`
-	Face              ToothFace       `gorm:"type:tooth_face_enum;not null" json:"face"`
-	PreviousCondition *ToothCondition `gorm:"type:tooth_condition_enum" json:"previous_condition"`
-	NewCondition      ToothCondition  `gorm:"type:tooth_condition_enum;not null" json:"new_condition"`
+	Face              ToothFace       `gorm:"type:varchar(50);not null" json:"face"`
+	PreviousCondition *ToothCondition `gorm:"type:varchar(50)" json:"previous_condition"`
+	NewCondition      ToothCondition  `gorm:"type:varchar(50);not null" json:"new_condition"`
 	Notes             string          `gorm:"type:text" json:"notes,omitempty"`
 	CreatedBy         uint            `gorm:"not null" json:"created_by"`
 	CreatedAt         time.Time       `json:"created_at"`
