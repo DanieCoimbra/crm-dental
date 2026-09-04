@@ -21,7 +21,7 @@ func setupTestDB() {
 	}
 
 	// Migrate the schema
-	db.AutoMigrate(&domain.Clinic{})
+	db.AutoMigrate(&domain.Clinic{}, &domain.Subscription{})
 
 	database.DB = db
 }

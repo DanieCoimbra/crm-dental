@@ -14,6 +14,8 @@ class Patient {
   final String? medicalHistory;
   final String? notes;
   final double? weight;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   Patient({
     required this.id,
@@ -31,7 +33,18 @@ class Patient {
     this.medicalHistory,
     this.notes,
     this.weight,
+    this.createdAt,
+    this.updatedAt,
   });
+
+  String get initials {
+    if (name.trim().isEmpty) return '?';
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length == 1) {
+      return parts.first.substring(0, parts.first.length > 1 ? 2 : 1).toUpperCase();
+    }
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
 
   factory Patient.fromJson(Map<String, dynamic> json) {
     int parseInt(dynamic value) {
@@ -45,10 +58,10 @@ class Patient {
     return Patient(
       id: parseInt(json['id']),
       clinicId: parseInt(json['clinic_id']),
-      name: json['name']?.toString() ?? 'Sem nome',
-      cpf: json['cpf']?.toString(),
+      name: json['name']?.toString() ?? json['full_name']?.toString() ?? 'Sem nome',
+      cpf: json['cpf']?.toString() ?? json['cpf_encrypted']?.toString(),
       email: json['email']?.toString(),
-      phone: json['phone']?.toString(),
+      phone: json['phone']?.toString() ?? json['phone_encrypted']?.toString(),
       cep: json['cep']?.toString(),
       street: json['street']?.toString(),
       neighborhood: json['neighborhood']?.toString(),
@@ -56,8 +69,10 @@ class Patient {
       healthInsurance: json['health_insurance']?.toString(),
       birthDate: json['birth_date']?.toString(),
       medicalHistory: json['medical_history']?.toString(),
-      notes: json['notes']?.toString(),
+      notes: json['notes']?.toString() ?? json['notes_encrypted']?.toString(),
       weight: json['weight'] != null ? double.tryParse(json['weight'].toString()) : null,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+      updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'].toString()) : null,
     );
   }
 

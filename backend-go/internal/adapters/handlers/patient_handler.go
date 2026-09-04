@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -23,19 +24,52 @@ func NewPatientHandler() *PatientHandler {
 }
 
 type CreatePatientRequest struct {
-	Name            string `json:"name"`
-	CPF             string `json:"cpf"`
-	Email           string `json:"email"`
-	Phone           string `json:"phone"`
-	Cep             string `json:"cep"`
-	Street          string `json:"street"`
-	Neighborhood    string `json:"neighborhood"`
-	Number          string `json:"number"`
-	HealthInsurance string `json:"health_insurance"`
+	Name            string     `json:"name"`
+	FullName        string     `json:"full_name"`
+	CPF             string     `json:"cpf"`
+	Email           string     `json:"email"`
+	Phone           string     `json:"phone"`
+	Cep             string     `json:"cep"`
+	Street          string     `json:"street"`
+	Neighborhood    string     `json:"neighborhood"`
+	Number          string     `json:"number"`
+	HealthInsurance string     `json:"health_insurance"`
+	Notes           string     `json:"notes"`
+	BirthDate       *time.Time `json:"birth_date"`
+}
+
+func getClinicID(c *fiber.Ctx) uint {
+	val := c.Locals("clinic_id")
+	switch v := val.(type) {
+	case float64:
+		return uint(v)
+	case uint:
+		return v
+	case int:
+		return uint(v)
+	case int64:
+		return uint(v)
+	}
+	return 0
+}
+
+func getUserID(c *fiber.Ctx) uint {
+	val := c.Locals("user_id")
+	switch v := val.(type) {
+	case float64:
+		return uint(v)
+	case uint:
+		return v
+	case int:
+		return uint(v)
+	case int64:
+		return uint(v)
+	}
+	return 0
 }
 
 func (h *PatientHandler) List(c *fiber.Ctx) error {
-	clinicID := uint(c.Locals("clinic_id").(float64))
+	clinicID := getClinicID(c)
 	search := c.Query("search")
 	page := c.QueryInt("page", 1)
 
@@ -48,26 +82,43 @@ func (h *PatientHandler) List(c *fiber.Ctx) error {
 }
 
 func (h *PatientHandler) Create(c *fiber.Ctx) error {
-	clinicID := uint(c.Locals("clinic_id").(float64))
+	clinicID := getClinicID(c)
 
 	var req CreatePatientRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Dados inválidos"})
 	}
 
-	patient, err := h.patientService.CreatePatient(clinicID, req.Name, req.CPF, req.Email, req.Phone, req.Cep, req.Street, req.Neighborhood, req.Number, req.HealthInsurance)
+	name := req.Name
+	if name == "" && req.FullName != "" {
+		name = req.FullName
+	}
+
+	patient, err := h.patientService.CreatePatientWithInput(clinicID, services.PatientInput{
+		Name:            name,
+		CPF:             req.CPF,
+		Email:           req.Email,
+		Phone:           req.Phone,
+		Cep:             req.Cep,
+		Street:          req.Street,
+		Neighborhood:    req.Neighborhood,
+		Number:          req.Number,
+		HealthInsurance: req.HealthInsurance,
+		Notes:           req.Notes,
+		BirthDate:       req.BirthDate,
+	})
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
 	}
 
-	h.auditService.LogAction(clinicID, uint(c.Locals("user_id").(float64)), "create", "patient", patient.ID, c.IP(), c.Get("User-Agent"), "Criou novo paciente")
+	h.auditService.LogAction(clinicID, getUserID(c), "create", "patient", patient.ID, c.IP(), c.Get("User-Agent"), "Criou novo paciente")
 
 	return c.Status(fiber.StatusCreated).JSON(patient)
 }
 
 func (h *PatientHandler) Delete(c *fiber.Ctx) error {
-	clinicID := uint(c.Locals("clinic_id").(float64))
-	deletedBy := uint(c.Locals("user_id").(float64))
+	clinicID := getClinicID(c)
+	deletedBy := getUserID(c)
 
 	patientID, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
@@ -85,7 +136,7 @@ func (h *PatientHandler) Delete(c *fiber.Ctx) error {
 }
 
 func (h *PatientHandler) Update(c *fiber.Ctx) error {
-	clinicID := uint(c.Locals("clinic_id").(float64))
+	clinicID := getClinicID(c)
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})
@@ -96,12 +147,29 @@ func (h *PatientHandler) Update(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Dados inválidos"})
 	}
 
-	patient, err := h.patientService.UpdatePatient(clinicID, uint(id), req.Name, req.CPF, req.Email, req.Phone, req.Cep, req.Street, req.Neighborhood, req.Number, req.HealthInsurance)
+	name := req.Name
+	if name == "" && req.FullName != "" {
+		name = req.FullName
+	}
+
+	patient, err := h.patientService.UpdatePatientWithInput(clinicID, uint(id), services.PatientInput{
+		Name:            name,
+		CPF:             req.CPF,
+		Email:           req.Email,
+		Phone:           req.Phone,
+		Cep:             req.Cep,
+		Street:          req.Street,
+		Neighborhood:    req.Neighborhood,
+		Number:          req.Number,
+		HealthInsurance: req.HealthInsurance,
+		Notes:           req.Notes,
+		BirthDate:       req.BirthDate,
+	})
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
 	}
 
-	h.auditService.LogAction(clinicID, uint(c.Locals("user_id").(float64)), "update", "patient", patient.ID, c.IP(), c.Get("User-Agent"), "Atualizou dados do paciente")
+	h.auditService.LogAction(clinicID, getUserID(c), "update", "patient", patient.ID, c.IP(), c.Get("User-Agent"), "Atualizou dados do paciente")
 
 	return c.JSON(patient)
 }
@@ -112,7 +180,7 @@ type UpdateEMRRequest struct {
 }
 
 func (h *PatientHandler) UpdateEMR(c *fiber.Ctx) error {
-	clinicID := uint(c.Locals("clinic_id").(float64))
+	clinicID := getClinicID(c)
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})
@@ -128,13 +196,13 @@ func (h *PatientHandler) UpdateEMR(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
 	}
 
-	h.auditService.LogAction(clinicID, uint(c.Locals("user_id").(float64)), "update", "patient", patient.ID, c.IP(), c.Get("User-Agent"), "Atualizou anamnese / prontuário do paciente")
+	h.auditService.LogAction(clinicID, getUserID(c), "update", "patient", patient.ID, c.IP(), c.Get("User-Agent"), "Atualizou anamnese / prontuário do paciente")
 
 	return c.JSON(patient)
 }
 
 func (h *PatientHandler) Import(c *fiber.Ctx) error {
-	clinicID := uint(c.Locals("clinic_id").(float64))
+	clinicID := getClinicID(c)
 
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -193,7 +261,7 @@ func (h *PatientHandler) DownloadTemplate(c *fiber.Ctx) error {
 }
 
 func (h *PatientHandler) Export(c *fiber.Ctx) error {
-	clinicID := uint(c.Locals("clinic_id").(float64))
+	clinicID := getClinicID(c)
 
 	patients, err := h.patientService.ListPatients(clinicID, "", 0)
 	if err != nil {
@@ -232,7 +300,7 @@ func (h *PatientHandler) Export(c *fiber.Ctx) error {
 }
 
 func (h *PatientHandler) GetByID(c *fiber.Ctx) error {
-	clinicID := uint(c.Locals("clinic_id").(float64))
+	clinicID := getClinicID(c)
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})

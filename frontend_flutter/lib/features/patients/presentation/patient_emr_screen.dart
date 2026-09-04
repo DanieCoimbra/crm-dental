@@ -1,12 +1,12 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:frontend_flutter/features/patients/data/patients_provider.dart';
-import 'package:frontend_flutter/features/patients/data/patients_repository.dart';
 import 'package:frontend_flutter/shared/widgets/require_role.dart';
 import 'package:frontend_flutter/features/patients/presentation/widgets/patient_summary_tab.dart';
+import 'package:frontend_flutter/features/patients/presentation/widgets/odontogram_tab.dart';
+import 'package:frontend_flutter/features/patients/presentation/widgets/clinical_evolution_tab.dart';
 import 'package:frontend_flutter/features/patients/presentation/widgets/patient_files_tab.dart';
 
 class PatientEmrScreen extends ConsumerStatefulWidget {
@@ -18,111 +18,110 @@ class PatientEmrScreen extends ConsumerStatefulWidget {
 }
 
 class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
-  // Evolução
-  quill.QuillController? _controller;
-  bool _isSaving = false;
-
-
-  void _initEditor(String? initialData) {
-    if (_controller != null) return;
-    
-    if (initialData != null && initialData.isNotEmpty) {
-      try {
-        final doc = quill.Document.fromJson(jsonDecode(initialData));
-        _controller = quill.QuillController(
-          document: doc,
-          selection: const TextSelection.collapsed(offset: 0),
-        );
-      } catch (e) {
-        // Fallback for plain text if jsonDecode fails
-        _controller = quill.QuillController.basic();
-        _controller!.document.insert(0, initialData);
-      }
-    } else {
-      _controller = quill.QuillController.basic();
-    }
-  }
-
-
-  Future<void> _saveEmr() async {
-    if (_controller == null) return;
-    
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      final jsonStr = jsonEncode(_controller!.document.toDelta().toJson());
-      final repo = ref.read(patientsRepositoryProvider);
-      
-      await repo.createEvolution(widget.patientId, jsonStr);
-      
-      if (mounted) {
-        _controller!.clear(); // Limpa após salvar
-        ref.invalidate(evolutionsProvider(widget.patientId));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Evolução salva com sucesso! (Criptografado)')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
-    }
-  }
-
-
   @override
   Widget build(BuildContext context) {
     final patientAsync = ref.watch(patientDetailProvider(widget.patientId));
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(LucideIcons.arrowLeft),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/patients');
+            }
+          },
+        ),
         title: const Text('Prontuário Eletrônico (EMR)'),
+        scrolledUnderElevation: 0,
       ),
       body: patientAsync.when(
         data: (patient) {
-          // Initialize empty for new evolution
-          _initEditor(null);
-
           return DefaultTabController(
-            length: 3,
+            length: 4,
             child: Column(
               children: [
-                // Patient Header
+                // Top Patient Header Bar
                 Container(
-
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                  decoration: BoxDecoration(
+                    color: theme.cardColor,
+                    border: Border(bottom: BorderSide(color: theme.dividerColor)),
+                  ),
                   child: Row(
                     children: [
+                      // Initials Avatar
                       CircleAvatar(
-                        radius: 32,
-                        backgroundColor: Theme.of(context).dividerTheme.color,
-                        child: Icon(LucideIcons.user, size: 32, color: Theme.of(context).textTheme.bodyMedium?.color),
+                        radius: 28,
+                        backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                        child: Text(
+                          patient.initials,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              patient.name, 
-                              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.titleLarge?.color),
-                              overflow: TextOverflow.ellipsis,
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    patient.name,
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.textTheme.titleLarge?.color,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (patient.healthInsurance != null && patient.healthInsurance!.isNotEmpty) ...[
+                                  const SizedBox(width: 10),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                                    ),
+                                    child: Text(
+                                      patient.healthInsurance!,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.blue,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              'CPF: ${patient.cpf ?? 'Não informado'} | Nasc: ${patient.birthDate?.substring(0, 10) ?? 'Não informado'}',
-                              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
-                              overflow: TextOverflow.ellipsis,
+                            Wrap(
+                              spacing: 16,
+                              children: [
+                                Text(
+                                  'CPF: ${patient.cpf ?? 'Não informado'}',
+                                  style: TextStyle(fontSize: 13, color: theme.textTheme.bodyMedium?.color),
+                                ),
+                                Text(
+                                  'Nasc: ${patient.birthDate ?? 'Não informado'}',
+                                  style: TextStyle(fontSize: 13, color: theme.textTheme.bodyMedium?.color),
+                                ),
+                                Text(
+                                  'Tel: ${patient.phone ?? 'Não informado'}',
+                                  style: TextStyle(fontSize: 13, color: theme.textTheme.bodyMedium?.color),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -130,99 +129,69 @@ class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
                     ],
                   ),
                 ),
-                TabBar(
-                  labelColor: Theme.of(context).colorScheme.primary,
-                  unselectedLabelColor: Theme.of(context).textTheme.bodyMedium?.color,
-                  indicatorColor: Theme.of(context).colorScheme.primary,
-                  tabs: const [
-                    Tab(text: 'Resumo'),
-                    Tab(text: 'Evolução Clínica'),
-                    Tab(text: 'Arquivos'),
-                  ],
+
+                // Core Clinical Tabs Header
+                Material(
+                  color: theme.cardColor,
+                  child: TabBar(
+                    labelColor: theme.colorScheme.primary,
+                    unselectedLabelColor: theme.textTheme.bodyMedium?.color,
+                    indicatorColor: theme.colorScheme.primary,
+                    indicatorWeight: 3,
+                    tabs: const [
+                      Tab(
+                        icon: Icon(LucideIcons.user, size: 18),
+                        text: 'Resumo & Anamnese',
+                      ),
+                      Tab(
+                        icon: Icon(LucideIcons.sparkles, size: 18),
+                        text: 'Odontograma Interativo',
+                      ),
+                      Tab(
+                        icon: Icon(LucideIcons.fileText, size: 18),
+                        text: 'Evolução Clínica',
+                      ),
+                      Tab(
+                        icon: Icon(LucideIcons.fileImage, size: 18),
+                        text: 'Exames & Radiografias',
+                      ),
+                    ],
+                  ),
                 ),
                 const Divider(height: 1),
-                // TabBarView
+
+                // Core Clinical TabBarViews
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // TAB 1: Resumo
-                      patientAsync.when(
-                        data: (patient) => PatientSummaryTab(patient: patient),
-                        loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Center(child: Text('Erro: $e')),
-                      ),
-                      
-                      // TAB 2: Evolução Clínica
+                      // TAB 1: Resumo & Anamnese
+                      PatientSummaryTab(patient: patient),
+
+                      // TAB 2: Odontograma Interativo (Adulto & Decíduo)
+                      OdontogramTab(patientId: widget.patientId),
+
+                      // TAB 3: Evolução Clínica (Timeline LGPD)
                       RequireRole(
-                        allowedRoles: const ['admin', 'owner', 'doctor'],
+                        allowedRoles: const ['admin', 'owner', 'doctor', 'dentist'],
                         fallback: Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(LucideIcons.lock, size: 64, color: Colors.red.shade300),
                               const SizedBox(height: 16),
-                              const Text('Acesso Restrito', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                              const Text(
+                                'Acesso Restrito',
+                                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                              ),
                               const SizedBox(height: 8),
-                              const Text('Apenas médicos possuem acesso à Evolução Clínica (LGPD).'),
+                              const Text('Apenas dentistas/médicos possuem acesso à Evolução Clínica (LGPD).'),
                             ],
                           ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text('Nova Evolução', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                  OutlinedButton.icon(
-                                    onPressed: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) => _EvolutionsHistoryDialog(patientId: widget.patientId),
-                                      );
-                                    },
-                                    icon: const Icon(LucideIcons.history),
-                                    label: const Text('Ver Histórico'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              quill.QuillSimpleToolbar(
-                                controller: _controller!,
-                              ),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(16.0),
-                                  color: Theme.of(context).scaffoldBackgroundColor,
-                                  child: Card(
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.grey.shade200),
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16.0),
-                                      child: quill.QuillEditor.basic(
-                                        controller: _controller!,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                onPressed: _isSaving ? null : _saveEmr,
-                                icon: _isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(LucideIcons.save),
-                                label: const Text('Salvar Evolução'),
-                              ),
-                            ],
-                          ),
-                        ),
+                        child: ClinicalEvolutionTab(patientId: widget.patientId),
                       ),
 
-                      // TAB 3: Arquivos
+                      // TAB 4: Exames & Radiografias (Gallery & Lightbox)
                       PatientFilesTab(patientId: widget.patientId),
                     ],
                   ),
@@ -232,104 +201,23 @@ class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Erro ao carregar: $err')),
-      ),
-    );
-  }
-}
-
-class _EvolutionsHistoryDialog extends ConsumerWidget {
-  final int patientId;
-  const _EvolutionsHistoryDialog({required this.patientId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final evolutionsAsync = ref.watch(evolutionsProvider(patientId));
-
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 800,
-        height: 600,
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Histórico de Evoluções', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                Semantics(
-                  label: 'Fechar histórico de evoluções',
-                  button: true,
-                  child: IconButton(
-                    icon: const Icon(LucideIcons.x),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-              ],
-            ),
-            const Divider(),
-            const SizedBox(height: 16),
-            Expanded(
-              child: evolutionsAsync.when(
-                data: (evolutions) {
-                  if (evolutions.isEmpty) {
-                    return const Center(child: Text('Nenhuma evolução encontrada.'));
-                  }
-                  return ListView.builder(
-                    itemCount: evolutions.length,
-                    itemBuilder: (context, index) {
-                      final ev = evolutions[index];
-                      quill.QuillController? readOnlyController;
-                      try {
-                        final doc = quill.Document.fromJson(jsonDecode(ev.contentHtml));
-                        readOnlyController = quill.QuillController(
-                          document: doc,
-                          selection: const TextSelection.collapsed(offset: 0),
-                          readOnly: true,
-                        );
-                      } catch (_) {}
-
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '${ev.createdAt.day.toString().padLeft(2, '0')}/${ev.createdAt.month.toString().padLeft(2, '0')}/${ev.createdAt.year}',
-                                    style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
-                                  ),
-                                  Text(ev.userName ?? 'Médico', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color)),
-                                ],
-                              ),
-                              const Divider(),
-                              if (readOnlyController != null)
-                                quill.QuillEditor.basic(
-                                  controller: readOnlyController,
-                                )
-                              else
-                                SelectableText(ev.contentHtml),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Text('Erro: $e'),
+        error: (err, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(LucideIcons.alertTriangle, color: Colors.red, size: 48),
+              const SizedBox(height: 12),
+              Text('Erro ao carregar prontuário: $err'),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => ref.invalidate(patientDetailProvider(widget.patientId)),
+                icon: const Icon(LucideIcons.refreshCw),
+                label: const Text('Tentar Novamente'),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
-

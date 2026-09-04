@@ -21,6 +21,15 @@ func (r *PatientFileRepository) ListByPatient(clinicID uint, patientID uint) ([]
 	return files, err
 }
 
+func (r *PatientFileRepository) FindByID(id uint, clinicID uint) (*domain.PatientFile, error) {
+	var file domain.PatientFile
+	err := database.DB.Where("id = ? AND clinic_id = ?", id, clinicID).First(&file).Error
+	if err != nil {
+		return nil, err
+	}
+	return &file, nil
+}
+
 func (r *PatientFileRepository) Delete(id uint, clinicID uint) error {
 	return database.DB.Where("id = ? AND clinic_id = ?", id, clinicID).Delete(&domain.PatientFile{}).Error
 }

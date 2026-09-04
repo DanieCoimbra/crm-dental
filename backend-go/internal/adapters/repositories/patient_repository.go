@@ -23,9 +23,9 @@ func (r *PatientRepository) Update(patient *domain.Patient) error {
 	return database.DB.Save(patient).Error
 }
 
-func (r *PatientRepository) Delete(id uint, deletedBy uint) error {
-	// Soft delete manual para registrar quem apagou
-	return database.DB.Model(&domain.Patient{}).Where("id = ?", id).Updates(map[string]interface{}{
+func (r *PatientRepository) Delete(id uint, clinicID uint, deletedBy uint) error {
+	// Soft delete manual para registrar quem apagou com isolamento por clinic_id
+	return database.DB.Model(&domain.Patient{}).Where("id = ? AND clinic_id = ?", id, clinicID).Updates(map[string]interface{}{
 		"deleted_by": deletedBy,
 		"deleted_at": gorm.DeletedAt{Time: time.Now(), Valid: true},
 	}).Error
@@ -45,7 +45,7 @@ func (r *PatientRepository) ListByClinic(clinicID uint, search string, page int)
 	query := database.DB.Where("clinic_id = ?", clinicID)
 
 	if search != "" {
-		query = query.Where("LOWER(name) LIKE LOWER(?)", "%"+search+"%")
+		query = query.Where("LOWER(full_name) LIKE LOWER(?) OR LOWER(cpf_encrypted) LIKE LOWER(?)", "%"+search+"%", "%"+search+"%")
 	}
 
 	if page > 0 {
@@ -54,6 +54,6 @@ func (r *PatientRepository) ListByClinic(clinicID uint, search string, page int)
 		query = query.Limit(limit).Offset(offset)
 	}
 
-	err := query.Order("name asc").Find(&patients).Error
+	err := query.Order("full_name asc, id asc").Find(&patients).Error
 	return patients, err
 }

@@ -27,6 +27,8 @@ func SetupRoutes(app *fiber.App) {
 	// Handlers Lote 1 e 2
 	authHandler := handlers.NewAuthHandler()
 	patientHandler := handlers.NewPatientHandler()
+	teethHandler := handlers.NewTeethHandler()
+	clinicalNoteHandler := handlers.NewClinicalNoteHandler()
 	roomHandler := handlers.NewRoomHandler()
 	settingHandler := handlers.NewSettingHandler()
 	waitlistHandler := handlers.NewWaitlistHandler()
@@ -92,6 +94,7 @@ func SetupRoutes(app *fiber.App) {
 	// Team and Roles
 	adminOnly := middleware.RoleRequired("admin", "owner")
 	adminOrManager := middleware.RoleRequired("admin", "manager", "owner")
+	clinicalRoles := middleware.RequireRole("ADMIN", "OWNER", "DENTIST", "DOCTOR", "admin", "owner", "dentist", "doctor")
 
 	// Dashboard (Com cache de 5 minutos agrupado pelo id da clínica)
 	private.Get("/dashboard/stats", adminOnly, cache.New(cache.Config{
@@ -115,15 +118,35 @@ func SetupRoutes(app *fiber.App) {
 	private.Get("/permissions", roleHandler.ListPermissions)
 	private.Get("/audit-logs", adminOnly, auditHandler.List)
 
-	// Patients
+	// F01-patients-db: Patients CRUD
 	private.Get("/patients", patientHandler.List)
 	private.Get("/patients/:id", patientHandler.GetByID)
 	private.Post("/patients", patientHandler.Create)
 	private.Put("/patients/:id", patientHandler.Update)
-	private.Put("/patients/:id/emr", patientHandler.UpdateEMR)
+	private.Put("/patients/:id/emr", clinicalRoles, patientHandler.UpdateEMR)
 	private.Delete("/patients/:id", adminOnly, patientHandler.Delete)
 	private.Post("/patients-import", adminOrManager, patientHandler.Import)
 	private.Get("/patients-export", adminOrManager, patientHandler.Export)
+
+	// F02-odontogram-db: Odontogram & History (Restrito a roles clínicas)
+	private.Get("/patients/:id/teeth", clinicalRoles, teethHandler.GetTeeth)
+	private.Post("/patients/:id/teeth", clinicalRoles, teethHandler.UpdateTooth)
+	private.Get("/patients/:id/teeth/history", clinicalRoles, teethHandler.GetHistory)
+	private.Get("/patients/:id/teeth/:tooth_number", clinicalRoles, teethHandler.GetByToothNumber)
+
+	// F03-clinical-records-db: Clinical Notes & Patient Files (Sigilo Médico / Restrito a roles clínicas)
+	private.Get("/patients/:id/notes", clinicalRoles, clinicalNoteHandler.ListByPatient)
+	private.Post("/patients/:id/notes", clinicalRoles, clinicalNoteHandler.Create)
+	private.Post("/patients/:id/files", clinicalRoles, patientFileHandler.Create)
+	private.Delete("/patients/:id/files/:file_id", clinicalRoles, patientFileHandler.Delete)
+
+	// Aliases legados / compatibilidade para evolução clínica e arquivos
+	private.Get("/patients/:patient_id/evolutions", clinicalRoles, evolutionHandler.ListByPatient)
+	private.Post("/patients/:patient_id/evolutions", clinicalRoles, evolutionHandler.Create)
+	private.Delete("/evolutions/:id", clinicalRoles, evolutionHandler.Delete)
+	private.Get("/patients/:patient_id/files", clinicalRoles, patientFileHandler.ListByPatient)
+	private.Post("/patients/:patient_id/files", clinicalRoles, patientFileHandler.Create)
+	private.Delete("/files/:id", clinicalRoles, patientFileHandler.Delete)
 
 	// Public but scoped
 	v1.Get("/patients-import-template", patientHandler.DownloadTemplate)
@@ -168,17 +191,6 @@ func SetupRoutes(app *fiber.App) {
 	private.Post("/waitlists", waitlistHandler.Create)
 	private.Put("/waitlists/:id", waitlistHandler.Update)
 	private.Delete("/waitlists/:id", waitlistHandler.Delete)
-
-	// Lote 3: Prontuário Médico (Sub-rotas de pacientes)
-	// Evoluções Clínicas
-	private.Get("/patients/:patient_id/evolutions", evolutionHandler.ListByPatient)
-	private.Post("/patients/:patient_id/evolutions", evolutionHandler.Create)
-	private.Delete("/evolutions/:id", evolutionHandler.Delete)
-
-	// Arquivos (Uploads/Imagens)
-	private.Get("/patients/:patient_id/files", patientFileHandler.ListByPatient)
-	private.Post("/patients/:patient_id/files", patientFileHandler.Create)
-	private.Delete("/files/:id", patientFileHandler.Delete)
 
 	// Lote 4: Agenda e Agendamentos
 	private.Get("/appointments", appointmentHandler.List)
