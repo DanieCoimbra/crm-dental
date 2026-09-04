@@ -4,7 +4,11 @@ import (
 	"dental-crm-api/internal/adapters/repositories"
 	"dental-crm-api/internal/core/domain"
 	"errors"
+	"fmt"
+	"net/url"
+	"strings"
 	"time"
+	"unicode"
 )
 
 type AppointmentService struct {
@@ -225,3 +229,92 @@ func (s *AppointmentService) FinishAppointment(clinicID, id uint) (*domain.Appoi
 
 	return appt, nil
 }
+
+type WhatsAppLinkResponse struct {
+	Link         string `json:"link"`
+	WhatsAppLink string `json:"whatsapp_link"`
+	Message      string `json:"message"`
+	Phone        string `json:"phone"`
+}
+
+func (s *AppointmentService) ConfirmAppointment(clinicID, id uint) (*domain.Appointment, error) {
+	appt, err := s.appointmentRepo.FindByID(id, clinicID)
+	if err != nil {
+		return nil, errors.New("agendamento não encontrado")
+	}
+	appt.Status = "confirmed"
+	if err := s.appointmentRepo.Update(appt); err != nil {
+		return nil, err
+	}
+	return appt, nil
+}
+
+func (s *AppointmentService) MissAppointment(clinicID, id uint) (*domain.Appointment, error) {
+	appt, err := s.appointmentRepo.FindByID(id, clinicID)
+	if err != nil {
+		return nil, errors.New("agendamento não encontrado")
+	}
+	appt.Status = "missed"
+	if err := s.appointmentRepo.Update(appt); err != nil {
+		return nil, err
+	}
+	return appt, nil
+}
+
+func (s *AppointmentService) GenerateWhatsAppLink(clinicID, id uint) (*WhatsAppLinkResponse, error) {
+	appt, err := s.appointmentRepo.FindByID(id, clinicID)
+	if err != nil {
+		return nil, errors.New("agendamento não encontrado")
+	}
+
+	patientName := "Paciente"
+	patientPhone := ""
+	if appt.Patient != nil {
+		if appt.Patient.Name != "" {
+			patientName = appt.Patient.Name
+		}
+		patientPhone = appt.Patient.Phone
+	}
+
+	clinicName := "nossa clínica"
+	if appt.Clinic != nil && appt.Clinic.Name != "" {
+		clinicName = appt.Clinic.Name
+	} else {
+		clinicRepo := repositories.NewClinicRepository()
+		clinic, err := clinicRepo.FindByID(clinicID)
+		if err == nil && clinic != nil && clinic.Name != "" {
+			clinicName = clinic.Name
+		}
+	}
+
+	dateStr := ""
+	timeStr := ""
+	if appt.StartTime != nil {
+		dateStr = appt.StartTime.Format("02/01/2006")
+		timeStr = appt.StartTime.Format("15:04")
+	}
+
+	message := fmt.Sprintf("Olá %s, confirmamos sua consulta na %s dia %s às %s?", patientName, clinicName, dateStr, timeStr)
+
+	var digitsOnly strings.Builder
+	for _, r := range patientPhone {
+		if unicode.IsDigit(r) {
+			digitsOnly.WriteRune(r)
+		}
+	}
+	cleanPhone := digitsOnly.String()
+	if cleanPhone != "" && !strings.HasPrefix(cleanPhone, "55") && (len(cleanPhone) == 10 || len(cleanPhone) == 11) {
+		cleanPhone = "55" + cleanPhone
+	}
+
+	encodedText := url.QueryEscape(message)
+	link := fmt.Sprintf("https://wa.me/%s?text=%s", cleanPhone, encodedText)
+
+	return &WhatsAppLinkResponse{
+		Link:         link,
+		WhatsAppLink: link,
+		Message:      message,
+		Phone:        cleanPhone,
+	}, nil
+}
+

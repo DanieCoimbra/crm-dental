@@ -8,6 +8,7 @@ type ClinicTransaction struct {
 	ID            uint                `gorm:"primaryKey" json:"id"`
 	ClinicID      uint                `gorm:"index;not null" json:"clinic_id"`
 	PatientID     *uint               `gorm:"index" json:"patient_id"`
+	BudgetID      *uint               `gorm:"index" json:"budget_id,omitempty"`
 	Type          string              `gorm:"index;not null" json:"type"` // "income" (receita), "expense" (despesa)
 	Category      string              `json:"category"`                   // "Procedimento", "Aluguel", "Material"
 	Description   string              `json:"description"`

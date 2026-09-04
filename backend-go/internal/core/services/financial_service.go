@@ -17,6 +17,19 @@ func NewFinancialService() *FinancialService {
 	}
 }
 
+type CashFlowReport struct {
+	TotalIncomeCents   int64 `json:"total_income_cents"`
+	TotalExpenseCents  int64 `json:"total_expense_cents"`
+	TotalReceivedCents int64 `json:"total_received_cents"`
+	TotalPendingCents  int64 `json:"total_pending_cents"`
+	TotalOverdueCents  int64 `json:"total_overdue_cents"`
+	NetBalanceCents    int64 `json:"net_balance_cents"`
+}
+
+func (s *FinancialService) UpdateTransaction(tx *domain.ClinicTransaction) error {
+	return s.repo.UpdateTransaction(tx)
+}
+
 // CreateTransaction handles creating a transaction. If installments > 1, it calculates and creates them.
 func (s *FinancialService) CreateTransaction(clinicID uint, patientID *uint, txType, category, desc string, totalAmount int64, paymentMethod string, dueDate time.Time, totalInstallments int) (*domain.ClinicTransaction, error) {
 	if totalAmount <= 0 {
@@ -135,4 +148,37 @@ func (s *FinancialService) RegisterInstallmentPayment(installmentID uint, clinic
 	}
 
 	return nil
+}
+
+func (s *FinancialService) GetCashFlowReport(clinicID uint) (*CashFlowReport, error) {
+	transactions, err := s.repo.GetTransactionsByClinic(clinicID, "", "")
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	report := &CashFlowReport{}
+
+	for _, tx := range transactions {
+		if tx.Type == "income" {
+			report.TotalIncomeCents += tx.TotalAmount
+		} else if tx.Type == "expense" {
+			report.TotalExpenseCents += tx.TotalAmount
+		}
+
+		for _, inst := range tx.Installments {
+			if tx.Type == "income" {
+				if inst.Status == "paid" {
+					report.TotalReceivedCents += inst.AmountCents
+				} else if inst.Status == "overdue" || (inst.Status == "pending" && inst.DueDate.Before(now)) {
+					report.TotalOverdueCents += inst.AmountCents
+				} else if inst.Status == "pending" {
+					report.TotalPendingCents += inst.AmountCents
+				}
+			}
+		}
+	}
+
+	report.NetBalanceCents = report.TotalReceivedCents - report.TotalExpenseCents
+	return report, nil
 }

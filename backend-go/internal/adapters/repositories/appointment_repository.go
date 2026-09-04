@@ -46,8 +46,12 @@ func (r *AppointmentRepository) Delete(id uint, clinicID uint, deletedBy uint) e
 
 func (r *AppointmentRepository) FindByID(id uint, clinicID uint) (*domain.Appointment, error) {
 	var appointment domain.Appointment
-	err := database.DB.Where("id = ? AND clinic_id = ?", id, clinicID).First(&appointment).Error
+	err := database.DB.Preload("Doctor").Preload("Patient").Preload("Clinic").Preload("Room").Preload("AppointmentType").Where("id = ? AND clinic_id = ?", id, clinicID).First(&appointment).Error
 	return &appointment, err
+}
+
+func (r *AppointmentRepository) UpdateStatus(id uint, clinicID uint, status string) error {
+	return database.DB.Model(&domain.Appointment{}).Where("id = ? AND clinic_id = ?", id, clinicID).Update("status", status).Error
 }
 
 func (r *AppointmentRepository) Update(appointment *domain.Appointment) error {

@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:frontend_flutter/features/patients/data/odontogram_model.dart';
 import 'package:frontend_flutter/features/patients/data/patients_provider.dart';
 import 'package:frontend_flutter/features/patients/data/patients_repository.dart';
+import 'package:frontend_flutter/features/financial/presentation/budget_form_dialog.dart';
 
 class OdontogramTab extends ConsumerStatefulWidget {
   final int patientId;
@@ -574,6 +575,23 @@ class _ToothConditionDialogState extends ConsumerState<_ToothConditionDialog> {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancelar'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            final toothNum = widget.toothNumber;
+            final faceCode = _selectedFace.code;
+            Navigator.of(context).pop();
+            showDialog(
+              context: context,
+              builder: (ctx) => BudgetFormDialog(
+                initialPatientId: widget.patientId,
+                initialToothNumber: toothNum,
+                initialFace: faceCode != 'GERAL' ? faceCode : null,
+              ),
+            );
+          },
+          icon: const Icon(LucideIcons.fileText, size: 16),
+          label: const Text('Gerar Orçamento'),
         ),
         ElevatedButton.icon(
           onPressed: () async {

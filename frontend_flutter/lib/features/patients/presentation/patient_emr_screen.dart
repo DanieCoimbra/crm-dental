@@ -8,6 +8,9 @@ import 'package:frontend_flutter/features/patients/presentation/widgets/patient_
 import 'package:frontend_flutter/features/patients/presentation/widgets/odontogram_tab.dart';
 import 'package:frontend_flutter/features/patients/presentation/widgets/clinical_evolution_tab.dart';
 import 'package:frontend_flutter/features/patients/presentation/widgets/patient_files_tab.dart';
+import 'package:frontend_flutter/features/financial/presentation/budget_form_dialog.dart';
+
+import 'package:frontend_flutter/features/patients/presentation/widgets/patient_documents_tab.dart';
 
 class PatientEmrScreen extends ConsumerStatefulWidget {
   final int patientId;
@@ -41,7 +44,7 @@ class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
       body: patientAsync.when(
         data: (patient) {
           return DefaultTabController(
-            length: 4,
+            length: 5,
             child: Column(
               children: [
                 // Top Patient Header Bar
@@ -126,6 +129,17 @@ class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
                           ],
                         ),
                       ),
+                      const SizedBox(width: 16),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => BudgetFormDialog(initialPatientId: patient.id),
+                          );
+                        },
+                        icon: const Icon(LucideIcons.fileText, size: 16),
+                        label: const Text('Novo Orçamento'),
+                      ),
                     ],
                   ),
                 ),
@@ -150,6 +164,10 @@ class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
                       Tab(
                         icon: Icon(LucideIcons.fileText, size: 18),
                         text: 'Evolução Clínica',
+                      ),
+                      Tab(
+                        icon: Icon(LucideIcons.fileCheck, size: 18),
+                        text: 'Documentos',
                       ),
                       Tab(
                         icon: Icon(LucideIcons.fileImage, size: 18),
@@ -191,7 +209,10 @@ class _PatientEmrScreenState extends ConsumerState<PatientEmrScreen> {
                         child: ClinicalEvolutionTab(patientId: widget.patientId),
                       ),
 
-                      // TAB 4: Exames & Radiografias (Gallery & Lightbox)
+                      // TAB 4: Documentos Odontológicos (Atestados, Receitas, Encaminhamentos)
+                      PatientDocumentsTab(patient: patient),
+
+                      // TAB 5: Exames & Radiografias (Gallery & Lightbox)
                       PatientFilesTab(patientId: widget.patientId),
                     ],
                   ),

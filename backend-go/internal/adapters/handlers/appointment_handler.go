@@ -146,3 +146,55 @@ func (h *AppointmentHandler) Finish(c *fiber.Ctx) error {
 
 	return c.JSON(appt)
 }
+
+func (h *AppointmentHandler) Confirm(c *fiber.Ctx) error {
+	clinicID := uint(c.Locals("clinic_id").(float64))
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})
+	}
+
+	appt, err := h.appointmentService.ConfirmAppointment(clinicID, uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
+	}
+
+	h.auditService.LogAction(clinicID, uint(c.Locals("user_id").(float64)), "update", "appointment", appt.ID, c.IP(), c.Get("User-Agent"), "Confirmou agendamento")
+
+	return c.JSON(appt)
+}
+
+func (h *AppointmentHandler) Miss(c *fiber.Ctx) error {
+	clinicID := uint(c.Locals("clinic_id").(float64))
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})
+	}
+
+	appt, err := h.appointmentService.MissAppointment(clinicID, uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
+	}
+
+	h.auditService.LogAction(clinicID, uint(c.Locals("user_id").(float64)), "update", "appointment", appt.ID, c.IP(), c.Get("User-Agent"), "Marcou falta no agendamento")
+
+	return c.JSON(appt)
+}
+
+func (h *AppointmentHandler) WhatsAppLink(c *fiber.Ctx) error {
+	clinicID := uint(c.Locals("clinic_id").(float64))
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "ID inválido"})
+	}
+
+	res, err := h.appointmentService.GenerateWhatsAppLink(clinicID, uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
+	}
+
+	h.auditService.LogAction(clinicID, uint(c.Locals("user_id").(float64)), "read", "appointment", uint(id), c.IP(), c.Get("User-Agent"), "Gerou link WhatsApp de confirmação")
+
+	return c.JSON(res)
+}
+

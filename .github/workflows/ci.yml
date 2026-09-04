@@ -1,0 +1,62 @@
+name: Dental CRM - Continuous Integration
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend-go:
+    name: Backend Go (Lint & Test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend-go
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Install Dependencies
+        run: go mod download
+
+      - name: Run Go Unit Tests
+        run: go test -v -race ./...
+
+  frontend-flutter:
+    name: Frontend Flutter (Analyze & Test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend_flutter
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: Run Flutter Analyzer
+        run: flutter analyze
+
+      - name: Run Flutter Unit Tests
+        run: flutter test

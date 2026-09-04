@@ -11,6 +11,8 @@ import 'package:frontend_flutter/features/settings/presentation/settings_screen.
 import 'package:frontend_flutter/shared/widgets/dashboard_layout.dart';
 import 'package:frontend_flutter/features/auth/providers/auth_provider.dart';
 import 'package:frontend_flutter/features/financial/presentation/financial_dashboard_screen.dart';
+import 'package:frontend_flutter/features/financial/presentation/budgets_screen.dart';
+import 'package:frontend_flutter/features/financial/presentation/procedures_screen.dart';
 import 'package:frontend_flutter/features/inventory/presentation/inventory_screen.dart';
 import 'package:frontend_flutter/features/marketing/presentation/marketing_screen.dart';
 import 'package:frontend_flutter/features/saas/presentation/saas_checkout_screen.dart';
@@ -101,6 +103,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/financial',
             builder: (context, state) => const FinancialDashboardScreen(),
+            routes: [
+              GoRoute(
+                path: 'budgets',
+                builder: (context, state) => const BudgetsScreen(),
+              ),
+              GoRoute(
+                path: 'procedures',
+                builder: (context, state) => const ProceduresScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/inventory',

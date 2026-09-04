@@ -40,6 +40,8 @@ func SetupRoutes(app *fiber.App) {
 	// Handlers Lote 3
 	evolutionHandler := handlers.NewClinicalEvolutionHandler()
 	patientFileHandler := handlers.NewPatientFileHandler()
+	procedureHandler := handlers.NewProcedureHandler()
+	budgetHandler := handlers.NewBudgetHandler()
 	financialHandler := handlers.NewFinancialHandler()
 	inventoryHandler := handlers.NewInventoryHandler()
 	saasHandler := handlers.NewSaaSHandler()
@@ -140,6 +142,13 @@ func SetupRoutes(app *fiber.App) {
 	private.Post("/patients/:id/files", clinicalRoles, patientFileHandler.Create)
 	private.Delete("/patients/:id/files/:file_id", clinicalRoles, patientFileHandler.Delete)
 
+	// F04-documents: Medical Documents (Atestados, Receitas, Encaminhamentos)
+	medicalDocHandler := handlers.NewMedicalDocumentHandler()
+	private.Get("/patients/:id/documents", clinicalRoles, medicalDocHandler.ListByPatient)
+	private.Post("/patients/:id/documents", clinicalRoles, medicalDocHandler.Create)
+	private.Get("/documents/:id", clinicalRoles, medicalDocHandler.GetByID)
+	private.Delete("/documents/:id", clinicalRoles, medicalDocHandler.Delete)
+
 	// Aliases legados / compatibilidade para evolução clínica e arquivos
 	private.Get("/patients/:patient_id/evolutions", clinicalRoles, evolutionHandler.ListByPatient)
 	private.Post("/patients/:patient_id/evolutions", clinicalRoles, evolutionHandler.Create)
@@ -198,6 +207,9 @@ func SetupRoutes(app *fiber.App) {
 	private.Put("/appointments/:id", appointmentHandler.Update)
 	private.Post("/appointments/:id/start", appointmentHandler.Start)
 	private.Post("/appointments/:id/finish", appointmentHandler.Finish)
+	private.Post("/appointments/:id/confirm", appointmentHandler.Confirm)
+	private.Post("/appointments/:id/miss", appointmentHandler.Miss)
+	private.Post("/appointments/:id/whatsapp-link", appointmentHandler.WhatsAppLink)
 	private.Delete("/appointments/:id", appointmentHandler.Delete)
 
 	private.Get("/shift-assignments", shiftAssignmentHandler.List)
@@ -216,10 +228,24 @@ func SetupRoutes(app *fiber.App) {
 	private.Put("/team/:id", adminOrManager, teamHandler.Update)
 	private.Delete("/team/:id", adminOnly, teamHandler.Delete)
 
+	// Fase 3: Comercial e Financeiro (Procedimentos & Orçamentos)
+	private.Get("/procedures", procedureHandler.List)
+	private.Post("/procedures", procedureHandler.Create)
+	private.Put("/procedures/:id", procedureHandler.Update)
+	private.Delete("/procedures/:id", procedureHandler.Delete)
+
+	private.Get("/budgets", budgetHandler.List)
+	private.Post("/budgets", budgetHandler.Create)
+	private.Get("/budgets/:id", budgetHandler.GetByID)
+	private.Post("/budgets/:id/approve", budgetHandler.Approve)
+	private.Post("/budgets/:id/reject", budgetHandler.Reject)
+
 	// Lote 5: Financeiro
 	private.Get("/financial/transactions", financialHandler.GetTransactions)
 	private.Post("/financial/transactions", financialHandler.CreateTransaction)
 	private.Put("/financial/installments/:id/pay", financialHandler.PayInstallment)
+	private.Post("/financial/installments/:id/pay", financialHandler.PayInstallment)
+	private.Get("/financial/cash-flow", financialHandler.GetCashFlow)
 
 	// Lote 6: Estoque
 	private.Get("/inventory", inventoryHandler.ListItems)

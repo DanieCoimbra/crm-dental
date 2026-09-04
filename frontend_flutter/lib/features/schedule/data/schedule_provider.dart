@@ -24,3 +24,18 @@ final shiftAssignmentsProvider = FutureProvider<List<ShiftAssignment>>((ref) {
   final repository = ref.watch(scheduleRepositoryProvider);
   return repository.getShiftAssignments();
 });
+
+final confirmAppointmentProvider = FutureProvider.family<Appointment, int>((ref, id) {
+  final repository = ref.watch(scheduleRepositoryProvider);
+  return repository.confirmAppointment(id);
+});
+
+final missAppointmentProvider = FutureProvider.family<Appointment, int>((ref, id) {
+  final repository = ref.watch(scheduleRepositoryProvider);
+  return repository.missAppointment(id);
+});
+
+final whatsAppLinkProvider = FutureProvider.family<String, int>((ref, id) {
+  final repository = ref.watch(scheduleRepositoryProvider);
+  return repository.getWhatsAppLink(id);
+});

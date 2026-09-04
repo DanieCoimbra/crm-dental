@@ -67,6 +67,25 @@ class ScheduleRepository {
     return Appointment.fromJson(response.data);
   }
 
+  Future<Appointment> confirmAppointment(int id) async {
+    final response = await _dio.post('/appointments/$id/confirm');
+    return Appointment.fromJson(response.data);
+  }
+
+  Future<Appointment> missAppointment(int id) async {
+    final response = await _dio.post('/appointments/$id/miss');
+    return Appointment.fromJson(response.data);
+  }
+
+  Future<String> getWhatsAppLink(int id) async {
+    final response = await _dio.post('/appointments/$id/whatsapp-link');
+    if (response.data is Map) {
+      final map = response.data as Map<String, dynamic>;
+      return map['link']?.toString() ?? map['url']?.toString() ?? map['whatsapp_link']?.toString() ?? '';
+    }
+    return response.data.toString();
+  }
+
   Future<List<AppointmentType>> getAppointmentTypes() async {
     final response = await _dio.get('/appointment-types');
     final data = response.data as List;

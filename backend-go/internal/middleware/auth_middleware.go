@@ -21,8 +21,6 @@ func RequireAuth(c *fiber.Ctx) error {
 
 	if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
 		tokenString = strings.TrimPrefix(authHeader, "Bearer ")
-	} else {
-		tokenString = c.Query("token")
 	}
 
 	if tokenString == "" {

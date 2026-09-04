@@ -13,6 +13,7 @@ dental-api.exe
 # Backend Go
 backend-go/server
 backend-go/tmp/
+backend-go/tmp_*
 backend-go/uploads/
 
 # Frontend Flutter (complementar ao .gitignore próprio)

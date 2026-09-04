@@ -11,6 +11,7 @@ import 'package:frontend_flutter/features/schedule/presentation/widgets/waitlist
 import 'package:frontend_flutter/features/schedule/presentation/widgets/smart_booking_dialog.dart';
 import 'package:frontend_flutter/features/schedule/data/schedule_repository.dart';
 import 'package:frontend_flutter/features/auth/providers/auth_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ScheduleScreen extends ConsumerStatefulWidget {
   const ScheduleScreen({super.key});
@@ -43,7 +44,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           endTime: appt.endTime,
           title: '${appt.patient?.name ?? 'Paciente sem nome'} - ${appt.appointmentType?.name ?? 'Consulta'}',
           description: appt.notes,
-          color: _getColor(appt.appointmentType?.color),
+          color: _getAppointmentStatusColor(appt.status),
           event: appt,
         );
       }).toList();
@@ -225,215 +226,305 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                           );
                         },
                         eventTileBuilder: (date, events, boundary, start, end) {
-                      if (events.isEmpty) return const SizedBox.shrink();
-                      final event = events.first;
-                      return ClipRect(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: event.color,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          padding: const EdgeInsets.all(4.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                event.title,
-                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                          if (events.isEmpty) return const SizedBox.shrink();
+                          final event = events.first;
+                          final appt = event.event;
+                          final statusColor = appt != null ? _getAppointmentStatusColor(appt.status) : event.color;
+                          final statusLabel = appt != null ? _getStatusLabel(appt.status) : '';
+                          return ClipRect(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: statusColor,
+                                borderRadius: BorderRadius.circular(4),
                               ),
-                              if (event.description != null && event.description!.isNotEmpty)
-                                Flexible(
-                                  child: Text(
-                                    event.description!,
-                                    style: const TextStyle(color: Colors.white, fontSize: 10),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.fade,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                    onEventTap: (events, date) {
-                      final appt = events.first.event;
-                      if (appt != null) {
-                        showDialog(
-                          context: context,
-                          builder: (dialogContext) {
-                            final isDoctorOrReceptionist = currentUser?.role?.name == 'doctor' || currentUser?.role?.name == 'dentist' || currentUser?.role?.name == 'receptionist';
-                            final scheduledStart = DateFormat('dd/MM/yyyy HH:mm').format(appt.startTime);
-                            final actualStart = appt.actualStartTime != null ? DateFormat('HH:mm:ss').format(appt.actualStartTime!) : null;
-                            final actualEnd = appt.actualEndTime != null ? DateFormat('HH:mm:ss').format(appt.actualEndTime!) : null;
-                            
-                            String statusLabel = 'Agendado';
-                            Color statusColor = Colors.blue;
-                            if (appt.status == 'in_progress') {
-                              statusLabel = 'Em Andamento';
-                              statusColor = Colors.green;
-                            } else if (appt.status == 'completed') {
-                              statusLabel = 'Finalizado';
-                              statusColor = Colors.grey;
-                            }
-
-                            return AlertDialog(
-                              title: const Text('Detalhes do Agendamento', style: TextStyle(fontWeight: FontWeight.bold)),
-                              content: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Text('Status: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              padding: const EdgeInsets.all(4.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          event.title,
+                                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (statusLabel.isNotEmpty) ...[
+                                        const SizedBox(width: 4),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                           decoration: BoxDecoration(
-                                            color: statusColor.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(4),
+                                            color: Colors.black.withValues(alpha: 0.25),
+                                            borderRadius: BorderRadius.circular(3),
                                           ),
                                           child: Text(
-                                            statusLabel, 
-                                            style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 14)
+                                            statusLabel,
+                                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
                                           ),
                                         ),
                                       ],
+                                    ],
+                                  ),
+                                  if (event.description != null && event.description!.isNotEmpty)
+                                    Flexible(
+                                      child: Text(
+                                        event.description!,
+                                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.fade,
+                                      ),
                                     ),
-                                    const SizedBox(height: 12),
-                                    Text('Tipo: ${appt.appointmentType?.name ?? 'Agendamento'}'),
-                                    const SizedBox(height: 4),
-                                    Text('Paciente: ${appt.patient?.name ?? 'Desconhecido'} (ID: ${appt.patientId})'),
-                                    const SizedBox(height: 4),
-                                    Text('Médico: ${appt.doctor?.name ?? 'Desconhecido'} (ID: ${appt.doctorId})'),
-                                    const SizedBox(height: 4),
-                                    Text('Início Previsto: $scheduledStart'),
-                                    if (actualStart != null) ...[
-                                      const SizedBox(height: 4),
-                                      Text('Início Real: $actualStart', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w500)),
-                                    ],
-                                    if (actualEnd != null) ...[
-                                      const SizedBox(height: 4),
-                                      Text('Fim Real: $actualEnd', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontWeight: FontWeight.w500)),
-                                    ],
-                                    const SizedBox(height: 12),
-                                    const Text('Comentário:', style: TextStyle(fontWeight: FontWeight.bold)),
-                                    SelectableText(appt.notes.isEmpty ? 'Nenhum comentário.' : appt.notes),
-                                  ],
-                                ),
+                                ],
                               ),
-                              actionsAlignment: MainAxisAlignment.spaceBetween,
-                              actions: [
-                                Row(
-                                  children: [
-                                    if (isDoctorOrReceptionist && (appt.status == 'scheduled' || appt.status.isEmpty))
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-                                        onPressed: () async {
-                                          Navigator.pop(dialogContext);
-                                          try {
-                                            final repo = ref.read(scheduleRepositoryProvider);
-                                            await repo.startAppointment(appt.id);
-                                            ref.invalidate(appointmentsProvider(null));
-                                            if (!context.mounted) return;
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Atendimento iniciado com sucesso.')),
-                                            );
-                                          } catch (e) {
-                                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao iniciar: $e')));
-                                          }
-                                        },
-                                        child: const Text('Iniciar Atendimento', style: TextStyle(color: Colors.white)),
-                                      ),
-                                    if (isDoctorOrReceptionist && appt.status == 'in_progress')
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                                        onPressed: () async {
-                                          Navigator.pop(dialogContext);
-                                          try {
-                                            final repo = ref.read(scheduleRepositoryProvider);
-                                            await repo.finishAppointment(appt.id);
-                                            ref.invalidate(appointmentsProvider(null));
-                                            if (!context.mounted) return;
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Consulta encerrada com sucesso.')),
-                                            );
+                            ),
+                          );
+                        },
+                        onEventTap: (events, date) {
+                          final appt = events.first.event;
+                          if (appt != null) {
+                            showDialog(
+                              context: context,
+                              builder: (dialogContext) {
+                                final isDoctorOrReceptionist = currentUser?.role?.name == 'doctor' || currentUser?.role?.name == 'dentist' || currentUser?.role?.name == 'receptionist';
+                                final scheduledStart = DateFormat('dd/MM/yyyy HH:mm').format(appt.startTime);
+                                final actualStart = appt.actualStartTime != null ? DateFormat('HH:mm:ss').format(appt.actualStartTime!) : null;
+                                final actualEnd = appt.actualEndTime != null ? DateFormat('HH:mm:ss').format(appt.actualEndTime!) : null;
+                                
+                                final statusLabel = _getStatusLabel(appt.status);
+                                final statusColor = _getAppointmentStatusColor(appt.status);
 
-                                            final allAppointments = ref.read(appointmentsProvider(null)).value ?? [];
-                                            final now = DateTime.now();
-                                            final doctorAppts = allAppointments.where((a) => a.doctorId == appt.doctorId && a.startTime.isAfter(now)).toList();
-                                            doctorAppts.sort((a, b) => a.startTime.compareTo(b.startTime));
-                                            final nextAppt = doctorAppts.isNotEmpty ? doctorAppts.first : null;
-
-                                            DateTime limitTime;
-                                            if (nextAppt != null) {
-                                              limitTime = nextAppt.startTime;
-                                            } else {
-                                              limitTime = DateTime(now.year, now.month, now.day, 18, 0); 
-                                            }
-
-                                            if (limitTime.difference(now).inMinutes >= 60) {
-                                              final matches = await repo.checkMatches(appt.doctorId, now.toIso8601String());
-                                              if (matches.isNotEmpty && context.mounted) {
-                                                setState(() {
-                                                  _smartBookingMatches = matches;
-                                                  _freedTime = now;
-                                                  _freedDoctorId = appt.doctorId;
-                                                });
+                                return AlertDialog(
+                                  title: const Text('Detalhes do Agendamento', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  content: SingleChildScrollView(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Text('Status: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: statusColor.withValues(alpha: 0.15),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+                                              ),
+                                              child: Text(
+                                                statusLabel, 
+                                                style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 14)
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text('Tipo: ${appt.appointmentType?.name ?? 'Agendamento'}'),
+                                        const SizedBox(height: 4),
+                                        Text('Paciente: ${appt.patient?.name ?? 'Desconhecido'} (ID: ${appt.patientId})'),
+                                        const SizedBox(height: 4),
+                                        Text('Médico: ${appt.doctor?.name ?? 'Desconhecido'} (ID: ${appt.doctorId})'),
+                                        const SizedBox(height: 4),
+                                        Text('Início Previsto: $scheduledStart'),
+                                        if (actualStart != null) ...[
+                                          const SizedBox(height: 4),
+                                          Text('Início Real: $actualStart', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w500)),
+                                        ],
+                                        if (actualEnd != null) ...[
+                                          const SizedBox(height: 4),
+                                          Text('Fim Real: $actualEnd', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontWeight: FontWeight.w500)),
+                                        ],
+                                        const SizedBox(height: 12),
+                                        const Text('Comentário:', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        SelectableText(appt.notes.isEmpty ? 'Nenhum comentário.' : appt.notes),
+                                      ],
+                                    ),
+                                  ),
+                                  actions: [
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      alignment: WrapAlignment.end,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: [
+                                        if (appt.status == 'scheduled' || appt.status == 'confirmed' || appt.status.isEmpty)
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF10B981),
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            icon: const Icon(LucideIcons.messageSquare, size: 16),
+                                            label: const Text('Confirmar (WhatsApp)'),
+                                            onPressed: () async {
+                                              Navigator.pop(dialogContext);
+                                              try {
+                                                final repo = ref.read(scheduleRepositoryProvider);
+                                                final link = await repo.getWhatsAppLink(appt.id);
+                                                if (link.isNotEmpty) {
+                                                  final uri = Uri.parse(link);
+                                                  if (await canLaunchUrl(uri)) {
+                                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                                  } else {
+                                                    await launchUrl(uri);
+                                                  }
+                                                }
+                                                await repo.confirmAppointment(appt.id);
+                                                ref.invalidate(appointmentsProvider(null));
+                                                if (!context.mounted) return;
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Consulta confirmada e WhatsApp aberto.')),
+                                                );
+                                              } catch (e) {
+                                                if (context.mounted) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(content: Text('Erro ao confirmar via WhatsApp: $e')),
+                                                  );
+                                                }
                                               }
-                                            }
-                                          } catch (e) {
-                                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao encerrar: $e')));
-                                          }
-                                        },
-                                        child: const Text('Finalizar Atendimento', style: TextStyle(color: Colors.white)),
-                                      ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    if (currentUser?.role?.name != 'doctor' && currentUser?.role?.name != 'dentist')
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                        onPressed: () async {
-                                          Navigator.pop(dialogContext);
-                                          try {
-                                            final repo = ref.read(scheduleRepositoryProvider);
-                                            await repo.deleteAppointment(appt.id);
-                                            ref.invalidate(appointmentsProvider(null));
-                                            if (!context.mounted) return;
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Agendamento cancelado com sucesso.')),
-                                            );
-                                            final matches = await repo.checkMatches(appt.doctorId, appt.startTime.toIso8601String());
-                                            if (matches.isNotEmpty && context.mounted) {
-                                              setState(() {
-                                                _smartBookingMatches = matches;
-                                                _freedTime = appt.startTime;
-                                                _freedDoctorId = appt.doctorId;
-                                              });
-                                            }
-                                          } catch (e) {
-                                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao cancelar: $e')));
-                                          }
-                                        },
-                                        child: const Text('Cancelar Consulta', style: TextStyle(color: Colors.white)),
-                                      ),
-                                    const SizedBox(width: 8),
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(dialogContext),
-                                      child: const Text('Fechar'),
+                                            },
+                                          ),
+                                        if (isDoctorOrReceptionist && (appt.status == 'scheduled' || appt.status == 'confirmed' || appt.status.isEmpty))
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF2563EB),
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            icon: const Icon(LucideIcons.play, size: 16),
+                                            label: const Text('Iniciar Atendimento'),
+                                            onPressed: () async {
+                                              Navigator.pop(dialogContext);
+                                              try {
+                                                final repo = ref.read(scheduleRepositoryProvider);
+                                                await repo.startAppointment(appt.id);
+                                                ref.invalidate(appointmentsProvider(null));
+                                                if (!context.mounted) return;
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Atendimento iniciado com sucesso.')),
+                                                );
+                                              } catch (e) {
+                                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao iniciar: $e')));
+                                              }
+                                            },
+                                          ),
+                                        if (isDoctorOrReceptionist && appt.status == 'in_progress')
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF10B981),
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            icon: const Icon(LucideIcons.checkCircle, size: 16),
+                                            label: const Text('Finalizar Atendimento'),
+                                            onPressed: () async {
+                                              Navigator.pop(dialogContext);
+                                              try {
+                                                final repo = ref.read(scheduleRepositoryProvider);
+                                                await repo.finishAppointment(appt.id);
+                                                ref.invalidate(appointmentsProvider(null));
+                                                if (!context.mounted) return;
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Consulta encerrada com sucesso.')),
+                                                );
+
+                                                final allAppointments = ref.read(appointmentsProvider(null)).value ?? [];
+                                                final now = DateTime.now();
+                                                final doctorAppts = allAppointments.where((a) => a.doctorId == appt.doctorId && a.startTime.isAfter(now)).toList();
+                                                doctorAppts.sort((a, b) => a.startTime.compareTo(b.startTime));
+                                                final nextAppt = doctorAppts.isNotEmpty ? doctorAppts.first : null;
+
+                                                DateTime limitTime;
+                                                if (nextAppt != null) {
+                                                  limitTime = nextAppt.startTime;
+                                                } else {
+                                                  limitTime = DateTime(now.year, now.month, now.day, 18, 0); 
+                                                }
+
+                                                if (limitTime.difference(now).inMinutes >= 60) {
+                                                  final matches = await repo.checkMatches(appt.doctorId, now.toIso8601String());
+                                                  if (matches.isNotEmpty && context.mounted) {
+                                                    setState(() {
+                                                      _smartBookingMatches = matches;
+                                                      _freedTime = now;
+                                                      _freedDoctorId = appt.doctorId;
+                                                    });
+                                                  }
+                                                }
+                                              } catch (e) {
+                                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao encerrar: $e')));
+                                              }
+                                            },
+                                          ),
+                                        if (appt.status == 'scheduled' || appt.status == 'confirmed' || appt.status.isEmpty)
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFFEF4444),
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            icon: const Icon(LucideIcons.userX, size: 16),
+                                            label: const Text('Marcar Falta'),
+                                            onPressed: () async {
+                                              Navigator.pop(dialogContext);
+                                              try {
+                                                final repo = ref.read(scheduleRepositoryProvider);
+                                                await repo.missAppointment(appt.id);
+                                                ref.invalidate(appointmentsProvider(null));
+                                                if (!context.mounted) return;
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Falta registrada com sucesso.')),
+                                                );
+                                              } catch (e) {
+                                                if (context.mounted) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(content: Text('Erro ao marcar falta: $e')),
+                                                  );
+                                                }
+                                              }
+                                            },
+                                          ),
+                                        if (currentUser?.role?.name != 'doctor' && currentUser?.role?.name != 'dentist' && appt.status != 'finished' && appt.status != 'cancelled')
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF374151),
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            icon: const Icon(LucideIcons.trash2, size: 16),
+                                            label: const Text('Cancelar Consulta'),
+                                            onPressed: () async {
+                                              Navigator.pop(dialogContext);
+                                              try {
+                                                final repo = ref.read(scheduleRepositoryProvider);
+                                                await repo.deleteAppointment(appt.id);
+                                                ref.invalidate(appointmentsProvider(null));
+                                                if (!context.mounted) return;
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Agendamento cancelado com sucesso.')),
+                                                );
+                                                final matches = await repo.checkMatches(appt.doctorId, appt.startTime.toIso8601String());
+                                                if (matches.isNotEmpty && context.mounted) {
+                                                  setState(() {
+                                                    _smartBookingMatches = matches;
+                                                    _freedTime = appt.startTime;
+                                                    _freedDoctorId = appt.doctorId;
+                                                  });
+                                                }
+                                              } catch (e) {
+                                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao cancelar: $e')));
+                                              }
+                                            },
+                                          ),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(dialogContext),
+                                          child: const Text('Fechar'),
+                                        ),
+                                      ],
                                     ),
                                   ],
-                                ),
-                              ],
+                                );
+                              },
                             );
-                          },
-                        );
-                      }
-                    },
+                          }
+                        },
                   );
                 },
               );
@@ -459,13 +550,46 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     );
   }
 
-  Color _getColor(String? hexColor) {
-    if (hexColor == null || hexColor.isEmpty) return const Color(0xFF2563EB); // default blue
-    hexColor = hexColor.toUpperCase().replaceAll('#', '');
-    if (hexColor.length == 6) {
-      hexColor = 'FF$hexColor';
+  Color _getAppointmentStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'scheduled':
+        return const Color(0xFF2563EB); // Azul
+      case 'confirmed':
+        return const Color(0xFF10B981); // Verde Emerald
+      case 'in_progress':
+        return const Color(0xFFF59E0B); // Amarelo/Dourado
+      case 'finished':
+      case 'completed':
+        return const Color(0xFF6B7280); // Cinza
+      case 'missed':
+        return const Color(0xFFEF4444); // Vermelho
+      case 'cancelled':
+      case 'canceled':
+        return const Color(0xFF374151); // Escuro/Cinza
+      default:
+        return const Color(0xFF2563EB);
     }
-    return Color(int.parse(hexColor, radix: 16));
+  }
+
+  String _getStatusLabel(String status) {
+    switch (status.toLowerCase()) {
+      case 'scheduled':
+        return 'Agendado';
+      case 'confirmed':
+        return 'Confirmado';
+      case 'in_progress':
+        return 'Em Atendimento';
+      case 'finished':
+      case 'completed':
+        return 'Finalizado';
+      case 'missed':
+        return 'Faltou';
+      case 'cancelled':
+      case 'canceled':
+        return 'Cancelado';
+      default:
+        return 'Agendado';
+    }
   }
 }
 

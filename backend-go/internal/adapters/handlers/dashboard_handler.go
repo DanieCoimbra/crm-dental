@@ -15,7 +15,7 @@ func NewDashboardHandler() *DashboardHandler {
 }
 
 func (h *DashboardHandler) GetStats(c *fiber.Ctx) error {
-	clinicID := uint(c.Locals("clinic_id").(float64))
+	clinicID := getClinicID(c)
 
 	var totalPatients int64
 	database.DB.Table("patients").Where("clinic_id = ? AND deleted_at IS NULL", clinicID).Count(&totalPatients)

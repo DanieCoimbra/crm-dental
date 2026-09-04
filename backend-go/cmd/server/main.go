@@ -22,6 +22,13 @@ func main() {
 		log.Println("Aviso: arquivo .env não encontrado. Usando variáveis de ambiente do sistema.")
 	}
 
+	// Validação de segurança para JWT_SECRET em repositório público / produção
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Println("⚠️ AVISO DE SEGURANÇA: JWT_SECRET não configurado! Usando chave padrão para desenvolvimento local.")
+		os.Setenv("JWT_SECRET", "dental_crm_super_secret_portfolio_key_2026_change_in_prod")
+	}
+
 	// Conecta ao Supabase (PostgreSQL) via GORM
 	database.Connect()
 
@@ -46,8 +53,8 @@ func main() {
 			if allowedOrigins == "*" {
 				return true
 			}
-			// Aceita qualquer subdomínio da Vercel (*.vercel.app) e localhost
-			if strings.HasSuffix(origin, ".vercel.app") || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+			// Origem padrão do frontend em produção (Vercel) e desenvolvimento local
+			if origin == "https://crm-clinica-ten.vercel.app" || strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
 				return true
 			}
 			if allowedOrigins != "" {
@@ -57,7 +64,7 @@ func main() {
 					}
 				}
 			}
-			return origin == "https://crm-clinica-ten.vercel.app"
+			return false
 		},
 		AllowCredentials: true,
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",

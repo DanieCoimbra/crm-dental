@@ -180,76 +180,81 @@ class DashboardScreen extends ConsumerWidget {
                             const SizedBox(height: 24),
                             SizedBox(
                               height: 280,
-                              child: BarChart(
-                                BarChartData(
-                                  alignment: BarChartAlignment.spaceAround,
-                                  maxY: 30,
-                                  barTouchData: BarTouchData(enabled: true),
-                                  titlesData: FlTitlesData(
-                                    show: true,
-                                    bottomTitles: AxisTitles(
-                                      sideTitles: SideTitles(
-                                        showTitles: true,
-                                        getTitlesWidget: (double value, TitleMeta meta) {
-                                          final style = TextStyle(
-                                            color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          );
-                                          String text;
-                                          switch (value.toInt()) {
-                                            case 0: text = 'Seg'; break;
-                                            case 1: text = 'Ter'; break;
-                                            case 2: text = 'Qua'; break;
-                                            case 3: text = 'Qui'; break;
-                                            case 4: text = 'Sex'; break;
-                                            case 5: text = 'Sáb'; break;
-                                            case 6: text = 'Dom'; break;
-                                            default: text = ''; break;
-                                          }
-                                          return SideTitleWidget(
-                                            meta: meta,
-                                            child: Text(text, style: style),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    leftTitles: AxisTitles(
-                                      sideTitles: SideTitles(
-                                        showTitles: true,
-                                        reservedSize: 30,
-                                        getTitlesWidget: (value, meta) => Text(
-                                          value.toInt().toString(),
-                                          style: TextStyle(
-                                            color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
-                                            fontSize: 12,
+                              child: statsAsync.maybeWhen(
+                                data: (stats) {
+                                  final List<dynamic> weekly = stats['weeklyData'] ?? [];
+                                  double maxWeekly = 10;
+                                  for (var w in weekly) {
+                                    final v = (w as num).toDouble();
+                                    if (v > maxWeekly) maxWeekly = v;
+                                  }
+                                  return BarChart(
+                                    BarChartData(
+                                      alignment: BarChartAlignment.spaceAround,
+                                      maxY: maxWeekly + 2,
+                                      barTouchData: BarTouchData(enabled: true),
+                                      titlesData: FlTitlesData(
+                                        show: true,
+                                        bottomTitles: AxisTitles(
+                                          sideTitles: SideTitles(
+                                            showTitles: true,
+                                            getTitlesWidget: (double value, TitleMeta meta) {
+                                              final style = TextStyle(
+                                                color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                              );
+                                              String text;
+                                              switch (value.toInt()) {
+                                                case 0: text = 'Seg'; break;
+                                                case 1: text = 'Ter'; break;
+                                                case 2: text = 'Qua'; break;
+                                                case 3: text = 'Qui'; break;
+                                                case 4: text = 'Sex'; break;
+                                                case 5: text = 'Sáb'; break;
+                                                case 6: text = 'Dom'; break;
+                                                default: text = ''; break;
+                                              }
+                                              return SideTitleWidget(
+                                                meta: meta,
+                                                child: Text(text, style: style),
+                                              );
+                                            },
                                           ),
                                         ),
+                                        leftTitles: AxisTitles(
+                                          sideTitles: SideTitles(
+                                            showTitles: true,
+                                            reservedSize: 30,
+                                            getTitlesWidget: (value, meta) => Text(
+                                              value.toInt().toString(),
+                                              style: TextStyle(
+                                                color: theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurfaceVariant,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                                       ),
-                                    ),
-                                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                  ),
-                                  gridData: FlGridData(
-                                    show: true,
-                                    drawVerticalLine: false,
-                                    getDrawingHorizontalLine: (value) => FlLine(
-                                      color: gridColor.withValues(alpha: 0.5),
-                                      strokeWidth: 1,
-                                    ),
-                                  ),
-                                  borderData: FlBorderData(show: false),
-                                  barGroups: statsAsync.maybeWhen(
-                                    data: (stats) {
-                                      final List<dynamic> weekly = stats['weeklyData'] ?? [];
-                                      return List.generate(
+                                      gridData: FlGridData(
+                                        show: true,
+                                        drawVerticalLine: false,
+                                        getDrawingHorizontalLine: (value) => FlLine(
+                                          color: gridColor.withValues(alpha: 0.5),
+                                          strokeWidth: 1,
+                                        ),
+                                      ),
+                                      borderData: FlBorderData(show: false),
+                                      barGroups: List.generate(
                                         weekly.length > 7 ? 7 : weekly.length, 
                                         (i) => _makeGroupData(i, (weekly[i] as num).toDouble(), 0)
-                                      );
-                                    },
-                                    orElse: () => [],
-                                  ),
-                                ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                orElse: () => const Center(child: CircularProgressIndicator()),
                               ),
                             ),
                             if (showFinancial) ...[
