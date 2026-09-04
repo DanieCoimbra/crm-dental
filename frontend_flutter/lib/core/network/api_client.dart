@@ -9,7 +9,7 @@ const _storage = FlutterSecureStorage();
 
 const String _rawBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'https://crm-clinica-gjss.onrender.com',
+  defaultValue: 'https://crm-dental-lap6.onrender.com',
 );
 
 String get backendBaseUrl {

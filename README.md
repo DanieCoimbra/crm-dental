@@ -18,7 +18,7 @@
 Este repositório está configurado para **exibição pública de portfólio**. Você pode acessar a aplicação em produção utilizando as credenciais públicas de demonstração abaixo:
 
 - 🔗 **Frontend Web (Vercel):** [https://crm-clinica-ten.vercel.app](https://crm-clinica-ten.vercel.app)
-- ⚙️ **Backend API (Render):** [https://crm-clinica-gjss.onrender.com](https://crm-clinica-gjss.onrender.com)
+- ⚙️ **Backend API (Render):** [https://crm-dental-lap6.onrender.com](https://crm-dental-lap6.onrender.com)
 
 ### 🔑 Credenciais da Clínica Demo:
 | Perfil | E-mail | Senha |
