@@ -64,9 +64,15 @@ GRANT crm_definer TO crm_owner;
 -- 4. Schema core ----------------------------------------------------------
 -- O administrador precisa poder assumir crm_owner para criar o schema em seu nome.
 -- A associação permanece (o administrador já é todo-poderoso); documentada no contrato.
+-- PostgreSQL 16+: quem tem CREATEROLE (caso do postgres no Supabase) recebe, ao criar o papel, uma
+-- associação SEM a opção SET; ser MEMBER não basta para SET ROLE, então o teste é pela opção SET.
 DO $$
 BEGIN
-  IF NOT pg_has_role(current_user, 'crm_owner', 'MEMBER') THEN
+  IF current_setting('server_version_num')::int >= 160000 THEN
+    IF NOT pg_has_role(current_user, 'crm_owner', 'SET') THEN
+      EXECUTE format('GRANT crm_owner TO %I WITH SET TRUE', current_user);
+    END IF;
+  ELSIF NOT pg_has_role(current_user, 'crm_owner', 'MEMBER') THEN
     EXECUTE format('GRANT crm_owner TO %I', current_user);
   END IF;
 END $$;
