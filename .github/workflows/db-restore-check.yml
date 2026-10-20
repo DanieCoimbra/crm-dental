@@ -1,0 +1,68 @@
+name: db-restore-check
+
+# Verificação mensal de restauração: baixa o backup mais recente, descriptografa com a chave PRIVADA do age, restaura em
+# PostgreSQL descartável (após o bootstrap) e compara contagens e catálogo com o que o próprio backup registrou. Roda os dois
+# modos de database/scripts/restore_check.sh: `full` (o dump é íntegro e completo) e `data` (procedimento de recuperação de
+# desastre: bootstrap -> flyway migrate -> pg_restore --data-only -> a função de login funciona como crm_app).
+# A chave privada decifra TODOS os backups, por isso fica num ambiente à parte (`restore-test`) com revisor obrigatório:
+# a execução mensal espera a aprovação de quem recebe o aviso do GitHub.
+on:
+  schedule:
+    - cron: "23 6 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read # listar e baixar os artefatos do próprio repositório
+
+concurrency:
+  group: db-restore-check
+  cancel-in-progress: false
+
+jobs:
+  restore-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: restore-test
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Baixar o backup mais recente (não expirado)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/backup"
+          mkdir -p "$dir"
+          id="$(gh api "repos/$REPO/actions/artifacts?per_page=100" \
+            --jq '[.artifacts[] | select(.name | startswith("crm-core-")) | select(.expired | not)] | sort_by(.created_at) | last | .id // empty')"
+          if [ -z "$id" ]; then echo "::error::nenhum backup crm-core-* não expirado encontrado (o db-backup está rodando?)"; exit 1; fi
+          gh api "repos/$REPO/actions/artifacts/$id/zip" > "$dir/artifact.zip"
+          unzip -q -o "$dir/artifact.zip" -d "$dir"
+          rm -f "$dir/artifact.zip"
+          file="$(find "$dir" -maxdepth 1 -name 'crm-core-*.dump.age' -exec basename {} \; | sort | tail -1)"
+          if [ -z "$file" ]; then echo "::error::o artefato não contém crm-core-*.dump.age"; exit 1; fi
+          echo "BACKUP_FILE_NAME=$file" >> "$GITHUB_ENV"
+          echo "Backup a verificar: $file"
+
+      - name: Restaurar e conferir (modos full e data)
+        env:
+          BACKUP_AGE_PRIVATE_KEY: ${{ secrets.BACKUP_AGE_PRIVATE_KEY }}
+        run: |
+          set +x
+          if [ -z "$BACKUP_AGE_PRIVATE_KEY" ]; then echo "::error::secret ausente: BACKUP_AGE_PRIVATE_KEY"; exit 1; fi
+          echo "::add-mask::$BACKUP_AGE_PRIVATE_KEY"
+          POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$POSTGRES_PASSWORD"
+          export POSTGRES_PASSWORD BACKUP_DIR="$RUNNER_TEMP/backup"
+          export BACKUP_AGE_PRIVATE_KEY
+          docker compose -f database/docker-compose.yml --profile restore run --rm --build restore
+
+      - name: Limpar
+        if: always()
+        run: |
+          POSTGRES_PASSWORD=descartavel docker compose -f database/docker-compose.yml --profile restore down -v --remove-orphans
+          rm -rf "$RUNNER_TEMP/backup"

@@ -1,0 +1,61 @@
+name: db-bootstrap
+
+# Cria papéis e schema core no Supabase (executar uma vez; reexecutar rotaciona senhas).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    environment: production   # exige aprovação manual
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar ferramentas
+        run: |
+          psql --version
+          openssl version
+
+      - name: Executar bootstrap
+        env:
+          ADMIN_URL: ${{ secrets.SUPABASE_ADMIN_URL }}
+          CRM_OWNER_PASSWORD: ${{ secrets.CRM_OWNER_PASSWORD }}
+          CRM_APP_PASSWORD: ${{ secrets.CRM_APP_PASSWORD }}
+          CRM_BACKUP_PASSWORD: ${{ secrets.CRM_BACKUP_PASSWORD }}
+        run: |
+          set +x
+          for v in ADMIN_URL CRM_OWNER_PASSWORD CRM_APP_PASSWORD CRM_BACKUP_PASSWORD; do
+            if [ -z "${!v}" ]; then echo "::error::secret ausente: $v"; exit 1; fi
+            echo "::add-mask::${!v}"
+          done
+
+          # TLS obrigatório na conexão administrativa
+          case "$ADMIN_URL" in
+            *sslmode=require*|*sslmode=verify-ca*|*sslmode=verify-full*) ;;
+            *) echo "::error::SUPABASE_ADMIN_URL precisa de sslmode=require (ou verify-ca/verify-full)"; exit 1;;
+          esac
+
+          # Senhas distintas (a validação de tamanho ≥ 24 está no gerador do verificador)
+          if [ "$CRM_OWNER_PASSWORD" = "$CRM_APP_PASSWORD" ] || [ "$CRM_OWNER_PASSWORD" = "$CRM_BACKUP_PASSWORD" ] \
+             || [ "$CRM_APP_PASSWORD" = "$CRM_BACKUP_PASSWORD" ]; then
+            echo "::error::as senhas dos papéis devem ser distintas"; exit 1
+          fi
+
+          # A senha em texto claro nunca vai numa instrução SQL: só os verificadores SCRAM-SHA-256
+          OWNER_SCRAM=$(SCRAM_PASSWORD="$CRM_OWNER_PASSWORD"  bash database/scripts/scram_verifier.sh)
+          APP_SCRAM=$(SCRAM_PASSWORD="$CRM_APP_PASSWORD"      bash database/scripts/scram_verifier.sh)
+          BACKUP_SCRAM=$(SCRAM_PASSWORD="$CRM_BACKUP_PASSWORD" bash database/scripts/scram_verifier.sh)
+          echo "::add-mask::$OWNER_SCRAM"; echo "::add-mask::$APP_SCRAM"; echo "::add-mask::$BACKUP_SCRAM"
+
+          psql "$ADMIN_URL" -X -q -v ON_ERROR_STOP=1 \
+            -v crm_owner_scram="$OWNER_SCRAM" \
+            -v crm_app_scram="$APP_SCRAM" \
+            -v crm_backup_scram="$BACKUP_SCRAM" \
+            -f database/bootstrap/00_roles_and_schema.sql

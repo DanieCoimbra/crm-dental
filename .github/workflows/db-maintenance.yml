@@ -1,0 +1,46 @@
+name: db-maintenance
+
+# Mantém o projeto Supabase gratuito ativo (ele pausa após ~7 dias sem atividade) e apaga refresh tokens vencidos há
+# mais de 30 dias. Roda a cada 3 dias e sob demanda, no ambiente `maintenance`: SEM revisor obrigatório (um job agendado
+# não pode esperar aprovação) e com um único par de segredos, do papel crm_app, que só consegue `SELECT 1` e a
+# função de limpeza. Deploy e bootstrap continuam no ambiente `production`, com aprovação.
+on:
+  schedule:
+    - cron: "0 6 */3 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: maintenance
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Keep-alive e limpeza de refresh tokens
+        env:
+          APP_URL: ${{ secrets.SUPABASE_APP_URL }}
+          PGPASSWORD: ${{ secrets.SUPABASE_APP_PASSWORD }}
+        run: |
+          set +x
+          for v in APP_URL PGPASSWORD; do
+            if [ -z "${!v}" ]; then echo "::error::secret ausente: $v"; exit 1; fi
+          done
+          echo "::add-mask::$PGPASSWORD"
+          # TLS obrigatório; a URI não leva senha (ela vem de PGPASSWORD)
+          case "$APP_URL" in
+            *sslmode=require*|*sslmode=verify-ca*|*sslmode=verify-full*) ;;
+            *) echo "::error::SUPABASE_APP_URL precisa de sslmode=require (ou verify-ca/verify-full)"; exit 1;;
+          esac
+
+          psql "$APP_URL" -X -q -v ON_ERROR_STOP=1 -c "SELECT 1 AS keep_alive;"
+          psql "$APP_URL" -X -At -v ON_ERROR_STOP=1 -c "SELECT 'refresh tokens apagados: ' || core.purge_expired_refresh_tokens();"

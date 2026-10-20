@@ -1,0 +1,78 @@
+name: db-deploy
+
+# Aplica as migrations no Supabase depois do merge na main. Exige aprovação manual do ambiente `production`
+# e roda uma execução por vez. Conecta como crm_owner pelo pooler em modo session (porta 5432): as migrations usam
+# DDL e transações longas, que o modo transaction (6543) não suporta.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "database/migrations/**"
+      - "database/flyway.conf"
+  workflow_dispatch: # reexecução manual (por exemplo, depois de reativar um projeto pausado)
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Só a main implanta: um workflow_dispatch numa branch de feature não aplica migrations não mescladas.
+    if: github.ref == 'refs/heads/main'
+    environment: production # revisor obrigatório: o job espera a aprovação aqui
+    env:
+      FLYWAY_IMAGE: flyway/flyway:11.20.3
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Validar segredos e preparar a conexão (TLS obrigatório)
+        env:
+          OWNER_URL: ${{ secrets.SUPABASE_OWNER_URL }}
+          OWNER_PASSWORD: ${{ secrets.SUPABASE_OWNER_PASSWORD }}
+        run: |
+          set +x
+          for v in OWNER_URL OWNER_PASSWORD; do
+            if [ -z "${!v}" ]; then echo "::error::secret ausente: SUPABASE_${v}"; exit 1; fi
+          done
+          echo "::add-mask::$OWNER_PASSWORD"
+          # URI sem senha (postgresql://crm_owner.<ref>@host:5432/postgres?sslmode=require) -> variáveis do Flyway
+          # (só aceita o papel crm_owner ou crm_owner.<ref>; recusa postgres e outros)
+          eval "$(bash database/scripts/pg_uri_to_flyway_env.sh "$OWNER_URL" crm_owner)"
+          echo "::add-mask::$FLYWAY_USER"
+          {
+            echo "FLYWAY_URL=$FLYWAY_URL"
+            echo "FLYWAY_USER=$FLYWAY_USER"
+          } >> "$GITHUB_ENV"
+          echo "::add-mask::$FLYWAY_URL"
+
+      - name: Baixar a imagem do Flyway
+        run: docker pull "$FLYWAY_IMAGE"
+
+      - name: flyway info (antes)
+        env:
+          FLYWAY_PASSWORD: ${{ secrets.SUPABASE_OWNER_PASSWORD }}
+        run: bash database/scripts/flyway.sh info
+
+      # Antes do migrate há migrations PENDENTES por definição (na primeira vez, todas); sem ignorá-las o validate sempre falharia.
+      # O que continua falhando: checksum de migration já aplicada alterado, nome inválido e versão fora de ordem.
+      - name: flyway validate (migration já aplicada editada = falha)
+        env:
+          FLYWAY_PASSWORD: ${{ secrets.SUPABASE_OWNER_PASSWORD }}
+        run: bash database/scripts/flyway.sh validate '-ignoreMigrationPatterns=*:pending,*:future'
+
+      - name: flyway migrate
+        env:
+          FLYWAY_PASSWORD: ${{ secrets.SUPABASE_OWNER_PASSWORD }}
+        run: bash database/scripts/flyway.sh migrate
+
+      - name: flyway info (depois)
+        env:
+          FLYWAY_PASSWORD: ${{ secrets.SUPABASE_OWNER_PASSWORD }}
+        run: bash database/scripts/flyway.sh info
