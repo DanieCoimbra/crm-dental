@@ -1,0 +1,58 @@
+# Ambiente de desenvolvimento: API + PostgreSQL 16 local com o schema da função banco.
+#   cp .env.example .env   # preencha as senhas (>= 24 caracteres cada)
+#   docker compose up --build
+# Os scripts de database/bootstrap e database/migrations são aplicados pelo serviço db-init.
+# Nunca use estas credenciais nem este banco fora do ambiente local.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  db-init:
+    image: postgres:16
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?defina DB_OWNER_PASSWORD no .env}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?defina DB_APP_PASSWORD no .env}
+      DB_BACKUP_PASSWORD: ${DB_BACKUP_PASSWORD:?defina DB_BACKUP_PASSWORD no .env}
+    volumes:
+      - ../database:/database:ro
+      - ./docker/db-init.sh:/db-init.sh:ro
+    command: ["bash", "/db-init.sh"]
+    restart: "no"
+
+  app:
+    build: .
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      PORT: ${PORT:-8080}
+      DB_URL: jdbc:postgresql://db:5432/postgres
+      DB_APP_USER: crm_app
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?defina DB_APP_PASSWORD no .env}
+      CRM_JWT_SECRET: ${CRM_JWT_SECRET:?defina CRM_JWT_SECRET no .env}
+      CRM_AES_KEYS: ${CRM_AES_KEYS:?defina CRM_AES_KEYS no .env}
+      CRM_AES_ACTIVE_VERSION: ${CRM_AES_ACTIVE_VERSION:?defina CRM_AES_ACTIVE_VERSION no .env}
+      CRM_CORS_ORIGINS: ${CRM_CORS_ORIGINS:-http://localhost:5173}
+      CRM_FILES_DIR: ${CRM_FILES_DIR:-}
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+
+volumes:
+  pgdata:

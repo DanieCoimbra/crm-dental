@@ -1,0 +1,7 @@
+# Testes: o datasource vem do Testcontainers (@ServiceConnection).
+spring:
+  jpa:
+    show-sql: false
+
+crm:
+  cors-origins: https://app.test.local

@@ -1,0 +1,17 @@
+# Produção: tudo que é de desenvolvimento permanece desligado (springdoc e actuator extra).
+# Variáveis obrigatórias validadas na subida por StartupConfigValidator.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+crm:
+  hsts-enabled: true
+
+spring:
+  datasource:
+    hikari:
+      data-source-properties:
+        # Supavisor em modo transaction não aceita prepared statements nomeados no servidor
+        prepareThreshold: 0

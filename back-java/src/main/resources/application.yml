@@ -1,0 +1,74 @@
+# Configuração base. Segredos e endereços vêm só de variáveis de ambiente (ver .env.example).
+spring:
+  application:
+    name: crm-api
+  autoconfigure:
+    # Autenticação própria (JWT, F04): sem usuário padrão gerado pelo Spring Security.
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_APP_USER}
+    password: ${DB_APP_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 5000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: core
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: false # migrations pertencem à função banco (GitHub Actions)
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: native
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        readiness:
+          include: readinessState,db
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-}]"
+
+crm:
+  cors-origins: ${CRM_CORS_ORIGINS:}
+  files-dir: ${CRM_FILES_DIR:}
+  hsts-enabled: false
+  jwt:
+    # sem valor padrão: a aplicação não sobe sem segredo de pelo menos 32 bytes (shared/config/JwtConfig)
+    secret: ${CRM_JWT_SECRET:}
+  auth:
+    bcrypt-strength: 12
+  crypto:
+    # sem valores padrão: a aplicação não sobe sem chaveiro válido (shared/crypto/CryptoConfig)
+    keys: ${CRM_AES_KEYS:}
+    active-version: ${CRM_AES_ACTIVE_VERSION:}

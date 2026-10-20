@@ -1,0 +1,24 @@
+# Desenvolvimento local: springdoc ligado, logs verbosos, valores padrão do docker-compose.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
+    username: ${DB_APP_USER:crm_app}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+logging:
+  level:
+    crm_data: DEBUG
+
+crm:
+  cors-origins: ${CRM_CORS_ORIGINS:http://localhost:5173}
