@@ -1,0 +1,77 @@
+# PostgreSQL descartável para desenvolvimento e testes do banco (F01).
+#   export POSTGRES_PASSWORD=<valor aleatório local>
+#   docker compose -f database/docker-compose.yml up -d db
+#   docker compose -f database/docker-compose.yml --profile test run --rm tests
+#   docker compose -f database/docker-compose.yml down -v
+# Nunca use estas credenciais fora do ambiente local.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Servidor SEPARADO só para a verificação de restauração: o bootstrap cria/rotaciona papéis no cluster, e fazer isso no
+  # banco dos testes quebraria as senhas já usadas pelo harness. Também é o alvo do db-restore-check.yml.
+  restore-db:
+    image: postgres:16
+    profiles: ["test", "restore"]
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Verificação de restauração de um backup real (db-restore-check.yml):
+  #   BACKUP_DIR=<pasta com o .age> BACKUP_FILE_NAME=<arquivo> BACKUP_AGE_PRIVATE_KEY=... \
+  #     docker compose -f database/docker-compose.yml --profile restore run --rm --build restore
+  restore:
+    build:
+      context: .
+      dockerfile: tests/Dockerfile
+    profiles: ["restore"]
+    depends_on:
+      restore-db:
+        condition: service_healthy
+    environment:
+      BACKUP_FILE: /backup/${BACKUP_FILE_NAME:-backup.age}
+      BACKUP_AGE_PRIVATE_KEY: ${BACKUP_AGE_PRIVATE_KEY:-}
+      RESTORE_PGHOST: restore-db
+      RESTORE_PGPASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+    volumes:
+      - ./:/database:ro
+      - ${BACKUP_DIR:-./.restore-in}:/backup:ro
+    command: ["bash", "/database/scripts/restore_check.sh"]
+
+  tests:
+    # psql + openssl + age + Flyway (database/tests/Dockerfile); a mesma imagem roda no db-pr.yml
+    build:
+      context: .
+      dockerfile: tests/Dockerfile
+    profiles: ["test"]
+    depends_on:
+      db:
+        condition: service_healthy
+      restore-db:
+        condition: service_healthy
+    environment:
+      RESTORE_PGHOST: restore-db
+      RESTORE_PGPASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      PGDATABASE: postgres
+    volumes:
+      - ./:/database:ro
+    command: ["bash", "/database/tests/run_all.sh"]
