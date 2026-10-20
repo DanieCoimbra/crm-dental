@@ -55,5 +55,5 @@ Segue literalmente as seções 4.1 (registro), 4.2 (login), 4.3 (refresh) e 4.4 
 ## 6. Segurança e desempenho
 - Respostas de auth com `Cache-Control: no-store`.
 - Logs: nunca senha, token, hash ou e-mail completo em eventos de falha (usar prefixo mascarado).
-- BCrypt custo 12 (decisão mantida em 2026-10-19). Reduzir o custo não resolve a meta antiga de 50 concorrentes (custo 10 ainda dá p95 ~420 ms), então a meta foi redefinida para até 4 concorrentes. O custo é configurável por `crm.auth.bcrypt-strength`.
+- BCrypt custo 12 (decisão mantida em 2026-10-19). Reduzir o custo não resolve a meta antiga de 50 concorrentes (custo 10 ainda dá p95 ~420 ms), então a meta foi redefinida para até 4 concorrentes. O custo é configurável por `crm.auth.bcrypt-strength`. O `LoginPerformanceIT` usa limite de 300 ms localmente e 600 ms quando a variável `CI` está definida (runner de 4 CPUs; decisão de 2026-10-20); `-Dperf.limit-ms` sobrescreve.
 - Índices únicos garantem busca por e-mail e hash em tempo constante.

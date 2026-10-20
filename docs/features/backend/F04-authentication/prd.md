@@ -9,7 +9,7 @@
 - **Problema:** o sistema precisa identificar o usuário e a clínica de cada requisição, sem confiar no front-end.
 - **Solução:** registro de clínica com o dentista, login, renovação rotativa e logout, com JWT de curta duração e refresh token revogável.
 - **Metas:**
-  1. Login p95 ≤ 300 ms com até 4 requisições concorrentes (ambiente local, BCrypt custo 12). Decisão registrada em 2026-10-19: BCrypt custo 12 mantido; a meta deixa de ser 50 concorrentes porque o hash é limitado por CPU (medido em 12 CPUs: 1 login 243 ms; 4 concorrentes p95 295 ms; 50 concorrentes p95 ~1,5 s; custo 11 → 0,8 s e custo 10 → 0,42 s, ainda acima de 300 ms).
+  1. Login p95 ≤ 300 ms com até 4 requisições concorrentes (ambiente local, BCrypt custo 12). Decisão registrada em 2026-10-19: BCrypt custo 12 mantido; a meta deixa de ser 50 concorrentes porque o hash é limitado por CPU (medido em 12 CPUs: 1 login 243 ms; 4 concorrentes p95 295 ms; 50 concorrentes p95 ~1,5 s; custo 11 → 0,8 s e custo 10 → 0,42 s, ainda acima de 300 ms). Decisão de 2026-10-20: no CI (runner do GitHub, 4 CPUs, p95 medido 387 ms) o limite do teste é 600 ms; a meta de 300 ms vale para o ambiente de referência.
   2. 100% das rotas fora de `/api/v1/auth/**` e do health exigem token válido.
   3. Reuso de refresh token revoga toda a cadeia (teste automatizado).
   4. Cobertura ≥ 80% nos services de autenticação.
