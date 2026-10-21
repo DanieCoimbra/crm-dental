@@ -3,7 +3,7 @@
 -- Objetivo : função de tenant (core.current_clinic_id) e funções de trigger
 --            reutilizáveis (updated_at e colunas imutáveis) usadas por toda
 --            tabela de negócio.
--- Executar : Flyway, como crm_owner.
+-- Executar : scripts/apply_migrations.sh, como crm_owner.
 -- Reverter : database/rollback/U002__core_tenant_function.sql
 -- Receita de tabela de negócio: docs/features/banco/F02-tenant-and-rls-foundation/contract.md
 -- =====================================================================

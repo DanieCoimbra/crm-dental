@@ -143,10 +143,12 @@ DECLARE
   f record;
   names text[];
 BEGIN
-  -- as únicas funções SECURITY DEFINER de core são as três do contrato
+  -- as únicas funções SECURITY DEFINER de core são as três do contrato da Fase 0 mais as duas da Fase 1
+  -- (write_audit e anonymize_patient; verificadas em tests/phase1_privileges.sql)
   SELECT array_agg(p.proname ORDER BY p.proname) INTO names
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-   WHERE n.nspname = 'core' AND p.prosecdef;
+   WHERE n.nspname = 'core' AND p.prosecdef
+     AND p.proname NOT IN ('write_audit', 'anonymize_patient');
   IF names IS DISTINCT FROM ARRAY['find_refresh_token', 'find_user_for_login', 'purge_expired_refresh_tokens'] THEN
     RAISE EXCEPTION 'T16: funcoes SECURITY DEFINER inesperadas em core: %', names;
   END IF;
@@ -155,6 +157,7 @@ BEGIN
     SELECT p.oid, p.proname, p.proowner, p.proconfig, p.proacl
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
      WHERE n.nspname = 'core' AND p.prosecdef
+       AND p.proname IN ('find_refresh_token', 'find_user_for_login', 'purge_expired_refresh_tokens')
   LOOP
     IF f.proowner <> (SELECT oid FROM pg_roles WHERE rolname = 'crm_definer') THEN
       RAISE EXCEPTION 'T16: % deve pertencer a crm_definer', f.proname;
@@ -230,10 +233,12 @@ BEGIN
     RAISE EXCEPTION 'T16: crm_definer nao deve acessar clinics';
   END IF;
 
-  -- políticas do crm_definer: exatamente as 3 do contrato
+  -- políticas do crm_definer na Fase 0: exatamente as 3 do contrato (users e refresh_tokens); as da
+  -- Fase 1 (escopadas ao tenant) são verificadas em tests/phase1_privileges.sql
   SELECT array_agg(c.relname || ':' || p.polname || ':' || p.polcmd::text ORDER BY c.relname, p.polname) INTO names
     FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
-   WHERE (SELECT oid FROM pg_roles WHERE rolname = 'crm_definer') = ANY (p.polroles);
+   WHERE (SELECT oid FROM pg_roles WHERE rolname = 'crm_definer') = ANY (p.polroles)
+     AND c.relname IN ('users', 'refresh_tokens', 'clinics');
   IF names IS DISTINCT FROM ARRAY['refresh_tokens:refresh_definer_del:d', 'refresh_tokens:refresh_definer_sel:r', 'users:users_definer_sel:r'] THEN
     RAISE EXCEPTION 'T16: politicas do crm_definer divergentes: %', names;
   END IF;

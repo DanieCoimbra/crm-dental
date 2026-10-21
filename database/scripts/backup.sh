@@ -49,7 +49,7 @@ client_major=$(pg_dump --version | sed -E 's/^[^0-9]*([0-9]+).*/\1/')
 uncovered=$(q "
   SELECT string_agg(c.relname, ', ' ORDER BY c.relname)
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-   WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p') AND c.relrowsecurity AND c.relname <> 'flyway_schema_history'
+   WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p') AND c.relrowsecurity
      AND NOT EXISTS (SELECT 1 FROM pg_policy p
                       WHERE p.polrelid = c.oid AND p.polcmd IN ('r', '*')
                         AND (SELECT oid FROM pg_roles WHERE rolname = 'crm_backup') = ANY (p.polroles)
@@ -64,8 +64,8 @@ psql "$BACKUP_URL" -X -At -v ON_ERROR_STOP=1 -f "$SQL_DIR/table_counts.sql" > "$
 # O catálogo gravado aqui é o que a verificação de restauração compara depois (a mesma consulta roda nos dois lados).
 psql "$BACKUP_URL" -X -q -At -v ON_ERROR_STOP=1 -f "$SQL_DIR/catalog_snapshot.sql" | LC_ALL=C sort > "$work/schema.txt"
 
-# --- Dump (sem o histórico do Flyway, que o crm_backup não lê) ---------------------------------------------------------
-pg_dump "$BACKUP_URL" -Fc --schema=core --exclude-table=core.flyway_schema_history \
+# --- Dump ---------------------------------------------------------
+pg_dump "$BACKUP_URL" -Fc --schema=core \
   --enable-row-security --no-owner --no-acl -f "$work/core.dump"
 [ -s "$work/core.dump" ] || fail "o pg_dump não produziu arquivo"
 

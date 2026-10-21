@@ -7,11 +7,11 @@ Tudo do banco mora aqui: papéis, schema `core`, migrations, testes e rollback. 
 ```
 database/
 ├─ bootstrap/00_roles_and_schema.sql   papéis e schema core (1 vez, como postgres; idempotente)
-├─ migrations/V<NNN>__<descricao>.sql  migrations do Flyway (imutáveis depois de aplicadas)
-├─ rollback/U<NNN>__*.sql              reversões MANUAIS (o Flyway Community não reverte)
-├─ scripts/                            scram_verifier.sh, flyway.sh, pg_uri_to_flyway_env.sh
+├─ bootstrap/20_extensions.sql         pg_trgm no schema extensions (Fase 1; depois do 00; idempotente)
+├─ migrations/V<NNN>__<descricao>.sql  migrations aplicadas por psql (não edite depois de aplicadas)
+├─ rollback/U<NNN>__*.sql              reversões MANUAIS (não há ferramenta de migração que reverta)
+├─ scripts/                            scram_verifier.sh, apply_migrations.sh, backup.sh, restore_check.sh
 ├─ tests/                              testes SQL/shell + imagem do harness (Dockerfile)
-├─ flyway.conf                         configuração do Flyway, sem credenciais
 └─ docker-compose.yml                  PostgreSQL descartável e o serviço `tests`
 ```
 
@@ -24,7 +24,7 @@ docker compose -f database/docker-compose.yml down -v
 ```
 
 É o mesmo comando do `db-pr.yml`. O harness cria os papéis de stub do Supabase, roda o bootstrap, aplica as
-migrations com o **Flyway real** (como `crm_owner`), confere `validate` e os casos negativos, roda todos os `tests/*.sql`
+migrations com `scripts/apply_migrations.sh` (como `crm_owner`), roda todos os `tests/*.sql`
 e por último a cadeia de rollback (destrutiva; só em banco descartável).
 
 ## Criar uma migration
@@ -36,26 +36,21 @@ e por último a cadeia de rollback (destrutiva; só em banco descartável).
    `catalog_rls_pattern.sql` reprova o PR se algo faltar.
 4. Escreva `rollback/U007__*.sql` (ou uma nota) e, se criar objetos novos, os testes SQL correspondentes.
 5. Abra o PR. O check `db-validate` precisa ficar verde.
-6. **Nunca edite uma migration já aplicada**: o `flyway validate` falha (checksum). Correção = nova versão.
+6. **Nunca edite uma migration já aplicada**: sem histórico no banco, nada avisa da divergência entre o arquivo e o que rodou. Correção = nova versão.
 7. Mudança destrutiva em passos: adicionar → migrar os dados → trocar o uso → remover (cada passo é um deploy).
-8. `CREATE INDEX CONCURRENTLY` não roda em transação: coloque-o em migration própria com
-   `-- flyway:executeInTransaction=false` no topo.
+8. `CREATE INDEX CONCURRENTLY` não roda em transação, e o `apply_migrations.sh` usa `--single-transaction`: aplique-o à mão com `psql` como `crm_owner`.
 
 ## Rollback manual
 
-O rollback é decisão humana, executada como `crm_owner`, na ordem inversa (`U006` … `U001`). Depois de reverter, corrija o
-histórico do Flyway apagando as linhas das versões revertidas, senão o Flyway acha que elas continuam aplicadas:
-
-```sql
-DELETE FROM core.flyway_schema_history WHERE version::int >= 6;   -- ajuste para as versões revertidas
-```
+O rollback é decisão humana, executada como `crm_owner`, na ordem inversa (`U006` … `U001`). Não há histórico de versões no
+banco: depois de reverter, reaplique a partir da versão desejada com `bash database/scripts/apply_migrations.sh <versão_inicial>`.
 
 ## Workflows (`.github/workflows/`)
 
 | Workflow | Quando | O que faz | Ambiente |
 |---|---|---|---|
 | `db-pr.yml` (check `db-validate`) | todo PR (o job só roda o harness se o PR toca `database/**`; senão fica verde em segundos) | Harness completo em PostgreSQL descartável | nenhum, sem segredos |
-| `db-deploy.yml` | push na `main` em `database/migrations/**` + manual | `flyway info` → `validate` → `migrate` → `info` no Supabase, como `crm_owner`, pelo pooler *session* | `production` (aprovação) |
+| `db-deploy.yml` | push na `main` em `database/migrations/**` + manual | `scripts/apply_migrations.sh` no Supabase, como `crm_owner`, pelo pooler *session* | `production` (aprovação) |
 | `db-maintenance.yml` | a cada 3 dias + manual | `SELECT 1` (keep-alive) e `core.purge_expired_refresh_tokens()` como `crm_app` | `maintenance` (sem aprovação) |
 | `db-backup.yml` | diário 05:17 UTC + manual | `pg_dump` como `crm_backup` → `age` (chave pública) → artefato privado, 30 dias | `backup` (sem revisor) |
 | `db-restore-check.yml` | mensal (dia 1) + manual | Baixa o último backup, decifra, restaura em PostgreSQL descartável e confere contagens e catálogo | `restore-test` (revisor) |
@@ -84,14 +79,98 @@ A senha vai no segredo `*_PASSWORD`. TLS (`sslmode=require` ou mais estrito) é 
 
 1. Gere o par de chaves uma vez, fora do repositório: `age-keygen -o chave.txt`. A linha `# public key: age1...` vai para `BACKUP_AGE_PUBLIC_KEY` (ambiente `backup`); a linha `AGE-SECRET-KEY-...` vai **só** para `BACKUP_AGE_PRIVATE_KEY` (ambiente `restore-test`). Guarde uma cópia da privada num cofre: sem ela os backups são ilegíveis.
 2. O `db-backup` falha (sem gravar arquivo) se faltar segredo, a chave não for `age1...`, a senha tiver < 24 caracteres, a URI trouxer senha ou não exigir TLS, o `pg_dump` for mais antigo que o servidor (ajuste `PG_MAJOR` no workflow), alguma tabela com RLS não tiver política `*_backup_sel` ou o arquivo ficar abaixo de `BACKUP_MIN_BYTES`.
-3. **Recuperação de desastre** (o dump não traz papéis nem GRANTs): num PostgreSQL novo, rode o bootstrap → `scripts/flyway.sh migrate` como `crm_owner` → decifre com `age -d -i chave.txt -o pacote.tar crm-core-*.dump.age`, extraia o `core.dump` do tar → `pg_restore --data-only --disable-triggers --no-owner -d <banco> core.dump`. O `db-restore-check` ensaia exatamente esse caminho todo mês.
+3. **Recuperação de desastre** (o dump não traz papéis nem GRANTs): num PostgreSQL novo, rode o bootstrap → `scripts/apply_migrations.sh` como `crm_owner` → decifre com `age -d -i chave.txt -o pacote.tar crm-core-*.dump.age`, extraia o `core.dump` do tar → `pg_restore --data-only --disable-triggers --no-owner -d <banco> core.dump`. O `db-restore-check` ensaia exatamente esse caminho todo mês.
 4. Ensaio local de ponta a ponta: `bash database/tests/backup_rehearsal.sh` (precisa de Docker).
+
+## Operação manual (enquanto o CI/CD está adiado)
+
+Sem os workflows, bootstrap e migrations rodam da sua máquina (precisa de `psql` e `openssl` 3). As URLs são as mesmas do pooler *session* descritas acima, sem senha; as senhas ficam em variáveis de ambiente e nunca em argumento.
+
+**Bootstrap** (1 vez, como `postgres`; reexecutar rotaciona as senhas dos papéis):
+
+```bash
+export CRM_OWNER_PASSWORD=... CRM_APP_PASSWORD=... CRM_BACKUP_PASSWORD=...   # >= 24 caracteres e distintas
+OWNER_SCRAM=$(SCRAM_PASSWORD="$CRM_OWNER_PASSWORD"   bash database/scripts/scram_verifier.sh)
+APP_SCRAM=$(SCRAM_PASSWORD="$CRM_APP_PASSWORD"       bash database/scripts/scram_verifier.sh)
+BACKUP_SCRAM=$(SCRAM_PASSWORD="$CRM_BACKUP_PASSWORD" bash database/scripts/scram_verifier.sh)
+
+# ADMIN_URL: postgresql://postgres.<ref>@<host-do-pooler>:5432/postgres?sslmode=require  (PGPASSWORD com a senha do postgres)
+psql "$ADMIN_URL" -X -q -v ON_ERROR_STOP=1 \
+  -v crm_owner_scram="$OWNER_SCRAM" -v crm_app_scram="$APP_SCRAM" -v crm_backup_scram="$BACKUP_SCRAM" \
+  -f database/bootstrap/00_roles_and_schema.sql
+```
+
+**Extensões** (Fase 1, 1 vez, como `postgres`, depois do bootstrap; instala `pg_trgm` em `extensions` e dá `USAGE` só a `crm_owner`):
+
+```bash
+psql "$ADMIN_URL" -X -q -v ON_ERROR_STOP=1 -f database/bootstrap/20_extensions.sql
+```
+
+Se a extensão não puder ser criada no projeto, o script falha apontando o plano B (só busca por prefixo; remover o índice `ix_patients_name_trgm` da F02).
+
+**Migrations** (o que o `db-deploy` fazia, como `crm_owner`):
+
+```bash
+export OWNER_URL='postgresql://crm_owner.<ref>@<host>:5432/postgres?sslmode=require'   # sem senha; TLS obrigatório
+export PGPASSWORD="$CRM_OWNER_PASSWORD"
+bash database/scripts/apply_migrations.sh         # todas, na ordem (base vazia)
+bash database/scripts/apply_migrations.sh 14      # só da V014 em diante (base já migrada)
+```
+
+Antes de cada deploy, valide localmente com o harness (`docker compose --profile test`) e ensaie com `bash database/tests/deploy_rehearsal.sh`. O backup e o ensaio de restauração têm scripts próprios (`scripts/backup.sh`, `tests/backup_rehearsal.sh`).
+
+## Contrato de sessão (backend → banco)
+
+A cada transação autenticada o backend define, **na mesma transação**, com `set_config(nome, valor, true)`:
+
+| Variável | Valor | Lida por |
+|---|---|---|
+| `app.clinic_id` | uuid da clínica | `core.current_clinic_id()` (todas as políticas) |
+| `app.role` | `DENTIST_ADMIN` ou `RECEPTIONIST` (exato, maiúsculas) | `core.current_app_role()` (tabelas clínicas, Fase 1) |
+| `app.user_id` | uuid do usuário autenticado | `core.current_user_id()` (autoria e auditoria, Fase 1) |
+
+Ausente, vazio ou fora da lista → `NULL` → as políticas negam (falha fechada). `app.clinic_id` e `app.user_id` que não sejam UUID abortam a transação (`22P02`). O prazo de guarda do prontuário (20 anos) vive em `core.clinical_retention_period()`.
+
+## Fase 1 (núcleo clínico): operação
+
+Migrations `V007`–`V013` (funções de sessão, `patients`, `medical_histories`, `clinical_notes`, `patient_files`, `audit_log`, anonimização) e `bootstrap/20_extensions.sql`. Reversão manual: `U013 → U012 → U011 → U010 → U009 → U008 → U007` (ver `rollback/README.md`; as tabelas só se revertem sem dados).
+
+**Testes da fase** (rodam no `tests/run_all.sh`; evidência de cada número em `docs/global/banco/Fase-1/spec.md`, seção 9): `session_functions.sql` (35, 53), `patients_constraints.sql` (29–31, 34–39, 42, 52), `clinical_roles.sql` (29–33, 35, 36, 52), `clinical_constraints.sql` (38, 40–42), `audit_log.sql` (43–45), `anonymization.sql` (46–51, 55), `performance_search.sql` (55), `phase1_privileges.sql` (17, 18, 51–54) e a ampliação de `schema_dictionary.sql`, `catalog_rls_pattern.sql`, `backup_*` e `rollback_chain.sh` (54, 56, 58). O teste 57 (`ddl-auto=validate` do backend) roda na CI do backend contra estes scripts.
+
+**Validado no Supabase real (2026-10-21):** `bootstrap/20_extensions.sql` (`pg_trgm` em `extensions`, `USAGE` ao `crm_owner`) e V001–V013 aplicadas como `crm_owner` (inclui o `OWNER TO crm_definer` das V012/V013), com os 6 triggers de auditoria presentes. Seguem pendentes: `pg_dump --enable-row-security` pelo pooler e o checklist do bucket abaixo.
+
+### Anonimização de paciente (LGPD)
+
+`SELECT core.anonymize_patient('<uuid>')` com `app.role = DENTIST_ADMIN` (backend). Só vale para paciente **inativo** e **depois de 20 anos do último registro clínico** (sem prontuário, vale na hora). O backend deve: (1) listar as `storage_key` do paciente **antes**; (2) chamar a função; (3) **apagar os objetos no Storage depois do sucesso**. Falha no Storage deixa linhas de `patient_files` com `deleted_at` e `original_filename = 'anonimizado'` para conciliação. Códigos: `CR001` ativo, `CR002` retenção não vencida (`DETAIL` traz a data), `CR003` já anonimizado, `42501` papel, `28000` sessão, `P0002` inexistente. **Janela de backup:** os dumps de até 30 dias ainda contêm os dados originais; isso consta da política de privacidade. O prazo de 20 anos (Lei 13.787/2018) é parâmetro (`core.clinical_retention_period()`) e deve ser confirmado com assessoria jurídica antes de dados reais.
+
+### Supabase Storage dos exames: checklist manual do bucket
+
+Nenhum teste automatizado cobre o Storage real (upload, URL assinada e privacidade do bucket são do backend e do painel). Antes de aprovar a fase, e a cada troca de projeto, de chave ou de configuração, execute e registre aqui (data, responsável, resultado). `curl` sem a chave de serviço nas máquinas de teste.
+
+| # | Verificação | Como conferir | Esperado | Data / responsável / resultado |
+|---|---|---|---|---|
+| B1 | Bucket privado | Painel: Storage → bucket → *Public bucket* desligado | Desligado | pendente |
+| B2 | Acesso anônimo negado | `curl -i <url>/storage/v1/object/public/<bucket>/<qualquer-chave>` | `400`/`404`, nunca `200` | pendente |
+| B3 | Listagem anônima negada | `curl -i -H "apikey: <anon key>" -H "Content-Type: application/json" -d '{"prefix":""}' <url>/storage/v1/object/list/<bucket>` | `401`/`403` ou lista vazia | pendente |
+| B4 | Sem políticas de acesso | Painel: Storage → Policies → `storage.objects` | Nenhuma política para `anon` nem `authenticated` neste bucket | pendente |
+| B5 | Limite de tamanho | Painel: configurações do bucket → *File size limit* | 10 MB | pendente |
+| B6 | Tipos permitidos | Painel: *Allowed MIME types* | `image/jpeg`, `image/png`, `image/webp`, `application/pdf` (igual à `CHECK` de `patient_files.content_type`) | pendente |
+| B7 | Upload fora do limite/tipo recusado | Upload de arquivo > 10 MB e de `text/plain` pelo backend (ambiente de teste) | Recusado pelo Storage | pendente do backend |
+| B8 | URL assinada expira | Gerar URL com validade curta (ex.: 60 s) e abrir antes e depois | Abre antes; falha depois | pendente do backend |
+| B9 | Chave de serviço só no backend | Buscar `CRM_STORAGE_SERVICE_KEY` e a chave `service_role` no repositório, no front e nos logs de deploy | Nenhuma ocorrência | pendente |
+| B10 | Estrutura da chave | Objeto de teste em `<clinic_id>/<patient_id>/<uuid>` | Aceito; o registro em `patient_files` passa na `CHECK` de `storage_key` | pendente do backend |
+| B11 | Data API desligada | Painel: *Settings → Data API*; `core` fora dos schemas expostos | Desligada | pendente |
+| B12 | Objeto removido na anonimização | Após `anonymize_patient` em paciente de teste, o backend apaga os objetos | Objetos ausentes; registros com `deleted_at` e `original_filename = 'anonimizado'` | pendente do backend |
+
+B1–B6, B9 e B11 são configuração (uma vez por projeto) e bloqueiam a aprovação da fase; B7, B8, B10 e B12 dependem do backend da Fase 1. Enquanto o CI/CD estiver adiado, **nada revalida a privacidade do bucket automaticamente**.
+
+### Desempenho sob RLS (nota de operação)
+
+As políticas chamam as funções de sessão como `(SELECT core.current_app_role())` para que o PostgreSQL as avalie uma vez por consulta. Busca por trecho/prefixo de nome com `LIKE` roda como filtro dentro da clínica (≈ 5 ms com 10 mil pacientes): `LIKE` não é `LEAKPROOF` e, sob RLS, não usa os índices trigram/prefixo. Ver `docs/features/banco/Fase-1/F02-patients/spec.md`, seção 4.1.
 
 ## Notas
 
-- O Flyway guarda o histórico em `core.flyway_schema_history` (dono `crm_owner`, sem nenhum `GRANT`). O `db-deploy` valida com
-  `-ignoreMigrationPatterns=*:pending,*:future`: antes do `migrate` há migrations pendentes por definição, e sem esse padrão o
-  `validate` falharia sempre. Checksum alterado, nome inválido e versão fora de ordem continuam reprovando.
+- O Flyway deixou de ser usado (2026-10-21). Não há histórico de versões nem checksum no banco: quem aplica escolhe a versão inicial. Um banco que já foi migrado pelo Flyway ainda tem `core.flyway_schema_history`; descarte-a como `crm_owner`: `DROP TABLE core.flyway_schema_history;`.
 - O Supabase gratuito pausa após ~7 dias sem atividade; o `db-maintenance` roda a cada 3 dias. O GitHub desativa workflows agendados
   depois de 60 dias sem atividade no repositório: reative em *Actions*.
 - Se o runner do GitHub não alcançar o pooler (IPv4/IPv6), rode o `db-deploy` manualmente de uma máquina com acesso.

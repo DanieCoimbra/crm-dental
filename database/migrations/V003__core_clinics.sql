@@ -1,7 +1,7 @@
 -- =====================================================================
 -- V003__core_clinics.sql | F03-core-tables
 -- Objetivo : tabela core.clinics (o tenant), com RLS por id, triggers e grants mínimos.
--- Executar : Flyway, como crm_owner.
+-- Executar : scripts/apply_migrations.sh, como crm_owner.
 -- Reverter : database/rollback/U003__core_clinics.sql
 -- Depende  : V001 (privilégios), V002 (core.current_clinic_id e funções de trigger).
 -- =====================================================================

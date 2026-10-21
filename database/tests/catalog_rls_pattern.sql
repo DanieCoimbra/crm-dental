@@ -6,7 +6,6 @@
 --   (3) política de SELECT para crm_backup,
 --   (4) nenhuma política com USING (true) para crm_app (ou PUBLIC),
 --   (5) nenhum GRANT de DELETE/TRUNCATE a crm_app sem política correspondente.
--- Exceção: core.flyway_schema_history (controle do Flyway).
 -- Executar: como administrador, depois das migrations. Falha se houver violação.
 -- =====================================================================
 \set ON_ERROR_STOP on
@@ -18,7 +17,6 @@ CREATE FUNCTION pg_temp.rls_pattern_violations() RETURNS SETOF text
     SELECT c.oid, c.relname, c.relrowsecurity, c.relforcerowsecurity
       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
      WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p')
-       AND c.relname <> 'flyway_schema_history'
   ),
   backup AS (SELECT oid FROM pg_roles WHERE rolname = 'crm_backup'),
   app    AS (SELECT oid FROM pg_roles WHERE rolname = 'crm_app')

@@ -4,7 +4,7 @@
 --            core.find_user_for_login, core.find_refresh_token e
 --            core.purge_expired_refresh_tokens. Pertencem a crm_definer (NOLOGIN, sem BYPASSRLS,
 --            não dono das tabelas), que acessa os dados por políticas RLS nomeadas só para ele.
--- Executar : Flyway, como crm_owner, numa única transação (crm_owner é membro de crm_definer,
+-- Executar : scripts/apply_migrations.sh, como crm_owner, numa única transação (crm_owner é membro de crm_definer,
 --            concedido no bootstrap).
 -- Reverter : database/rollback/U006__core_bootstrap_functions.sql
 -- Depende  : V003, V004, V005, V001 (USAGE de crm_definer em core).

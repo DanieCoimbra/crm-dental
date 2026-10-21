@@ -19,9 +19,12 @@ BEGIN
   IF NOT has_function_privilege('crm_app', 'core.current_clinic_id()', 'EXECUTE') THEN
     RAISE EXCEPTION 'crm_app deve executar core.current_clinic_id()';
   END IF;
-  IF has_function_privilege('crm_backup', 'core.current_clinic_id()', 'EXECUTE')
-     OR has_function_privilege('crm_definer', 'core.current_clinic_id()', 'EXECUTE') THEN
-    RAISE EXCEPTION 'apenas crm_app (alem do dono) pode executar core.current_clinic_id()';
+  -- Fase 1 (V007): crm_definer também executa a função de tenant, para as políticas escopadas ao tenant
+  IF has_function_privilege('crm_backup', 'core.current_clinic_id()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'crm_backup nao pode executar core.current_clinic_id()';
+  END IF;
+  IF NOT has_function_privilege('crm_definer', 'core.current_clinic_id()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'crm_definer deve executar core.current_clinic_id() (V007)';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace,
                     LATERAL aclexplode(p.proacl) a

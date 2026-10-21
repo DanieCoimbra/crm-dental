@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Ensaio local do par db-backup / db-restore-check, de ponta a ponta e SEPARADO como nos workflows:
-#   1. banco de origem descartável: bootstrap + `flyway migrate` + dados em duas clínicas
+#   1. banco de origem descartável: bootstrap + migrations + dados em duas clínicas
 #   2. backup.sh como crm_backup (o que o db-backup.yml executa) -> arquivo .age numa pasta do host ("o artefato")
 #   3. serviço `restore` do compose (o que o db-restore-check.yml executa) lê só a pasta e a chave privada
 # Requer docker (rodar no host: bash database/tests/backup_rehearsal.sh). Não faz parte do harness do PR.
@@ -30,7 +30,8 @@ MSYS_NO_PATHCONV=1 $C --profile test run --rm --no-deps --entrypoint bash -v "$O
   psql -X -q -v ON_ERROR_STOP=1 -f /database/tests/support/supabase_stubs.sql
   psql -X -q -v ON_ERROR_STOP=1 -v crm_owner_scram="$(scram "$OWNER_PW")" -v crm_app_scram="$(scram "$APP_PW")" \
        -v crm_backup_scram="$(scram "$BACKUP_PW")" -f /database/bootstrap/00_roles_and_schema.sql
-  FLYWAY_URL=jdbc:postgresql://db:5432/postgres FLYWAY_USER=crm_owner FLYWAY_PASSWORD="$OWNER_PW" bash /database/scripts/flyway.sh migrate >/dev/null
+  psql -X -q -v ON_ERROR_STOP=1 -f /database/bootstrap/20_extensions.sql
+  PGUSER=crm_owner PGPASSWORD="$OWNER_PW" bash /database/scripts/apply_migrations.sh >/dev/null
   psql -X -q -v ON_ERROR_STOP=1 <<SQL
     INSERT INTO core.clinics (id, name) VALUES ('"'"'11111111-1111-4111-8111-111111111111'"'"', '"'"'Clinica Ensaio A'"'"'), ('"'"'22222222-2222-4222-8222-222222222222'"'"', '"'"'Clinica Ensaio B'"'"');
     INSERT INTO core.users (id, clinic_id, name, email, password_hash, role) VALUES

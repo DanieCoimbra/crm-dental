@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Ensaio local dos workflows db-deploy e db-maintenance contra um PostgreSQL descartável (rede do compose).
-# Usa o ramo "contêiner" do database/scripts/flyway.sh (o mesmo que o runner do GitHub usa): base VAZIA -> info, validate
-# pré-deploy, migrate, info; segundo deploy sem nada a fazer; e, como crm_app, SELECT 1 + limpeza de tokens + histórico negado.
+# Base VAZIA -> apply_migrations.sh (como crm_owner) e, como crm_app, SELECT 1 + limpeza de tokens.
 # Requer docker (rodar no host: bash database/tests/deploy_rehearsal.sh). Não faz parte do harness do PR.
 set -euo pipefail
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # raiz do repositório
@@ -22,23 +21,17 @@ $C --profile test run --rm --no-deps --entrypoint bash -e OWNER_PW="$OWNER_PW" -
   scram() { SCRAM_PASSWORD="$1" bash /database/scripts/scram_verifier.sh; }
   psql -X -q -v ON_ERROR_STOP=1 -f /database/tests/support/supabase_stubs.sql
   psql -X -q -v ON_ERROR_STOP=1 -v crm_owner_scram="$(scram "$OWNER_PW")" -v crm_app_scram="$(scram "$APP_PW")" \
-       -v crm_backup_scram="$(scram "$BACKUP_PW")" -f /database/bootstrap/00_roles_and_schema.sql' 2>&1 | grep -v "^ Container" || true
+       -v crm_backup_scram="$(scram "$BACKUP_PW")" -f /database/bootstrap/00_roles_and_schema.sql
+  psql -X -q -v ON_ERROR_STOP=1 -f /database/bootstrap/20_extensions.sql' 2>&1 | grep -v "^ Container" || true
 
-echo "== conversor de URI como no workflow"
-OWNER_URL="postgresql://crm_owner@db:5432/postgres?sslmode=disable"
-if bash database/scripts/pg_uri_to_flyway_env.sh "$OWNER_URL" >/dev/null 2>&1; then echo "ERRO: aceitou sslmode=disable"; exit 1; fi
-echo "   recusou sslmode=disable (TLS obrigatório) - ok"
-# o Postgres local não tem TLS: para o ensaio usamos o JDBC direto, igual ao que o conversor produziria
-export FLYWAY_URL="jdbc:postgresql://db:5432/postgres" FLYWAY_USER=crm_owner FLYWAY_PASSWORD="$OWNER_PW"
-export FLYWAY_DOCKER_NETWORK=database_default
+echo "== OWNER_URL sem TLS e com usuario errado sao recusadas"
+if OWNER_URL="postgresql://crm_owner@db:5432/postgres?sslmode=disable" bash database/scripts/apply_migrations.sh >/dev/null 2>&1; then echo "ERRO: aceitou sslmode=disable"; exit 1; fi
+if OWNER_URL="postgresql://postgres@db:5432/postgres?sslmode=require" bash database/scripts/apply_migrations.sh >/dev/null 2>&1; then echo "ERRO: aceitou usuario postgres"; exit 1; fi
+echo "   recusadas - ok"
 
-echo "== db-deploy: info -> validate -> migrate -> info (ramo contêiner do flyway.sh)"
-bash database/scripts/flyway.sh info 2>&1 | grep -E "Pending|Empty|Versioned|Schema version" | head -8
-bash database/scripts/flyway.sh validate '-ignoreMigrationPatterns=*:pending,*:future' 2>&1 | grep -E "Successfully|ERROR" | head -3
-bash database/scripts/flyway.sh migrate 2>&1 | grep -E "Successfully applied|ERROR|Migrating" | head -10
-bash database/scripts/flyway.sh info 2>&1 | grep -E "Success|Current version|ERROR" | head -8
-echo "== segundo deploy (nada a fazer)"
-bash database/scripts/flyway.sh migrate 2>&1 | grep -E "up to date|Successfully|ERROR" | head -3
+echo "== deploy: apply_migrations.sh como crm_owner"
+MSYS_NO_PATHCONV=1 $C --profile test run --rm --no-deps --entrypoint bash -e PGHOST=db -e PGUSER=crm_owner -e PGPASSWORD="$OWNER_PW" tests \
+  /database/scripts/apply_migrations.sh 2>&1 | grep -v "^ Container"
 
 echo "== db-maintenance: crm_app executa SELECT 1 e a limpeza"
 ADM="$C exec -T -e PGPASSWORD=$POSTGRES_PASSWORD db psql -X -At -U postgres -d postgres -h localhost"
@@ -54,8 +47,6 @@ APP="$C exec -T -e PGPASSWORD=$APP_PW db psql -X -At -U crm_app -d postgres -h l
 $APP -c "SELECT 1 AS keep_alive;"
 $APP -c "SELECT 'refresh tokens apagados: ' || core.purge_expired_refresh_tokens();"
 $APP -c "SELECT 'refresh tokens apagados: ' || core.purge_expired_refresh_tokens();"
-echo "== crm_app NAO le o historico do Flyway (mesmo papel da manutenção)"
-out=$($APP -c "SELECT count(*) FROM core.flyway_schema_history" 2>&1 || true); echo "   psql: $out" | head -2; if echo "$out" | grep -qi "permission denied"; then echo "   negado - ok"; else echo "ERRO: crm_app leu o historico"; exit 1; fi
 
 $C down -v >/dev/null 2>&1
 echo "ENSAIO CONCLUIDO"

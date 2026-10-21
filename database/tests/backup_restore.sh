@@ -2,7 +2,7 @@
 # F06-backup-and-restore: testes 26 e 28 com o pg_dump, o age e o pg_restore REAIS, mais as falhas que o contrato exige.
 #   26  backup como crm_backup (--enable-row-security) traz as linhas das clínicas A e B; tabela sem política de leitura reprova
 #   28  o backup restaura em PostgreSQL limpo (após o bootstrap) com as mesmas contagens (modo full) e como recuperação de
-#       desastre (modo data: bootstrap -> flyway migrate -> pg_restore --data-only -> login funciona)
+#       desastre (modo data: bootstrap -> migrations -> pg_restore --data-only -> login funciona)
 #   mais: arquivo ilegível sem a chave privada; falha sem chave, com chave inválida, sem TLS, com senha curta/embutida, backup
 #   menor que o mínimo; restauração falha com chave errada, contagem divergente, dump truncado e catálogo alterado.
 # Requer: psql/pg_dump/pg_restore/age no PATH, PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE (admin do banco DE ORIGEM),
@@ -22,6 +22,9 @@ id1() { admin "$@" | head -1; }   # RETURNING id imprime também a etiqueta "INS
 
 work="$(mktemp -d)"
 cleanup() {
+  # Fase 1: audit_log é só de inserção (inclusive TRUNCATE, por trigger) e as FKs são RESTRICT; esta limpeza desliga o
+  # trigger de TRUNCATE só aqui e esvazia as 5 tabelas clínicas, que só este teste popula com dados commitados
+  admin -c "ALTER TABLE core.audit_log DISABLE TRIGGER trg_audit_log_no_truncate; TRUNCATE core.audit_log, core.patient_files, core.clinical_notes, core.medical_histories, core.patients; ALTER TABLE core.audit_log ENABLE TRIGGER trg_audit_log_no_truncate" >/dev/null 2>&1
   admin -c "DELETE FROM core.refresh_tokens WHERE clinic_id IN (SELECT id FROM core.clinics WHERE name LIKE 'bkp-test-%')" >/dev/null 2>&1
   admin -c "DELETE FROM core.users WHERE clinic_id IN (SELECT id FROM core.clinics WHERE name LIKE 'bkp-test-%')" >/dev/null 2>&1
   admin -c "DELETE FROM core.clinics WHERE name LIKE 'bkp-test-%'" >/dev/null 2>&1
@@ -50,6 +53,19 @@ admin -c "INSERT INTO core.users (id, clinic_id, name, email, password_hash, rol
 admin -c "INSERT INTO core.refresh_tokens (id, clinic_id, user_id, family_id, token_hash, expires_at) VALUES (gen_random_uuid(), '$A', '$UA', gen_random_uuid(), repeat('a', 64), now() + interval '7 days')" >/dev/null
 admin -c "INSERT INTO core.refresh_tokens (id, clinic_id, user_id, family_id, token_hash, expires_at) VALUES (gen_random_uuid(), '$B', '$UB', gen_random_uuid(), repeat('b', 64), now() + interval '7 days')" >/dev/null
 
+# Fase 1: dados clínicos nas DUAS clínicas (as 5 tabelas novas), como o backend os gravaria (a auditoria exige app.user_id)
+PA=$(id1 -c "SELECT gen_random_uuid()"); PB=$(id1 -c "SELECT gen_random_uuid()")
+seed_clinical() { # $1 clínica  $2 usuário  $3 paciente  $4 nome  $5 CPF  $6 sufixo do exame
+  admin -c "SELECT set_config('app.clinic_id', '$1', false), set_config('app.role', 'DENTIST_ADMIN', false), set_config('app.user_id', '$2', false);
+            INSERT INTO core.patients (id, clinic_id, name, cpf, birth_date, phone, created_by) VALUES ('$3', '$1', '$4', '$5', '1990-01-01', '11999990000', '$2');
+            INSERT INTO core.medical_histories (clinic_id, patient_id, content, created_by) VALUES ('$1', '$3', repeat('QUJD', 12), '$2');
+            INSERT INTO core.clinical_notes (clinic_id, patient_id, content, created_by) VALUES ('$1', '$3', repeat('QUJE', 12), '$2');
+            INSERT INTO core.patient_files (clinic_id, patient_id, kind, storage_key, original_filename, content_type, size_bytes, created_by)
+              VALUES ('$1', '$3', 'RADIOGRAPH', '$1/$3/' || gen_random_uuid(), 'bkp-exame-$6.png', 'image/png', 1000, '$2')" >/dev/null
+}
+seed_clinical "$A" "$UA" "$PA" "bkp-paciente-a" 10000000001 A
+seed_clinical "$B" "$UB" "$PB" "bkp-paciente-b" 20000000002 B
+
 backup() { # variáveis extras vêm do ambiente da chamada
   BACKUP_URL="${BACKUP_URL:-$SRC_URL}" PGPASSWORD="${BKP_PW:-$CRM_BACKUP_PW}" BACKUP_AGE_PUBLIC_KEY="${KEY-$PUB}" \
     BACKUP_REQUIRE_TLS="${TLS:-0}" OUT_DIR="${OUT:-$work/out}" BACKUP_MIN_BYTES="${MIN:-10240}" bash "$DB_DIR/scripts/backup.sh"
@@ -76,9 +92,18 @@ data=$(pg_restore --data-only -f - "$work/pkg/core.dump" 2>/dev/null)
 echo "$data" | grep -q 'bkp-test-a-dentista@teste.local' && echo "$data" | grep -q 'bkp-test-b-dentista@teste.local' \
   && echo "$data" | grep -q 'bkp-test-b-recepcao@teste.local' \
   && ok "26: o dump traz as linhas das clinicas A e B (pg_dump --enable-row-security)" || bad "26: faltam linhas de alguma clinica no dump"
-grep -q '^users|' "$work/pkg/counts.txt" && grep -q '^clinics|' "$work/pkg/counts.txt" && ! grep -q flyway "$work/pkg/counts.txt" \
-  && ok "26: counts.txt dentro do pacote (sem o historico do Flyway)" || bad "26: counts.txt invalido"
-! pg_restore -l "$work/pkg/core.dump" | grep -qi 'flyway_schema_history' && ok "26: o dump nao inclui core.flyway_schema_history" || bad "26: historico do Flyway entrou no dump"
+grep -q '^users|' "$work/pkg/counts.txt" && grep -q '^clinics|' "$work/pkg/counts.txt" \
+  && ok "26: counts.txt dentro do pacote" || bad "26: counts.txt invalido"
+# Fase 1: as 5 tabelas novas, com linhas das DUAS clínicas, entram no dump (inclusive a sequência da identidade do audit_log)
+echo "$data" | grep -q 'bkp-paciente-a' && echo "$data" | grep -q 'bkp-paciente-b' \
+  && echo "$data" | grep -q 'bkp-exame-A.png' && echo "$data" | grep -q 'bkp-exame-B.png' \
+  && echo "$data" | grep -q 'QUJDQUJDQUJD' && echo "$data" | grep -q 'QUJEQUJEQUJE' \
+  && ok "26: o dump traz pacientes, prontuario cifrado e exames das clinicas A e B" || bad "26: faltam linhas clinicas no dump"
+n_clin=$(grep -Ec '^(patients|medical_histories|clinical_notes|patient_files)[|]2[|]2$' "$work/pkg/counts.txt")
+n_aud=$(grep -Ec '^audit_log[|]8[|]8$' "$work/pkg/counts.txt")
+[ "$n_clin" = "4" ] && [ "$n_aud" = "1" ] && ok "26: counts.txt traz as 5 tabelas da Fase 1 (2 linhas por tabela clinica; 8 de auditoria)" \
+  || bad "26: contagens da Fase 1 divergem em counts.txt: $(grep -E '^(patients|medical_histories|clinical_notes|patient_files|audit_log)[|]' "$work/pkg/counts.txt" | tr '\n' ' ')"
+echo "$data" | grep -q 'audit_log_id_seq' && ok "26: a sequencia da identidade do audit_log entra no dump" || bad "26: sequencia do audit_log ausente do dump"
 pg_restore -l "$work/pkg/core.dump" | grep -q 'POLICY' && ok "26: o dump traz as politicas RLS" || bad "26: dump sem politicas RLS"
 ! pg_restore -l "$work/pkg/core.dump" | grep -Eq 'ACL|OWNER TO' && ok "26: o dump nao traz GRANTs nem donos (--no-acl --no-owner)" || bad "26: dump contem ACL/OWNER"
 

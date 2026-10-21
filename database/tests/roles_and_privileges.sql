@@ -87,7 +87,7 @@ BEGIN
   END IF;
 END $$;
 
--- T19: crm_app não enxerga objetos novos do crm_owner nem o histórico do Flyway ----
+-- T19: crm_app não enxerga objetos novos do crm_owner ----
 BEGIN;
 SET LOCAL ROLE crm_owner;
 CREATE TABLE core.t_probe_f01 (id integer);
@@ -107,10 +107,6 @@ BEGIN
     RAISE EXCEPTION 'T19: funcao nova ficou executavel por PUBLIC';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
-  IF to_regclass('core.flyway_schema_history') IS NOT NULL
-     AND has_table_privilege('crm_app', 'core.flyway_schema_history', 'SELECT') THEN
-    RAISE EXCEPTION 'T19: crm_app le core.flyway_schema_history';
-  END IF;
 END $$;
 RESET SESSION AUTHORIZATION;
 ROLLBACK;

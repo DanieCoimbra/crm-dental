@@ -3,7 +3,7 @@
 -- Objetivo : criar os papéis (crm_definer, crm_owner, crm_app, crm_backup),
 --            o schema core e os parâmetros de sessão dos papéis.
 -- Executar : UMA vez (idempotente), como administrador do projeto (postgres),
---            via workflow db-bootstrap.yml. NUNCA pela API.
+--            manualmente com psql (ver database/README.md, "Operação manual"). NUNCA pela API.
 -- Variáveis: crm_owner_scram, crm_app_scram, crm_backup_scram  (psql -v ...)
 --            Verificadores SCRAM-SHA-256 gerados por database/scripts/scram_verifier.sh.
 --            A senha em texto claro NUNCA entra numa instrução SQL: o servidor registra o

@@ -4,7 +4,7 @@
 #   full  restaura tudo o que está no dump (tabelas, dados, índices, constraints, políticas, funções) sobre o schema criado
 #         pelo bootstrap. Prova que o dump é íntegro e completo. Atenção: --no-owner --no-acl faz o dump NÃO trazer GRANTs
 #         nem o dono crm_definer das funções, então esse banco não serve para a aplicação.
-#   data  é o procedimento de recuperação de desastre: bootstrap -> `flyway migrate` (schema, GRANTs e donos corretos) ->
+#   data  é o procedimento de recuperação de desastre: bootstrap -> as migrations (schema, GRANTs e donos corretos) ->
 #         `pg_restore --data-only`. Depois confere as contagens e executa a função de login como crm_app.
 #
 # Entrada (variáveis de ambiente):
@@ -62,6 +62,8 @@ for mode in $MODES; do
   pg psql -X -q -v ON_ERROR_STOP=1 -d "$db" \
     -v crm_owner_scram="$(scram "$owner_pw")" -v crm_app_scram="$(scram "$app_pw")" -v crm_backup_scram="$(scram "$backup_pw")" \
     -f "$DB_DIR/bootstrap/00_roles_and_schema.sql"
+  # Fase 1: pg_trgm no schema extensions (os índices de busca por nome dependem dela, no dump e nas migrations)
+  pg psql -X -q -v ON_ERROR_STOP=1 -d "$db" -f "$DB_DIR/bootstrap/20_extensions.sql"
 
   restore_ok=1
   if [ "$mode" = "full" ]; then
@@ -70,9 +72,7 @@ for mode in $MODES; do
     pg pg_restore --exit-on-error --no-owner --no-acl --role=crm_owner -L "$work/toc.list" -d "$db" "$work/core.dump" \
       || { echo "  FALHA: pg_restore (full) retornou erro"; restore_ok=0; }
   else
-    FLYWAY_URL="jdbc:postgresql://${RESTORE_PGHOST}:${RESTORE_PGPORT}/${db}" FLYWAY_USER=crm_owner FLYWAY_PASSWORD="$owner_pw" \
-      bash "$DB_DIR/scripts/flyway.sh" migrate >/dev/null 2>"$work/flyway.err" \
-      || { echo "  FALHA: flyway migrate no banco de restauração"; tail -3 "$work/flyway.err"; restore_ok=0; }
+    PGHOST="$RESTORE_PGHOST" PGPORT="$RESTORE_PGPORT" PGDATABASE="$db" PGUSER=crm_owner PGPASSWORD="$owner_pw"       bash "$DB_DIR/scripts/apply_migrations.sh" >/dev/null 2>"$work/migrate.err"       || { echo "  FALHA: migrations no banco de restauração"; tail -3 "$work/migrate.err"; restore_ok=0; }
     if [ "$restore_ok" = 1 ]; then
       pg pg_restore --exit-on-error --data-only --disable-triggers --no-owner --no-acl -d "$db" "$work/core.dump" \
         || { echo "  FALHA: pg_restore --data-only retornou erro"; restore_ok=0; }
@@ -94,7 +94,7 @@ for mode in $MODES; do
     pg psql -X -q -At -d "$db" -v ON_ERROR_STOP=1 -f "$DB_DIR/scripts/catalog_snapshot.sql" | LC_ALL=C sort > "$work/schema_restored.txt"
     # No modo full o schema vem do próprio dump (texto SQL regerado pelo pg_dump e relido pelo pg_restore): o PostgreSQL pode
     # reescrever o MESMO CHECK numa forma equivalente (ex.: IN (...) vira ANY (ARRAY[...::text])). Por isso, nesse modo, as
-    # constraints são comparadas por tabela + nome (todo o resto, estritamente). No modo data o schema vem do Flyway: texto exato.
+    # constraints são comparadas por tabela + nome (todo o resto, estritamente). No modo data o schema vem das migrations: texto exato.
     if [ "$mode" = "full" ]; then
       norm() { awk -F'|' '$1 == "constraint" { print $1 "|" $2 "|" $3; next } { print }' "$1"; }
       norm "$work/schema.txt" > "$work/schema.cmp"; norm "$work/schema_restored.txt" > "$work/schema_restored.cmp"

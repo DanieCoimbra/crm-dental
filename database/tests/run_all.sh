@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Harness local de testes do banco (precursor do db-pr.yml da F05).
-# Fluxo: stubs do Supabase -> testes do bootstrap -> `flyway migrate` como crm_owner -> flyway_checks.sh -> tests/*.sql
-# Requer psql, openssl 3 e o `flyway` (imagem database/tests/Dockerfile), um PostgreSQL DESCARTÁVEL e as variáveis padrão do psql
+# Fluxo: stubs do Supabase -> testes do bootstrap -> migrations como crm_owner (apply_migrations.sh) -> tests/*.sql
+# Requer psql, openssl 3 e age (imagem database/tests/Dockerfile), um PostgreSQL DESCARTÁVEL e as variáveis padrão do psql
 # (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE) com um administrador.
 set -euo pipefail
 
@@ -18,13 +18,8 @@ bash "$DB_DIR/tests/bootstrap_checks.sh"
 # shellcheck disable=SC1090
 source "$HARNESS_ENV_FILE"
 
-echo "== migrations (Flyway: migrate como crm_owner, cada migration em uma transacao)"
-export FLYWAY_URL="jdbc:postgresql://${PGHOST}:${PGPORT:-5432}/${PGDATABASE:-postgres}" FLYWAY_USER=crm_owner FLYWAY_PASSWORD="$CRM_OWNER_PW"
-bash "$DB_DIR/scripts/flyway.sh" migrate
-unset FLYWAY_URL FLYWAY_USER FLYWAY_PASSWORD
-
-echo "== Flyway: historico, validate e testes negativos (testes 23 e 24)"
-bash "$DB_DIR/tests/flyway_checks.sh"
+echo "== migrations (como crm_owner, cada uma em uma transacao)"
+PGUSER=crm_owner PGPASSWORD="$CRM_OWNER_PW" bash "$DB_DIR/scripts/apply_migrations.sh"
 
 echo "== testes SQL"
 for t in "$DB_DIR"/tests/*.sql; do

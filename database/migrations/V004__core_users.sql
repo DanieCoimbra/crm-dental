@@ -3,7 +3,7 @@
 -- Objetivo : tabela core.users com as invariantes de usuário no banco (e-mail único global em
 --            minúsculas, um dentista por clínica, dentista sempre ativo, papel imutável),
 --            RLS por clinic_id, triggers e grants mínimos.
--- Executar : Flyway, como crm_owner.
+-- Executar : scripts/apply_migrations.sh, como crm_owner.
 -- Reverter : database/rollback/U004__core_users.sql
 -- Depende  : V003 (core.clinics), V002.
 -- =====================================================================

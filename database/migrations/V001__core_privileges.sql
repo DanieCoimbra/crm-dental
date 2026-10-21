@@ -3,7 +3,7 @@
 -- Objetivo : endurecer os privilégios do schema core (nada para PUBLIC,
 --            anon, authenticated e service_role) e conceder apenas USAGE
 --            aos papéis do CRM.
--- Executar : Flyway, como crm_owner (dono do schema core).
+-- Executar : scripts/apply_migrations.sh, como crm_owner (dono do schema core).
 -- Reverter : database/rollback/U001__core_privileges.sql
 -- =====================================================================
 

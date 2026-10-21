@@ -41,7 +41,7 @@ BEGIN
     RAISE EXCEPTION 'crm_backup consegue criar objetos em core ou public';
   END IF;
   FOR t IN SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p') AND c.relname <> 'flyway_schema_history' LOOP
+            WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p') LOOP
     IF NOT has_table_privilege('crm_backup', 'core.' || t, 'SELECT') THEN
       RAISE EXCEPTION 'crm_backup sem SELECT em core.%', t;
     END IF;
@@ -106,7 +106,6 @@ BEGIN
     $s$ALTER TABLE core.users DISABLE ROW LEVEL SECURITY$s$,
     $s$SELECT core.find_user_for_login('a@backup-role.test')$s$,
     $s$SELECT core.purge_expired_refresh_tokens()$s$,
-    $s$SELECT 1 FROM core.flyway_schema_history$s$,
     $s$SET ROLE crm_owner$s$, $s$SET ROLE crm_app$s$, $s$SET ROLE crm_definer$s$, $s$SET ROLE postgres$s$
   ] LOOP
     BEGIN
@@ -142,7 +141,7 @@ DECLARE
   t record;
 BEGIN
   FOR t IN SELECT c.oid, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p') AND c.relrowsecurity AND c.relname <> 'flyway_schema_history' LOOP
+            WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p') AND c.relrowsecurity LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_policy p
                     WHERE p.polrelid = t.oid AND p.polname LIKE '%\_backup\_sel' AND p.polcmd = 'r'
                       AND p.polroles = ARRAY[(SELECT oid FROM pg_roles WHERE rolname = 'crm_backup')]

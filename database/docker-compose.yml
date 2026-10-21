@@ -54,7 +54,7 @@ services:
     command: ["bash", "/database/scripts/restore_check.sh"]
 
   tests:
-    # psql + openssl + age + Flyway (database/tests/Dockerfile); a mesma imagem roda no db-pr.yml
+    # psql + openssl + age (database/tests/Dockerfile); a mesma imagem roda no db-pr.yml
     build:
       context: .
       dockerfile: tests/Dockerfile

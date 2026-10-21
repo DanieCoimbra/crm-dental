@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prepara o PostgreSQL LOCAL do docker-compose com os scripts da função banco:
 #   1. bootstrap (papéis e schema core) como administrador, com verificadores SCRAM gerados aqui;
-#   2. migrations V*.sql como crm_owner (cada uma em uma transação, como o Flyway).
+#   2. migrations V*.sql como crm_owner (cada uma em uma transação).
 # O bootstrap é idempotente; as migrations só rodam se o schema ainda estiver vazio.
 # Para recomeçar do zero: docker compose down -v
 # Requer, no ambiente: POSTGRES_PASSWORD, DB_OWNER_PASSWORD, DB_APP_PASSWORD, DB_BACKUP_PASSWORD.

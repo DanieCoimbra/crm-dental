@@ -3,7 +3,7 @@
 -- Objetivo : tabela core.refresh_tokens (sessões rotativas). O token é guardado só como SHA-256
 --            hexadecimal; a FK composta (user_id, clinic_id) impede um token de pertencer a
 --            usuário de outra clínica.
--- Executar : Flyway, como crm_owner.
+-- Executar : scripts/apply_migrations.sh, como crm_owner.
 -- Reverter : database/rollback/U005__core_refresh_tokens.sql
 -- Depende  : V004 (core.users e ux_users_id_clinic), V003, V002.
 -- =====================================================================

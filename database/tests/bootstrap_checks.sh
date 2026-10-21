@@ -99,6 +99,19 @@ psql -X -q -c "ALTER SCHEMA core OWNER TO crm_owner" >/dev/null
 # 10. estado final saudável
 psql -X -q -v ON_ERROR_STOP=1 -f "$VERIFY" >/dev/null 2>&1 && ok "verificacao passa no estado final" || bad "verificacao falhou no estado final"
 
+# 11. Fase 1 / F01: extensões (pg_trgm), idempotência e USAGE só para crm_owner
+EXT="$DB_DIR/bootstrap/20_extensions.sql"
+psql -X -q -v ON_ERROR_STOP=1 -f "$EXT" >/dev/null 2>&1 && ok "20_extensions: primeira execucao" || bad "20_extensions: primeira execucao"
+psql -X -q -v ON_ERROR_STOP=1 -f "$EXT" >/dev/null 2>&1 && ok "20_extensions: segunda execucao sem erro" || bad "20_extensions: reexecucao falhou"
+[ "$(psql -X -At -c "SELECT count(*) FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname = 'pg_trgm' AND n.nspname = 'extensions'")" = "1" ] \
+  && ok "pg_trgm instalada no schema extensions" || bad "pg_trgm ausente do schema extensions"
+[ "$(psql -X -At -c "SELECT has_schema_privilege('crm_owner','extensions','USAGE'), has_schema_privilege('crm_app','extensions','USAGE')")" = "t|f" ] \
+  && ok "USAGE em extensions so para crm_owner" || bad "USAGE em extensions divergente"
+# sem o dono dos papéis criados, o script recusa com mensagem clara (verificado em transação revertida)
+out=$(psql -X -q -v ON_ERROR_STOP=1 -c "BEGIN; ALTER ROLE crm_owner RENAME TO crm_owner_x;" -f "$EXT" 2>&1) \
+  && bad "20_extensions deveria falhar sem crm_owner" || { echo "$out" | grep -q "execute antes 00_roles_and_schema" && ok "20_extensions exige o bootstrap dos papeis" || bad "mensagem inesperada: $out"; }
+psql -X -q -c "ALTER ROLE crm_owner_x RENAME TO crm_owner" >/dev/null 2>&1 || true
+
 # Exporta as senhas geradas para o restante do harness (logins de crm_owner nas migrations)
 printf 'export CRM_OWNER_PW=%q CRM_APP_PW=%q CRM_BACKUP_PW=%q\n' "$OWNER_PW" "$APP_PW" "$BACKUP_PW" > "${HARNESS_ENV_FILE:-/dev/null}"
 

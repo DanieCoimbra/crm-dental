@@ -22,8 +22,6 @@ spring:
         default_schema: core
         jdbc:
           time_zone: UTC
-  flyway:
-    enabled: false # migrations pertencem à função banco (GitHub Actions)
 
 server:
   port: ${PORT:8080}
@@ -61,7 +59,10 @@ logging:
 
 crm:
   cors-origins: ${CRM_CORS_ORIGINS:}
-  files-dir: ${CRM_FILES_DIR:}
+  storage:
+    url: ${CRM_STORAGE_URL:}
+    service-key: ${CRM_STORAGE_SERVICE_KEY:}
+    bucket: ${CRM_STORAGE_BUCKET:}
   hsts-enabled: false
   jwt:
     # sem valor padrão: a aplicação não sobe sem segredo de pelo menos 32 bytes (shared/config/JwtConfig)
