@@ -1,5 +1,7 @@
 # PRD — F06 Backup e Restauração
 
+> **CI/CD adiado (2026-10-21):** os workflows de `.github/workflows/` foram removidos do repositório por decisão do projeto e voltam no fim. Onde este documento cita workflows, ambientes ou checks do GitHub, é o desenho previsto; no momento nada disso executa. Os scripts em `database/scripts` e `database/tests` seguem válidos e rodam localmente. Os workflows removidos estão no commit `c823a47`.
+
 **Derivação:** PRD global do banco, meta 6, FR-12 e a nota de backup dos padrões adotados; risco 8 (plano gratuito sem PITR); spec global, seções 1.1, 3.3, 6 e 12 (testes 26 a 28).
 **Dependências externas:** F01 (papel `crm_backup`), F02 (receita de política de leitura do backup), F03 (tabelas), F05 (estrutura de workflows e ambientes).
 
