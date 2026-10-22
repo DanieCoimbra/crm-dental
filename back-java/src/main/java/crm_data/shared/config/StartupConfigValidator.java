@@ -13,7 +13,8 @@ import org.springframework.util.StringUtils;
 
 /**
  * Fail-fast do perfil {@code prod}: antes de qualquer bean ser criado, confere as variáveis obrigatórias e
- * aborta citando os NOMES ausentes. Nunca imprime valores. Os formatos de {@code CRM_JWT_SECRET} e das chaves
+ * aborta citando os NOMES ausentes (inclusive as três do Storage: em produção os exames só vão para o Supabase, nunca
+ * para o disco local). Nunca imprime valores. Os formatos de {@code CRM_JWT_SECRET} e das chaves
  * AES são validados pelas features F04 e F03; aqui só se exige a presença.
  */
 @Configuration(proxyBeanMethods = false)
@@ -21,7 +22,8 @@ import org.springframework.util.StringUtils;
 public class StartupConfigValidator {
 
 	static final List<String> REQUIRED = List.of("DB_URL", "DB_APP_USER", "DB_APP_PASSWORD", "CRM_JWT_SECRET",
-			"CRM_AES_KEYS", "CRM_AES_ACTIVE_VERSION", "CRM_CORS_ORIGINS");
+			"CRM_AES_KEYS", "CRM_AES_ACTIVE_VERSION", "CRM_CORS_ORIGINS", "CRM_STORAGE_URL",
+			"CRM_STORAGE_SERVICE_KEY", "CRM_STORAGE_BUCKET");
 
 	private static final List<String> STRICT_SSL_MODES = List.of("require", "verify-ca", "verify-full");
 

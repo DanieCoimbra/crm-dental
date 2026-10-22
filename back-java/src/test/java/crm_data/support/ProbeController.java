@@ -1,8 +1,11 @@
 package crm_data.support;
 
+import java.sql.SQLException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,6 +37,11 @@ public class ProbeController {
 	@GetMapping("/probe/ok")
 	String ok() {
 		log.info("probe-ok-executado");
+		return "ok";
+	}
+
+	@GetMapping("/api/v1/patients/probe")
+	String clinicalRoute() {
 		return "ok";
 	}
 
@@ -78,6 +86,33 @@ public class ProbeController {
 	@GetMapping("/probe/locking")
 	void locking() {
 		throw new OptimisticLockingFailureException("versão antiga da entidade Foo");
+	}
+
+	/** Erro de banco com o SQLState pedido e uma mensagem que repete um CPF, como faz o driver. */
+	@GetMapping("/probe/db-error/{state}")
+	void dbError(@PathVariable String state) {
+		String message = switch (state) {
+			case "CR002" -> "ERROR: retenção vigente\n  Detail: liberado em 2046-10-22";
+			case "CR002-NODATE" -> "ERROR: retenção vigente\n  Detail: formato inesperado";
+			case "23505" -> "ERROR: duplicate key value violates unique constraint \"ux_patients_clinic_cpf\"\n"
+					+ "  Detail: Key (clinic_id, cpf)=(x, 52998224725) already exists.";
+			default -> "ERROR: falha " + state + " cpf 52998224725";
+		};
+		String sqlState = state.startsWith("CR002") ? "CR002" : state;
+		throw new DataIntegrityViolationException("could not execute statement", new SQLException(message, sqlState));
+	}
+
+	/** Erro de banco embrulhado numa exceção que NÃO é DataAccessException (cai no handler genérico). */
+	@GetMapping("/probe/wrapped-sql")
+	void wrappedSql() {
+		throw new IllegalStateException("falha ao confirmar",
+				new SQLException("ERROR: duplicate key\n  Detail: Key (cpf)=(52998224725) already exists.", "23505"));
+	}
+
+	@GetMapping("/probe/storage-down")
+	void storageDown() {
+		throw new crm_data.shared.storage.StorageException("Falha ao gravar no Storage (HTTP 401).",
+				new IllegalStateException("causa com https://segredo.supabase.co/chave"));
 	}
 
 	@GetMapping("/probe/db-down")

@@ -29,7 +29,7 @@ public class MeController {
 
 	@PutMapping
 	public UserResponse update(@Valid @RequestBody UpdateProfileRequest request) {
-		return UserResponse.from(profile.updateProfile(request.name(), request.email()));
+		return UserResponse.from(profile.updateProfile(request.name(), request.email(), request.currentPassword()));
 	}
 
 	@PutMapping("/password")

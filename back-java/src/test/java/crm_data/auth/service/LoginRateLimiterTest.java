@@ -132,6 +132,73 @@ class LoginRateLimiterTest {
 		assertThatCode(() -> limiter.checkLoginAllowed("203.0.113.1", "ana@clinica.com")).doesNotThrowAnyException();
 	}
 
+	// ---- falhas de login por e-mail: 20 a cada 15 min, de qualquer IP ----
+
+	@Test
+	void distributedFailuresAgainstOneEmailAreBlockedAfter20EvenFromDifferentIps() {
+		for (int i = 0; i < 20; i++) {
+			String ip = "198.51.100." + i; // um IP novo a cada falha: o limite por IP+e-mail nunca dispara
+			limiter.checkLoginAllowed(ip, "ana@clinica.com");
+			limiter.recordLoginFailure(ip, "ana@clinica.com");
+		}
+
+		assertThatThrownBy(() -> limiter.checkLoginAllowed("198.51.100.200", "ana@clinica.com"))
+				.isInstanceOfSatisfying(RateLimitedException.class, ex -> assertThat(ex.retryAfterSeconds()).isBetween(1L, 900L));
+		assertThatCode(() -> limiter.checkLoginAllowed("198.51.100.200", "outra@clinica.com")).doesNotThrowAnyException();
+	}
+
+	@Test
+	void emailFailureWindowLastsFifteenMinutesAndSuccessClearsIt() {
+		for (int i = 0; i < 20; i++) {
+			limiter.recordLoginFailure("198.51.100." + i, "ana@clinica.com");
+		}
+		time.advance(Duration.ofMinutes(14));
+		assertThatThrownBy(() -> limiter.checkLoginAllowed("198.51.100.200", "ana@clinica.com")).isInstanceOf(RateLimitedException.class);
+		time.advance(Duration.ofMinutes(2));
+		assertThatCode(() -> limiter.checkLoginAllowed("198.51.100.200", "ana@clinica.com")).doesNotThrowAnyException();
+
+		for (int i = 0; i < 20; i++) {
+			limiter.recordLoginFailure("198.51.100." + i, "bia@clinica.com");
+		}
+		limiter.resetLoginFailures("198.51.100.1", "bia@clinica.com");
+		assertThatCode(() -> limiter.checkLoginAllowed("198.51.100.200", "bia@clinica.com")).doesNotThrowAnyException();
+	}
+
+	@Test
+	void anAttackerCannotLockTheOwnerOutFromTheirUsualIp() {
+		limiter.resetLoginFailures("203.0.113.9", "ana@clinica.com"); // o dono entrou desse IP antes
+		for (int i = 0; i < 40; i++) { // atacante: IPs que nunca entraram na conta
+			String ip = "198.51.100." + i;
+			limiter.recordLoginFailure(ip, "ana@clinica.com");
+		}
+
+		assertThatThrownBy(() -> limiter.checkLoginAllowed("198.51.100.250", "ana@clinica.com")).isInstanceOf(RateLimitedException.class);
+		assertThatCode(() -> limiter.checkLoginAllowed("203.0.113.9", "ana@clinica.com")).doesNotThrowAnyException();
+	}
+
+	@Test
+	void knownIpStillHasItsOwnPerMinuteLimitAndDoesNotFeedTheEmailBucket() {
+		limiter.resetLoginFailures("203.0.113.9", "ana@clinica.com");
+		for (int i = 0; i < 5; i++) {
+			limiter.recordLoginFailure("203.0.113.9", "ana@clinica.com");
+		}
+
+		assertThatThrownBy(() -> limiter.checkLoginAllowed("203.0.113.9", "ana@clinica.com")).isInstanceOf(RateLimitedException.class);
+		time.advance(Duration.ofSeconds(61));
+		assertThatCode(() -> limiter.checkLoginAllowed("203.0.113.9", "ana@clinica.com")).doesNotThrowAnyException();
+		assertThatCode(() -> limiter.checkLoginAllowed("198.51.100.1", "ana@clinica.com")).doesNotThrowAnyException(); // e-mail intacto
+	}
+
+	@Test
+	void knownIpOfAnotherAccountDoesNotExemptThisOne() {
+		limiter.resetLoginFailures("203.0.113.9", "bia@clinica.com");
+		for (int i = 0; i < 20; i++) {
+			limiter.recordLoginFailure("198.51.100." + i, "ana@clinica.com");
+		}
+
+		assertThatThrownBy(() -> limiter.checkLoginAllowed("203.0.113.9", "ana@clinica.com")).isInstanceOf(RateLimitedException.class);
+	}
+
 	// ---- troca de senha: 5 senhas atuais erradas por minuto, por usuário ----
 
 	@Test

@@ -69,7 +69,8 @@ Nenhum corpo aceita `clinicId`, `role` ou `id`; campos extras são ignorados.
 - Access token: 15 min. Refresh: 7 dias, uso único, rotativo.
 - Reuso de refresh revoga a cadeia inteira do usuário naquela família.
 - E-mail único global, salvo em minúsculas. Um `DENTIST_ADMIN` por clínica.
-- Limites: login 5 falhas/min por IP+e-mail; registro, login e refresh 20 requisições/min por IP (cada ação tem o seu contador); logout sem limite; excedido → 429 com `Retry-After`. O limite conta também requisições com corpo inválido e vale antes da validação.
+- Limites: login 5 falhas/min por IP+e-mail e 20 falhas a cada 15 min por e-mail somando só IPs que nunca entraram nessa conta (IP com login bem-sucedido nos últimos 7 dias fica fora dessa soma; zerado no login bem-sucedido); registro, login e refresh 20 requisições/min por IP (cada ação tem o seu contador); logout sem limite; excedido → 429 com `Retry-After`. O limite conta também requisições com corpo inválido e vale antes da validação.
+- Concorrência de hash: no máximo `max(2, CPUs)` comparações/geração de BCrypt simultâneas (login e registro). Sem vaga em 3 s → 429 `rate-limited` com `Retry-After: 3`; essa falha não conta como tentativa de login errada. Contrapartida do limite por e-mail: quem entra de um IP novo durante um ataque àquela conta recebe 429 por até 15 min; o dono, do IP de sempre, não é afetado (estado em memória: perdido no restart).
 - Resposta de login idêntica para e-mail inexistente, senha errada e usuário inativo.
 - Não existe trial, plano ou expiração de conta.
 - Senha nunca é registrada em log nem retornada.
@@ -86,6 +87,8 @@ Nenhum corpo aceita `clinicId`, `role` ou `id`; campos extras são ignorados.
 - [ ] Corpo com `clinicId`/`role` extras não altera o resultado.
 - [ ] Login com e-mail inexistente, senha errada e usuário inativo retornam o mesmo 401.
 - [ ] 6ª falha em 1 min retorna 429 com `Retry-After`.
+- [ ] 21ª falha em 15 min contra o mesmo e-mail, vinda de IPs que nunca entraram na conta, retorna 429; o IP que já entrou nela nos últimos 7 dias continua logando.
+- [ ] Com todas as vagas de hash ocupadas por mais de 3 s, login e registro retornam 429 sem contar falha de login.
 - [ ] Refresh troca o par; reapresentar o antigo retorna 401 e invalida o novo.
 - [ ] Logout invalida o refresh; repetir o logout retorna 204.
 - [ ] Token expirado, adulterado ou `alg: none` retorna 401 `ProblemDetail`.

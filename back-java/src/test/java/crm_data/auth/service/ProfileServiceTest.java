@@ -34,7 +34,8 @@ class ProfileServiceTest {
 	private final PasswordEncoder encoder = new BCryptPasswordEncoder(4);
 	private final RefreshTokenService refreshTokens = mock(RefreshTokenService.class);
 	private final LoginRateLimiter rateLimiter = mock(LoginRateLimiter.class);
-	private final ProfileService service = new ProfileService(users, encoder, refreshTokens, rateLimiter);
+	private final ProfileService service = new ProfileService(users, encoder, refreshTokens, rateLimiter,
+			new HashingGate(4, java.time.Duration.ofSeconds(1)), mock(org.springframework.transaction.PlatformTransactionManager.class));
 
 	private final UUID userId = UUID.randomUUID();
 	private User user;
@@ -65,7 +66,7 @@ class ProfileServiceTest {
 
 	@Test
 	void updatesOnlyNameAndEmail() {
-		User updated = service.updateProfile("Ana Souza", "ana.souza@clinica.com");
+		User updated = service.updateProfile("Ana Souza", "ana.souza@clinica.com", CURRENT);
 
 		assertThat(updated.getName()).isEqualTo("Ana Souza");
 		assertThat(updated.getEmail()).isEqualTo("ana.souza@clinica.com");
@@ -78,7 +79,7 @@ class ProfileServiceTest {
 		when(users.saveAndFlush(any(User.class))).thenThrow(new DataIntegrityViolationException(
 				"duplicate key value violates unique constraint \"ux_users_email\""));
 
-		assertRule(() -> service.updateProfile("Ana", "outra@clinica.com"), ProblemTypes.CONFLICT);
+		assertRule(() -> service.updateProfile("Ana", "outra@clinica.com", CURRENT), ProblemTypes.CONFLICT);
 	}
 
 	@Test
@@ -138,6 +139,101 @@ class ProfileServiceTest {
 		assertRule(() -> service.changePassword(CURRENT, CURRENT), ProblemTypes.BUSINESS_RULE);
 
 		verify(rateLimiter, never()).recordPasswordChangeFailure(any());
+	}
+
+	// ---- troca de e-mail: exige a senha atual e revoga as sessões ----
+
+	@Test
+	void changingTheEmailWithoutTheCurrentPasswordIs400AndNothingChanges() {
+		assertRule(() -> service.updateProfile("Ana", "novo@clinica.com", null), ProblemTypes.VALIDATION);
+		assertRule(() -> service.updateProfile("Ana", "novo@clinica.com", "  "), ProblemTypes.VALIDATION);
+
+		assertThat(user.getEmail()).isEqualTo("ana@clinica.com");
+		verify(users, never()).saveAndFlush(any(User.class));
+		verify(refreshTokens, never()).revokeAllOfUser(any());
+	}
+
+	@Test
+	void changingTheEmailWithAWrongPasswordIs401AndCountsAsAFailedGuess() {
+		assertRule(() -> service.updateProfile("Ana", "novo@clinica.com", "senhaErrada999"), ProblemTypes.UNAUTHORIZED);
+
+		assertThat(user.getEmail()).isEqualTo("ana@clinica.com");
+		verify(rateLimiter).recordPasswordChangeFailure(userId);
+		verify(refreshTokens, never()).revokeAllOfUser(any());
+	}
+
+	@Test
+	void changingTheEmailWithTheRightPasswordSavesItAndRevokesAllSessions() {
+		User updated = service.updateProfile("Ana", "novo@clinica.com", CURRENT);
+
+		assertThat(updated.getEmail()).isEqualTo("novo@clinica.com");
+		verify(rateLimiter).resetPasswordChangeFailures(userId);
+		verify(refreshTokens).revokeAllOfUser(userId);
+	}
+
+	@Test
+	void changingOnlyTheNameNeedsNoPasswordAndKeepsTheSessions() {
+		User updated = service.updateProfile("Ana Souza", "ana@clinica.com", null);
+
+		assertThat(updated.getName()).isEqualTo("Ana Souza");
+		verify(rateLimiter, never()).checkPasswordChangeAllowed(any());
+		verify(refreshTokens, never()).revokeAllOfUser(any());
+	}
+
+	@Test
+	void emailChangeIsBlockedByTheSamePasswordFailureLimiter() {
+		org.mockito.Mockito.doThrow(new crm_data.shared.error.RateLimitedException("Muitas tentativas.", 30))
+				.when(rateLimiter).checkPasswordChangeAllowed(userId);
+
+		assertThatThrownBy(() -> service.updateProfile("Ana", "novo@clinica.com", CURRENT))
+				.isInstanceOf(crm_data.shared.error.RateLimitedException.class);
+
+		verify(users, never()).saveAndFlush(any(User.class));
+	}
+
+	// ---- BCrypt fora da transação e dentro do portão ----
+
+	@Test
+	void passwordWorkRunsBeforeTheWriteTransactionOpens() {
+		org.springframework.transaction.PlatformTransactionManager tm = mock(org.springframework.transaction.PlatformTransactionManager.class);
+		PasswordEncoder spying = org.mockito.Mockito.spy(encoder);
+		ProfileService ordered = new ProfileService(users, spying, refreshTokens, rateLimiter,
+				new HashingGate(4, java.time.Duration.ofSeconds(1)), tm);
+
+		ordered.changePassword(CURRENT, "NovaSenha2026");
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(spying, tm);
+		order.verify(spying).encode("NovaSenha2026");
+		order.verify(tm).getTransaction(org.mockito.ArgumentMatchers.argThat(def -> def != null && !def.isReadOnly())); // só a gravação
+	}
+
+	@Test
+	void saturatedHashingGateAnswers429BeforeAnyWrite() {
+		HashingGate full = new HashingGate(1, java.time.Duration.ofMillis(20));
+		ProfileService busy = new ProfileService(users, encoder, refreshTokens, rateLimiter, full,
+				mock(org.springframework.transaction.PlatformTransactionManager.class));
+
+		full.run(() -> {
+			assertThatThrownBy(() -> busy.changePassword(CURRENT, "NovaSenha2026"))
+					.isInstanceOf(crm_data.shared.error.RateLimitedException.class);
+			return null;
+		});
+
+		verify(users, never()).saveAndFlush(any(User.class));
+		verify(rateLimiter, never()).recordPasswordChangeFailure(any());
+	}
+
+	@Test
+	void userChangedBetweenReadAndWriteIsConflictAndNothingIsSaved() {
+		User stale = new User(userId, "Ana", "ana@clinica.com", encoder.encode(CURRENT), Role.DENTIST_ADMIN);
+		ReflectionTestUtils.setField(stale, "version", 1L);
+		ReflectionTestUtils.setField(user, "version", 2L);
+		when(users.findById(userId)).thenReturn(Optional.of(stale)).thenReturn(Optional.of(user)); // leitura (v1), depois recarga (v2)
+
+		assertRule(() -> service.changePassword(CURRENT, "NovaSenha2026"), ProblemTypes.CONFLICT);
+
+		verify(users, never()).saveAndFlush(any(User.class));
+		verify(refreshTokens, never()).revokeAllOfUser(any());
 	}
 
 	@Test

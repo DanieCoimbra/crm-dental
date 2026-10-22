@@ -2,7 +2,8 @@
 -- tests/performance_search.sql | Fase 1 / F02-patients, F03, F04, F05 (teste 55)
 -- Meta 4 do PRD da Fase 1: busca de pacientes por trecho do nome ≤ 20 ms e por CPF ≤ 5 ms com 10 mil pacientes
 -- na clínica e 100 mil no banco; listagem por keyset, linha do tempo de notas, lista de exames e consultas de
--- auditoria usam índice (sem Seq Scan e sem Sort). Medido como crm_app, com a RLS ligada.
+-- auditoria usam índice (sem Seq Scan e sem Sort). Medido como crm_app, com a RLS ligada. Inclui as consultas exatas que o
+-- backend emite na busca (LIKE '%q%' ESCAPE, filtro de situação, ORDER BY name, id, LIMIT e o count(*) da página).
 -- Carga sintética (revertida no ROLLBACK): 10 mil pacientes na clínica A e 90 mil na B, 2.000 notas e 200 exames
 -- em um paciente, 50 mil linhas de auditoria. Os triggers das tabelas ficam desligados só durante a carga.
 -- =====================================================================
@@ -103,6 +104,22 @@ SELECT pg_temp.check_plan('auditoria de um registro',
   format($q$SELECT id FROM core.audit_log WHERE table_name = 'patients' AND record_id = %L ORDER BY occurred_at DESC LIMIT 20$q$, :'p_big'), 20) AS ms \gset
 SELECT pg_temp.check_plan('auditoria recente da clinica',
   $q$SELECT id FROM core.audit_log ORDER BY occurred_at DESC, id DESC LIMIT 50$q$, 20) AS ms \gset
+
+-- Consultas REAIS da busca do backend (PatientService.search): Hibernate emite lower(name) LIKE '%q%' ESCAPE '\' (também
+-- para 1-2 caracteres), filtro de situação, ORDER BY name, id e LIMIT de uma página, mais o count(*) da Page. Os testes
+-- acima medem a forma ideal (prefixo / trecho sem ordem); estes medem o que a API de fato executa, sob a mesma RLS.
+SELECT pg_temp.check_plan('API: trecho de 2 caracteres (contem), ativos, ordenado',
+  format($q$SELECT id, name FROM core.patients WHERE lower(name) LIKE %L ESCAPE %L AND active = true ORDER BY name, id LIMIT 20$q$,
+         '%' || :'prefix' || '%', E'\\'), 20, ARRAY['Seq Scan']) AS ms \gset
+SELECT pg_temp.check_plan('API: trecho de 3+ caracteres, ativos, ordenado',
+  format($q$SELECT id, name FROM core.patients WHERE lower(name) LIKE %L ESCAPE %L AND active = true ORDER BY name, id LIMIT 20$q$,
+         '%' || :'term' || '%', E'\\'), 20, ARRAY['Seq Scan']) AS ms \gset
+SELECT pg_temp.check_plan('API: count(*) do trecho de 2 caracteres',
+  format($q$SELECT count(*) FROM core.patients WHERE lower(name) LIKE %L ESCAPE %L AND active = true$q$,
+         '%' || :'prefix' || '%', E'\\'), 20, ARRAY['Seq Scan']) AS ms \gset
+SELECT pg_temp.check_plan('API: count(*) do trecho de 3+ caracteres',
+  format($q$SELECT count(*) FROM core.patients WHERE lower(name) LIKE %L ESCAPE %L AND active = true$q$,
+         '%' || :'term' || '%', E'\\'), 20, ARRAY['Seq Scan']) AS ms \gset
 
 RESET SESSION AUTHORIZATION;
 ROLLBACK;

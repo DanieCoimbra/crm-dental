@@ -42,7 +42,8 @@ class UserAdminServiceTest {
 	private final PasswordEncoder encoder = new BCryptPasswordEncoder(4);
 	private final RefreshTokenService refreshTokens = mock(RefreshTokenService.class);
 	private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
-	private final UserAdminService service = new UserAdminService(users, encoder, refreshTokens, events);
+	private final UserAdminService service = new UserAdminService(users, encoder, refreshTokens, events,
+			new crm_data.auth.service.HashingGate(4, java.time.Duration.ofSeconds(1)), mock(org.springframework.transaction.PlatformTransactionManager.class));
 
 	private final UUID clinicId = UUID.randomUUID();
 	private final UUID dentistId = UUID.randomUUID();

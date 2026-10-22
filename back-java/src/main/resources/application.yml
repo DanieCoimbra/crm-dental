@@ -13,7 +13,14 @@ spring:
       maximum-pool-size: 10
       minimum-idle: 2
       connection-timeout: 5000
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+      resolve-lazily: true # o limite de uploads por minuto roda antes da leitura do corpo
+      file-size-threshold: 256KB
   jpa:
+    show-sql: false
     open-in-view: false
     hibernate:
       ddl-auto: validate
@@ -32,6 +39,10 @@ server:
     include-stacktrace: never
     include-exception: false
   shutdown: graceful
+  tomcat:
+    max-swallow-size: 12MB # evita connection reset em vez de 413 quando o corpo excede o limite
+    accesslog:
+      enabled: false # a URL pode levar CPF na busca de pacientes
 
 management:
   endpoints:
@@ -54,6 +65,10 @@ springdoc:
     enabled: false
 
 logging:
+  level:
+    # nem o SQL nem os valores ligados aos parâmetros (CPF, nome) podem ir para o log
+    org.hibernate.SQL: warn
+    org.hibernate.orm.jdbc.bind: warn
   pattern:
     level: "%5p [%X{requestId:-}]"
 
@@ -63,6 +78,8 @@ crm:
     url: ${CRM_STORAGE_URL:}
     service-key: ${CRM_STORAGE_SERVICE_KEY:}
     bucket: ${CRM_STORAGE_BUCKET:}
+    signed-url-ttl: 60s
+    local-dir: ${CRM_STORAGE_LOCAL_DIR:} # só dev/teste (url vazia); vazio = diretório temporário
   hsts-enabled: false
   jwt:
     # sem valor padrão: a aplicação não sobe sem segredo de pelo menos 32 bytes (shared/config/JwtConfig)

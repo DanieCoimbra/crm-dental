@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prepara o PostgreSQL LOCAL do docker-compose com os scripts da função banco:
-#   1. bootstrap (papéis e schema core) como administrador, com verificadores SCRAM gerados aqui;
+#   1. bootstrap (papéis, schema core e extensões) como administrador, com verificadores SCRAM gerados aqui;
 #   2. migrations V*.sql como crm_owner (cada uma em uma transação).
 # O bootstrap é idempotente; as migrations só rodam se o schema ainda estiver vazio.
 # Para recomeçar do zero: docker compose down -v
@@ -25,6 +25,9 @@ admin psql -X -q -v ON_ERROR_STOP=1 \
   -v crm_app_scram="$(scram "$DB_APP_PASSWORD")" \
   -v crm_backup_scram="$(scram "$DB_BACKUP_PASSWORD")" \
   -f "$DB_DIR/bootstrap/00_roles_and_schema.sql"
+
+echo "== bootstrap (extensoes: pg_trgm no schema extensions)"
+admin psql -X -q -v ON_ERROR_STOP=1 -f "$DB_DIR/bootstrap/20_extensions.sql"
 
 if [ "$(admin psql -X -At -c "SELECT to_regclass('core.refresh_tokens') IS NOT NULL")" = "t" ]; then
   echo "== migrations ja aplicadas; nada a fazer (use 'docker compose down -v' para recomecar)"

@@ -68,7 +68,7 @@ Nenhum.
 - [ ] Pool de 1 conexão: nenhuma variável vaza entre transações de tenants e papéis diferentes.
 - [ ] `app.role = RECEPTIONIST` forjado + filtro desligado: leitura de prontuário/exames/auditoria devolve 0 linhas.
 - [ ] `app.role` ausente/inválido: `patients` devolve 0 linhas e a gravação falha.
-- [ ] Gravação clínica sem `app.user_id` falha com `28000` e a API responde 500 `internal`.
+- [ ] Gravação clínica sem `app.user_id` é sempre negada: `INSERT` falha pela RLS com `42501` (a política exige `created_by = current_user_id()`; API 403 `forbidden`) e `UPDATE` que passa pela RLS falha na auditoria com `28000` (API 500 `internal`).
 - [ ] Cada linha da tabela 3.3 é coberta por um teste do handler.
 - [ ] Violação de CPF duplicado não deixa o CPF no log.
 - [ ] Respostas das rotas clínicas trazem `no-store`.

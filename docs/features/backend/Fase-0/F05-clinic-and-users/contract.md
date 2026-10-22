@@ -12,7 +12,7 @@ Prefixo `/api/v1`. Papéis: **D** = `DENTIST_ADMIN`, **R** = `RECEPTIONIST`.
 | Método | Rota | Papéis | Corpo / query |
 |---|---|---|---|
 | GET | `/me` | D, R | — |
-| PUT | `/me` | D, R | `{ "name": "string (2-120)", "email": "string (email, <=254)" }` |
+| PUT | `/me` | D, R | `{ "name": "string (2-120)", "email": "string (email, <=254)", "currentPassword": "string (<=256, obrigatória só quando o e-mail muda)" }` |
 | PUT | `/me/password` | D, R | `{ "currentPassword": "string", "newPassword": "string (10-64, letra e número)" }` |
 | GET | `/clinic` | D, R | — |
 | PUT | `/clinic` | D | `{ "name": "string (2-150, required)", "document": "string (<=20, optional)", "phone": "string (<=20, optional)", "email": "string (email, optional)", "address": "string (<=255, optional)", "version": "integer (required)" }` |
@@ -34,17 +34,18 @@ Prefixo `/api/v1`. Papéis: **D** = `DENTIST_ADMIN`, **R** = `RECEPTIONIST`.
 ### Erros (formato da F01)
 | Status | Quando |
 |---|---|
-| 400 `validation` | Campo inválido ou `size` fora de 1–50 |
-| 401 `unauthorized` | Token ausente/inválido; senha atual errada em `/me/password` |
+| 400 `validation` | Campo inválido, `size` fora de 1–50 ou e-mail alterado em `PUT /me` sem `currentPassword` |
+| 401 `unauthorized` | Token ausente/inválido; senha atual errada em `/me/password` ou em `PUT /me` com troca de e-mail |
 | 403 `forbidden` | Papel insuficiente |
 | 404 `not-found` | `{id}` inexistente ou de outra clínica |
-| 409 `conflict` | E-mail já usado; `version` desatualizada |
+| 409 `conflict` | E-mail já usado; `version` desatualizada; usuário alterado por outra operação durante a troca de senha ou de e-mail |
 | 422 `business-rule` | Desativar a si mesmo ou o dentista; reset de senha de dentista; nova senha igual à atual |
 
 ## 4. Regras e limites
 - `POST /users` cria sempre `RECEPTIONIST`; há no máximo um `DENTIST_ADMIN` por clínica.
 - O dentista não pode ser desativado nem ter a senha redefinida por esta feature.
-- Desativar usuário, trocar senha e redefinir senha revogam os refresh tokens do usuário afetado.
+- Desativar usuário, trocar senha, redefinir senha e **trocar o e-mail** revogam os refresh tokens do usuário afetado (quem muda o próprio e-mail precisa entrar de novo quando o access token expirar). Trocar o e-mail exige `currentPassword`, com o mesmo limite de 5 erros/min da troca de senha; mudar só o nome não exige.
+- O BCrypt de criar recepcionista, redefinir senha e trocar senha roda fora da transação e dentro do portão de hash da F04 (429 `rate-limited` se não houver vaga em 3 s).
 - O `clinic_id` vem apenas do token; ids de rota só valem dentro do tenant.
 - `password_hash` nunca é retornado.
 - Paginação: `size` máximo 50, ordenação por nome.
@@ -52,12 +53,13 @@ Prefixo `/api/v1`. Papéis: **D** = `DENTIST_ADMIN`, **R** = `RECEPTIONIST`.
 ## 5. Eventos emitidos (internos)
 | Evento | Gatilho | Payload |
 |---|---|---|
-| `Auth.UserSessionsRevoked` | Troca de senha, desativação ou reset | `{userId}` |
+| `Auth.UserSessionsRevoked` | Troca de senha, troca de e-mail, desativação ou reset | `{userId}` |
 | `Clinic.Updated` | Edição da clínica | `{clinicId}` |
 | `User.Created` | Criação de recepcionista | `{userId, clinicId}` |
 
 ## 6. Critérios de aceite (integração)
 - [ ] Matriz papel × endpoint: R recebe 403 em `PUT /clinic` e em todas as rotas `/users`.
+- [ ] `PUT /me` com e-mail novo: sem `currentPassword` 400; senha errada 401; senha certa 200 e refresh antigo passa a dar 401. Só o nome muda sem senha.
 - [ ] `PATCH /users/{id}/active` e `PUT /users/{id}/password` com id de outra clínica retornam 404.
 - [ ] Criar recepcionista com e-mail existente retorna 409; corpo com `role: DENTIST_ADMIN` é ignorado.
 - [ ] Dentista desativando a si mesmo retorna 422.

@@ -377,8 +377,9 @@ class ClinicUsersIT {
 		String newEmail = uniqueEmail();
 
 		MockHttpServletResponse updated = send(HttpMethod.PUT, "/api/v1/me", receptionist.accessToken(),
-				("{\"name\":\"  Beatriz Lima \",\"email\":\"  %s \",\"role\":\"DENTIST_ADMIN\",\"clinicId\":\"%s\","
-						+ "\"id\":\"%s\",\"active\":false}").formatted(newEmail.toUpperCase(), UUID.randomUUID(), dentist.userId()));
+				("{\"name\":\"  Beatriz Lima \",\"email\":\"  %s \",\"currentPassword\":\"%s\",\"role\":\"DENTIST_ADMIN\","
+						+ "\"clinicId\":\"%s\",\"id\":\"%s\",\"active\":false}")
+						.formatted(newEmail.toUpperCase(), PASSWORD, UUID.randomUUID(), dentist.userId()));
 
 		assertThat(updated.getStatus()).isEqualTo(200);
 		DocumentContext me = json(send(HttpMethod.GET, "/api/v1/me", receptionist.accessToken(), null));
@@ -400,10 +401,34 @@ class ClinicUsersIT {
 		Account other = registerDentist();
 
 		MockHttpServletResponse response = send(HttpMethod.PUT, "/api/v1/me", dentist.accessToken(),
-				"{\"name\":\"Ana\",\"email\":\"%s\"}".formatted(other.email()));
+				"{\"name\":\"Ana\",\"email\":\"%s\",\"currentPassword\":\"%s\"}".formatted(other.email(), PASSWORD));
 
 		assertThat(response.getStatus()).isEqualTo(409);
 		assertThat(admin.queryForObject("SELECT email FROM core.users WHERE id = ?", String.class, dentist.userId())).isEqualTo(dentist.email());
+	}
+
+	@Test
+	void changingTheEmailNeedsTheCurrentPasswordAndRevokesEverySession() throws Exception {
+		Account dentist = registerDentist();
+		String newEmail = uniqueEmail();
+		String secondSession = login(dentist.email(), PASSWORD).refreshToken();
+
+		MockHttpServletResponse missing = send(HttpMethod.PUT, "/api/v1/me", dentist.accessToken(),
+				"{\"name\":\"Ana\",\"email\":\"%s\"}".formatted(newEmail));
+		MockHttpServletResponse wrong = send(HttpMethod.PUT, "/api/v1/me", dentist.accessToken(),
+				"{\"name\":\"Ana\",\"email\":\"%s\",\"currentPassword\":\"SenhaErrada999\"}".formatted(newEmail));
+
+		assertThat(missing.getStatus()).as("sem senha atual").isEqualTo(400);
+		assertThat(wrong.getStatus()).as("senha atual errada").isEqualTo(401);
+		assertThat(admin.queryForObject("SELECT email FROM core.users WHERE id = ?", String.class, dentist.userId())).isEqualTo(dentist.email());
+		assertThat(refreshStatus(secondSession)).as("nada foi revogado").isEqualTo(200);
+
+		MockHttpServletResponse changed = send(HttpMethod.PUT, "/api/v1/me", dentist.accessToken(),
+				"{\"name\":\"Ana\",\"email\":\"%s\",\"currentPassword\":\"%s\"}".formatted(newEmail, PASSWORD));
+
+		assertThat(changed.getStatus()).isEqualTo(200);
+		assertThat(refreshStatus(dentist.refreshToken())).as("sessão antiga revogada").isEqualTo(401);
+		assertThat(loginStatus(newEmail, PASSWORD)).as("login com o novo e-mail").isEqualTo(200);
 	}
 
 	@Test

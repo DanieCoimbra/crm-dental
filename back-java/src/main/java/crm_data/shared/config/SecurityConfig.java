@@ -22,6 +22,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 
 import crm_data.shared.error.ProblemTypes;
 import crm_data.shared.tenant.TenantContextFilter;
+import crm_data.shared.web.ClinicalCacheHeaders;
 import jakarta.servlet.DispatcherType;
 
 /**
@@ -46,6 +47,7 @@ public class SecurityConfig {
 			.csrf(AbstractHttpConfigurer::disable) // stateless: sem cookie de sessão
 			.cors(AbstractHttpConfigurer::disable) // substituído pelo filtro abaixo, que responde em problem+json
 			.addFilterAfter(CorsConfig.corsFilter(corsSource, problems), HeaderWriterFilter.class)
+			.addFilterAfter(new ClinicalCacheHeaders(), HeaderWriterFilter.class)
 			// depois da autenticação (JWT, F04) e antes da autorização: popula o tenant da requisição
 			.addFilterBefore(new TenantContextFilter(problems), AuthorizationFilter.class)
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -58,6 +60,13 @@ public class SecurityConfig {
 				// regras de papel por rota (segunda barreira: @PreAuthorize nos services)
 				.requestMatchers("/api/v1/users/**").hasRole("DENTIST_ADMIN")
 				.requestMatchers(HttpMethod.PUT, "/api/v1/clinic").hasRole("DENTIST_ADMIN")
+				.requestMatchers(HttpMethod.PATCH, "/api/v1/patients/*/active").hasRole("DENTIST_ADMIN")
+				.requestMatchers(HttpMethod.POST, "/api/v1/patients/*/anonymize").hasRole("DENTIST_ADMIN")
+				.requestMatchers("/api/v1/audit-log/**").hasRole("DENTIST_ADMIN")
+				.requestMatchers("/api/v1/patients/*/medical-history", "/api/v1/patients/*/notes/**").hasRole("DENTIST_ADMIN")
+				// exames: a recepção só anexa (POST cai em authenticated); lista, URL assinada e remoção são do dentista
+				.requestMatchers(HttpMethod.GET, "/api/v1/patients/*/files/**").hasRole("DENTIST_ADMIN")
+				.requestMatchers(HttpMethod.DELETE, "/api/v1/patients/*/files/**").hasRole("DENTIST_ADMIN")
 				.anyRequest().authenticated())
 			.oauth2ResourceServer(resourceServer -> resourceServer
 				.bearerTokenResolver(bearerTokenResolver())

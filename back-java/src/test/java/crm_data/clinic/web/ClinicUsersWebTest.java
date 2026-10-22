@@ -128,7 +128,7 @@ class ClinicUsersWebTest {
 	@Test
 	void bothRolesCanReadAndEditTheirProfile() throws Exception {
 		when(profile.me()).thenReturn(receptionist);
-		when(profile.updateProfile(anyString(), anyString())).thenReturn(receptionist);
+		when(profile.updateProfile(anyString(), anyString(), any())).thenReturn(receptionist);
 
 		for (Role role : Role.values()) {
 			mvc.perform(get("/api/v1/me").with(as(role))).andExpect(status().isOk());
@@ -139,14 +139,14 @@ class ClinicUsersWebTest {
 
 	@Test
 	void updateProfileNormalizesAndIgnoresRoleClinicAndIdFromTheClient() throws Exception {
-		when(profile.updateProfile(anyString(), anyString())).thenReturn(dentist);
+		when(profile.updateProfile(anyString(), anyString(), any())).thenReturn(dentist);
 		String body = """
 				{"name":"  Dra. Ana Souza ","email":"  ANA.Souza@Clinica.COM ","role":"RECEPTIONIST",
 				 "clinicId":"%s","id":"%s","active":false}""".formatted(UUID.randomUUID(), UUID.randomUUID());
 
 		mvc.perform(json(put("/api/v1/me"), body).with(as(Role.DENTIST_ADMIN))).andExpect(status().isOk());
 
-		verify(profile).updateProfile("Dra. Ana Souza", "ana.souza@clinica.com");
+		verify(profile).updateProfile("Dra. Ana Souza", "ana.souza@clinica.com", null);
 	}
 
 	@Test
@@ -160,7 +160,7 @@ class ClinicUsersWebTest {
 
 	@Test
 	void duplicateEmailOnProfileIs409() throws Exception {
-		when(profile.updateProfile(anyString(), anyString())).thenThrow(new BusinessException(ProblemTypes.CONFLICT, "E-mail já cadastrado."));
+		when(profile.updateProfile(anyString(), anyString(), any())).thenThrow(new BusinessException(ProblemTypes.CONFLICT, "E-mail já cadastrado."));
 
 		mvc.perform(json(put("/api/v1/me"), "{\"name\":\"Ana\",\"email\":\"outra@clinica.com\"}").with(as(Role.DENTIST_ADMIN)))
 				.andExpect(status().isConflict())

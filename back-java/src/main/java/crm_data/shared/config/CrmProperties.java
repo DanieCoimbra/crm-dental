@@ -1,5 +1,6 @@
 package crm_data.shared.config;
 
+import java.time.Duration;
 import java.util.List;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -20,10 +21,16 @@ public record CrmProperties(List<String> corsOrigins, Storage storage, boolean h
 	}
 
 	/**
-	 * @param url URL do projeto Supabase ({@code CRM_STORAGE_URL})
+	 * @param url URL do projeto Supabase ({@code CRM_STORAGE_URL}); vazia em dev/teste, quando o disco local é usado
 	 * @param serviceKey service key, só no backend ({@code CRM_STORAGE_SERVICE_KEY})
 	 * @param bucket bucket privado dos exames ({@code CRM_STORAGE_BUCKET})
+	 * @param signedUrlTtl validade da URL assinada de download (padrão 60 s)
+	 * @param localDir diretório do {@code LocalFileStorage} (só dev/teste); vazio usa um diretório temporário
 	 */
-	public record Storage(String url, String serviceKey, String bucket) {
+	public record Storage(String url, String serviceKey, String bucket, Duration signedUrlTtl, String localDir) {
+
+		public Storage {
+			signedUrlTtl = signedUrlTtl == null ? Duration.ofSeconds(60) : signedUrlTtl;
+		}
 	}
 }

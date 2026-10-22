@@ -5,6 +5,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.QueryTimeoutException;
@@ -29,6 +30,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import crm_data.shared.storage.StorageException;
+import jakarta.persistence.PersistenceException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 
@@ -57,7 +60,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 	@ExceptionHandler(OptimisticLockingFailureException.class)
 	ResponseEntity<Object> handleOptimisticLock(OptimisticLockingFailureException ex, HttpServletRequest request) {
-		return respond(ProblemTypes.CONFLICT, "O recurso foi alterado por outra operação. Recarregue e tente novamente.",
+		return respond(ProblemTypes.CONFLICT, ConflictMessages.STALE_VERSION,
 				request);
 	}
 
@@ -65,6 +68,44 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 			QueryTimeoutException.class })
 	ResponseEntity<Object> handleDatabaseUnavailable(Exception ex, HttpServletRequest request) {
 		log.error("Banco de dados indisponível ou lento em {} {}", request.getMethod(), request.getRequestURI(), ex);
+		return respond(ProblemTypes.UNAVAILABLE, "Serviço temporariamente indisponível. Tente novamente em instantes.",
+				request);
+	}
+
+	/**
+	 * Erros do banco traduzidos pelo {@code SQLState} (contrato F01). Nunca loga a mensagem nem a causa: o driver
+	 * repete valores (CPF, por exemplo) nela. Só classe, {@code SQLState} e nome da constraint vão para o log.
+	 * {@code 23505} não é tratado aqui: cada service converte pela constraint e, sem conversão, vira 500.
+	 */
+	@ExceptionHandler({ DataAccessException.class, PersistenceException.class })
+	ResponseEntity<Object> handleDatabase(Exception ex, HttpServletRequest request) {
+		String state = DatabaseErrors.sqlState(ex).orElse("");
+		return switch (state) {
+			case "CR001" -> respond(ProblemTypes.CONFLICT, "Inative o paciente antes de anonimizar.", request);
+			case "CR002" -> respond(ProblemTypes.CONFLICT, DatabaseErrors.retentionReleaseDate(ex)
+					.map(date -> "Retenção legal do prontuário vigente. Liberado em " + date + ".")
+					.orElse("Retenção legal do prontuário vigente."), request);
+			case "CR003" -> respond(ProblemTypes.CONFLICT, "Paciente anonimizado.", request);
+			case "P0002" -> respond(ProblemTypes.NOT_FOUND, "Paciente não encontrado.", request);
+			case "42501" -> respond(ProblemTypes.FORBIDDEN, "Você não tem permissão para esta operação.", request);
+			default -> {
+				log.error("Erro de banco em {} {}: {} sqlState={} constraint={}", request.getMethod(),
+						request.getRequestURI(), ex.getClass().getName(), state.isEmpty() ? "-" : state,
+						DatabaseErrors.constraintName(ex).orElse("-"));
+				yield respond(ProblemTypes.INTERNAL, "Ocorreu um erro inesperado. Informe o X-Request-Id ao suporte.",
+						request);
+			}
+		};
+	}
+
+	/**
+	 * Storage fora do ar, lento ou recusando: 503. Vai ao log a mensagem da exceção, que é segura por construção (só a
+	 * operação, o status HTTP ou a classe do erro de rede, nunca URL, chave ou resposta do Storage); a causa não.
+	 */
+	@ExceptionHandler(StorageException.class)
+	ResponseEntity<Object> handleStorage(StorageException ex, HttpServletRequest request) {
+		log.error("Falha no armazenamento de arquivos em {} {}: {}", request.getMethod(), request.getRequestURI(),
+				ex.getMessage());
 		return respond(ProblemTypes.UNAVAILABLE, "Serviço temporariamente indisponível. Tente novamente em instantes.",
 				request);
 	}
@@ -160,7 +201,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 	@ExceptionHandler(Exception.class)
 	ResponseEntity<Object> handleUnexpected(Exception ex, HttpServletRequest request) {
-		log.error("Erro inesperado em {} {}", request.getMethod(), request.getRequestURI(), ex);
+		if (DatabaseErrors.hasSqlCause(ex)) {
+			// Erro de banco embrulhado fora de DataAccessException: a stack e as causas carregariam o DETAIL do driver
+			// (CPF, nome). Só a classe e o SQLState vão ao log.
+			log.error("Erro inesperado em {} {}: {} sqlState={}", request.getMethod(), request.getRequestURI(),
+					ex.getClass().getName(), DatabaseErrors.sqlState(ex).orElse("-"));
+		}
+		else {
+			log.error("Erro inesperado em {} {}", request.getMethod(), request.getRequestURI(), ex);
+		}
 		return respond(ProblemTypes.INTERNAL, "Ocorreu um erro inesperado. Informe o X-Request-Id ao suporte.", request);
 	}
 

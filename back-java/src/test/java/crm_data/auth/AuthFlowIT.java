@@ -79,6 +79,8 @@ class AuthFlowIT {
 	PasswordEncoder passwordEncoder;
 	@Autowired
 	ApplicationEvents events;
+	@Autowired
+	crm_data.auth.service.HashingGate hashingGate;
 
 	final org.springframework.jdbc.core.JdbcTemplate admin = DatabaseContainer.admin();
 
@@ -334,6 +336,75 @@ class AuthFlowIT {
 		assertThat(correctPasswordWhileBlocked.getStatus()).isEqualTo(429);
 		assertThat(login(email, PASSWORD, freshIp()).getStatus()).as("outro IP não é afetado").isEqualTo(200);
 		assertThat(login(uniqueEmail(), PASSWORD, ip).getStatus()).as("outro e-mail no mesmo IP não é bloqueado").isEqualTo(401);
+	}
+
+	@Test
+	void twentyFirstFailureInFifteenMinutesAgainstOneEmailIs429EvenFromDifferentIps() throws Exception {
+		String email = register(uniqueEmail()).read("$.user.email");
+
+		for (int i = 1; i <= 20; i++) {
+			assertThat(login(email, "Errada" + i + "999", freshIp()).getStatus()).as("falha %d (IP novo a cada vez)", i).isEqualTo(401);
+		}
+		MockHttpServletResponse blocked = login(email, "Errada21999", freshIp());
+		MockHttpServletResponse correctPasswordWhileBlocked = login(email, PASSWORD, freshIp());
+
+		assertThat(blocked.getStatus()).isEqualTo(429);
+		assertThat(Long.parseLong(blocked.getHeader("Retry-After"))).isBetween(1L, 900L);
+		assertThat(correctPasswordWhileBlocked.getStatus()).isEqualTo(429);
+		assertThat(login(uniqueEmail(), PASSWORD, freshIp()).getStatus()).as("outro e-mail não é afetado").isEqualTo(401);
+	}
+
+	@Test
+	void anonymousFailuresFromOtherIpsCannotLockTheOwnerOutOfTheirUsualIp() throws Exception {
+		String email = register(uniqueEmail()).read("$.user.email");
+		String ownerIp = freshIp();
+		assertThat(login(email, PASSWORD, ownerIp).getStatus()).as("o dono entra do IP de sempre").isEqualTo(200);
+
+		for (int i = 1; i <= 21; i++) {
+			login(email, "Errada" + i + "999", freshIp());
+		}
+
+		assertThat(login(email, "Errada22999", freshIp()).getStatus()).as("IP desconhecido está bloqueado").isEqualTo(429);
+		assertThat(login(email, PASSWORD, ownerIp).getStatus()).as("o dono continua entrando do IP conhecido").isEqualTo(200);
+	}
+
+	@Test
+	void withEveryHashSlotBusyLoginAndRegistrationGet429WithoutCountingALoginFailure() throws Exception {
+		String email = register(uniqueEmail()).read("$.user.email");
+		String ip = freshIp();
+		int slots = Math.max(2, Runtime.getRuntime().availableProcessors());
+		java.util.concurrent.CountDownLatch holding = new java.util.concurrent.CountDownLatch(slots);
+		java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+		for (int i = 0; i < slots; i++) {
+			Thread.ofVirtual().start(() -> hashingGate.run(() -> {
+				holding.countDown();
+				try {
+					release.await();
+				}
+				catch (InterruptedException ex) {
+					Thread.currentThread().interrupt();
+				}
+				return null;
+			}));
+		}
+		try {
+			assertThat(holding.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+
+			MockHttpServletResponse login = login(email, PASSWORD, ip);
+			MockHttpServletResponse registration = call("/api/v1/auth/register",
+					registerBody("Clínica " + UUID.randomUUID(), uniqueEmail(), PASSWORD), freshIp());
+
+			assertThat(login.getStatus()).isEqualTo(429);
+			assertThat(login.getHeader("Retry-After")).isEqualTo("3");
+			assertThat(body(login).<String>read("$.type")).isEqualTo("https://crm.local/problems/rate-limited");
+			assertThat(registration.getStatus()).isEqualTo(429);
+			assertThat(registration.getHeader("Retry-After")).isEqualTo("3");
+		}
+		finally {
+			release.countDown();
+		}
+		// a falta de vaga não foi contada como senha errada: com as vagas livres o mesmo IP+e-mail entra
+		assertThat(login(email, PASSWORD, ip).getStatus()).isEqualTo(200);
 	}
 
 	@Test

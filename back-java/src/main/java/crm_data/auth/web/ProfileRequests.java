@@ -18,11 +18,18 @@ public final class ProfileRequests {
 
 	public record UpdateProfileRequest(
 			@NotBlank(message = "obrigatório") @Size(min = 2, max = 120, message = "deve ter entre 2 e 120 caracteres") String name,
-			@NotBlank(message = "obrigatório") @Email(message = "e-mail inválido") @Size(max = 254, message = "deve ter no máximo 254 caracteres") String email) {
+			@NotBlank(message = "obrigatório") @Email(message = "e-mail inválido") @Size(max = 254, message = "deve ter no máximo 254 caracteres") String email,
+			@Size(max = 256, message = "deve ter no máximo 256 caracteres") String currentPassword) {
 
 		public UpdateProfileRequest {
 			name = RequestText.strip(name);
 			email = RequestText.normalizeEmail(email);
+		}
+
+		/** Nunca imprime a senha. */
+		@Override
+		public String toString() {
+			return "UpdateProfileRequest[]";
 		}
 	}
 

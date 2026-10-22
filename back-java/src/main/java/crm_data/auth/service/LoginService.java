@@ -34,11 +34,12 @@ public class LoginService {
 	private final AuthSessionFactory sessions;
 	private final PasswordEncoder passwordEncoder;
 	private final LoginRateLimiter rateLimiter;
+	private final HashingGate hashingGate;
 	private final String dummyHash;
 
 	public LoginService(AuthLookupRepository lookup, UserRepository users, RefreshTokenService refreshTokens,
 			TenantTransactions tenantTransactions, AuthSessionFactory sessions, PasswordEncoder passwordEncoder,
-			LoginRateLimiter rateLimiter) {
+			LoginRateLimiter rateLimiter, HashingGate hashingGate) {
 		this.lookup = lookup;
 		this.users = users;
 		this.refreshTokens = refreshTokens;
@@ -46,19 +47,22 @@ public class LoginService {
 		this.sessions = sessions;
 		this.passwordEncoder = passwordEncoder;
 		this.rateLimiter = rateLimiter;
+		this.hashingGate = hashingGate;
 		this.dummyHash = passwordEncoder.encode("senha-ficticia-" + UUID.randomUUID()); // mesmo custo dos hashes reais
 	}
 
 	/**
 	 * @param email já normalizado (minúsculas, sem espaços nas pontas)
 	 * @throws BusinessException 401 genérico em qualquer falha de credencial
-	 * @throws crm_data.shared.error.RateLimitedException 429 após 5 falhas por minuto do mesmo IP+e-mail
+	 * @throws crm_data.shared.error.RateLimitedException 429 após 5 falhas por minuto do mesmo IP+e-mail, 20 falhas em
+	 *         15 min do mesmo e-mail (qualquer IP) ou com todas as vagas de hash ocupadas
 	 */
 	public AuthSession login(String email, String password, String clientIp) {
 		rateLimiter.checkLoginAllowed(clientIp, email);
 
 		Optional<UserLookup> found = lookup.findUserForLogin(email);
-		boolean passwordMatches = matches(password, found.map(UserLookup::passwordHash).orElse(dummyHash));
+		String hash = found.map(UserLookup::passwordHash).orElse(dummyHash);
+		boolean passwordMatches = hashingGate.run(() -> matches(password, hash)); // 429 se a CPU já está saturada de hashes
 		if (found.isEmpty() || !found.get().active() || !passwordMatches) {
 			rateLimiter.recordLoginFailure(clientIp, email);
 			log.warn("Falha de login: email={} ip={}", Masking.email(email), clientIp);

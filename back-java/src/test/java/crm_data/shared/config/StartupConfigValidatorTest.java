@@ -18,7 +18,10 @@ class StartupConfigValidatorTest {
 				.withProperty("CRM_JWT_SECRET", "segredo-jwt-super-secreto-com-32-bytes!")
 				.withProperty("CRM_AES_KEYS", "1:chave-aes-super-secreta")
 				.withProperty("CRM_AES_ACTIVE_VERSION", "1")
-				.withProperty("CRM_CORS_ORIGINS", "https://app.example,https://www.example");
+				.withProperty("CRM_CORS_ORIGINS", "https://app.example,https://www.example")
+				.withProperty("CRM_STORAGE_URL", "https://proj.supabase.co")
+				.withProperty("CRM_STORAGE_SERVICE_KEY", "service-key-super-secreta")
+				.withProperty("CRM_STORAGE_BUCKET", "exames");
 	}
 
 	@Test
@@ -35,7 +38,16 @@ class StartupConfigValidatorTest {
 
 		assertThat(problems).hasSize(1);
 		assertThat(problems.get(0)).contains("DB_APP_USER", "DB_APP_PASSWORD", "CRM_JWT_SECRET", "CRM_AES_KEYS",
-				"CRM_AES_ACTIVE_VERSION", "CRM_CORS_ORIGINS").doesNotContain("DB_URL");
+				"CRM_AES_ACTIVE_VERSION", "CRM_CORS_ORIGINS", "CRM_STORAGE_URL", "CRM_STORAGE_SERVICE_KEY",
+				"CRM_STORAGE_BUCKET").doesNotContain("DB_URL");
+	}
+
+	@Test
+	void requiresEachStorageVariableSoProdNeverFallsBackToLocalDisk() {
+		for (String name : List.of("CRM_STORAGE_URL", "CRM_STORAGE_SERVICE_KEY", "CRM_STORAGE_BUCKET")) {
+			MockEnvironment env = validEnvironment().withProperty(name, "");
+			assertThat(StartupConfigValidator.problems(env)).singleElement().asString().contains(name);
+		}
 	}
 
 	@Test

@@ -25,7 +25,9 @@ import crm_data.support.DatabaseContainer;
 @SpringBootTest(properties = {
 		"DB_URL=jdbc:postgresql://db.example:6543/postgres?sslmode=require&prepareThreshold=0",
 		"DB_APP_USER=crm_app.proj", "DB_APP_PASSWORD=nao-usada-no-teste",
-		"CRM_JWT_SECRET=segredo-jwt-de-teste-com-mais-de-32-bytes", "CRM_CORS_ORIGINS=https://app.example" })
+		"CRM_JWT_SECRET=segredo-jwt-de-teste-com-mais-de-32-bytes", "CRM_CORS_ORIGINS=https://app.example",
+		"CRM_STORAGE_URL=https://proj.supabase.co", "CRM_STORAGE_SERVICE_KEY=service-key-de-teste",
+		"CRM_STORAGE_BUCKET=exames" })
 @AutoConfigureMockMvc
 @ActiveProfiles("prod")
 class ProdProfileIT {

@@ -34,13 +34,14 @@ public class RegistrationService {
 	private final AuthSessionFactory sessions;
 	private final PasswordEncoder passwordEncoder;
 	private final ApplicationEventPublisher events;
+	private final HashingGate hashingGate;
 
 	/**
 	 * @param email já normalizado (minúsculas, sem espaços nas pontas)
 	 * @throws BusinessException {@code conflict} (409) se o e-mail já estiver cadastrado
 	 */
 	public AuthSession register(String clinicName, String name, String email, String password) {
-		String passwordHash = passwordEncoder.encode(password); // custo alto: fora da transação
+		String passwordHash = hashingGate.run(() -> passwordEncoder.encode(password)); // custo alto: fora da transação
 		UUID clinicId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();
 

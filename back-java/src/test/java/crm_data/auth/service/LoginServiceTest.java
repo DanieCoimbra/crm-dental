@@ -62,7 +62,8 @@ class LoginServiceTest {
 	@BeforeEach
 	@SuppressWarnings("unchecked")
 	void setUp() {
-		service = new LoginService(lookup, users, refreshTokens, tenantTransactions, sessions, encoder, rateLimiter);
+		service = new LoginService(lookup, users, refreshTokens, tenantTransactions, sessions, encoder, rateLimiter,
+				new HashingGate(4, java.time.Duration.ofSeconds(1)));
 		realHash = encoder.encode(PASSWORD);
 		when(tenantTransactions.execute(any(), any())).thenAnswer(call -> ((Supplier<Object>) call.getArgument(1)).get());
 		when(users.findById(userId)).thenReturn(Optional.of(user));
@@ -150,6 +151,22 @@ class LoginServiceTest {
 		order.verify(rateLimiter).checkLoginAllowed(IP, EMAIL);
 		org.mockito.Mockito.verifyNoInteractions(lookup);
 		verify(encoder, never()).matches(anyString(), anyString());
+	}
+
+	@Test
+	void saturatedHashingGateAnswers429WithoutCountingAFailureOrTouchingTheEncoder() {
+		HashingGate full = new HashingGate(1, java.time.Duration.ofMillis(20));
+		LoginService busy = new LoginService(lookup, users, refreshTokens, tenantTransactions, sessions, encoder, rateLimiter, full);
+		account(true);
+		org.mockito.Mockito.clearInvocations(encoder);
+
+		full.run(() -> {
+			assertThatThrownBy(() -> busy.login(EMAIL, PASSWORD, IP)).isInstanceOf(RateLimitedException.class);
+			return null;
+		});
+
+		verify(encoder, never()).matches(anyString(), anyString());
+		verify(rateLimiter, never()).recordLoginFailure(anyString(), anyString()); // falha de capacidade não é senha errada
 	}
 
 	@Test

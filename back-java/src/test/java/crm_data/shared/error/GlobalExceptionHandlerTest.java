@@ -12,6 +12,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -159,5 +164,116 @@ class GlobalExceptionHandlerTest {
 				.andExpect(content().contentTypeCompatibleWith(PROBLEM))
 				.andExpect(jsonPath("$.type").value("https://crm.local/problems/unauthorized"))
 				.andExpect(jsonPath("$.instance").value("/probe/ok"));
+	}
+
+	@ParameterizedTest
+	@CsvSource(delimiter = '|', value = { "CR001|409|conflict|Inative o paciente antes de anonimizar.",
+			"CR002|409|conflict|Retenção legal do prontuário vigente. Liberado em 2046-10-22.",
+			"CR002-NODATE|409|conflict|Retenção legal do prontuário vigente.",
+			"CR003|409|conflict|Paciente anonimizado.", "P0002|404|not-found|Paciente não encontrado.",
+			"42501|403|forbidden|Você não tem permissão para esta operação.",
+			"28000|500|internal|", "23514|500|internal|", "23503|500|internal|", "23505|500|internal|" })
+	void databaseErrorsAreTranslatedBySqlState(String state, int status, String slug, String detail) throws Exception {
+		MvcResult result = mvc.perform(get("/probe/db-error/" + state).with(user("u")))
+				.andExpect(status().is(status))
+				.andExpect(content().contentTypeCompatibleWith(PROBLEM))
+				.andExpect(jsonPath("$.type").value("https://crm.local/problems/" + slug))
+				.andReturn();
+
+		String body = result.getResponse().getContentAsString();
+		if (detail != null) {
+			assertThat(body).contains(detail);
+		}
+		assertThat(body).doesNotContain("52998224725", "SQLException", "constraint");
+	}
+
+	@Test
+	void databaseErrorLogCarriesOnlyClassSqlStateAndConstraintNeverTheCpf() throws Exception {
+		Logger logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		try {
+			mvc.perform(get("/probe/db-error/23505").with(user("u"))).andExpect(status().isInternalServerError());
+		}
+		finally {
+			logger.detachAppender(appender);
+		}
+
+		assertThat(appender.list).hasSize(1);
+		ILoggingEvent event = appender.list.get(0);
+		assertThat(event.getThrowableProxy()).isNull();
+		assertThat(event.getFormattedMessage()).contains("sqlState=23505", "constraint=ux_patients_clinic_cpf")
+				.doesNotContain("52998224725");
+	}
+
+	@Test
+	void unexpectedWrapperAroundASqlErrorLogsOnlyClassAndSqlStateNeverTheCauseNorTheCpf() throws Exception {
+		Logger logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		try {
+			mvc.perform(get("/probe/wrapped-sql").with(user("u"))).andExpect(status().isInternalServerError());
+		}
+		finally {
+			logger.detachAppender(appender);
+		}
+
+		assertThat(appender.list).hasSize(1);
+		ILoggingEvent event = appender.list.get(0);
+		assertThat(event.getThrowableProxy()).as("sem stack nem causas").isNull();
+		assertThat(event.getFormattedMessage()).contains("java.lang.IllegalStateException", "sqlState=23505")
+				.doesNotContain("52998224725");
+	}
+
+	@Test
+	void unexpectedErrorWithoutSqlCauseStillLogsTheFullStackForDiagnosis() throws Exception {
+		Logger logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		try {
+			mvc.perform(get("/probe/boom").with(user("u"))).andExpect(status().isInternalServerError());
+		}
+		finally {
+			logger.detachAppender(appender);
+		}
+
+		assertThat(appender.list).hasSize(1);
+		assertThat(appender.list.get(0).getThrowableProxy()).isNotNull();
+	}
+
+	@Test
+	void clinicalRoutesGetExactlyNoStoreThroughTheRealSecurityChain() throws Exception {
+		mvc.perform(get("/api/v1/patients/probe").with(user("u")))
+				.andExpect(status().isOk())
+				.andExpect(header().stringValues("Cache-Control", "no-store"));
+	}
+
+	@Test
+	void storageFailureIs503AndTheLogCarriesTheSafeMessageButNeverTheCause() throws Exception {
+		Logger logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		String body;
+		try {
+			body = mvc.perform(get("/probe/storage-down").with(user("u")))
+					.andExpect(status().isServiceUnavailable())
+					.andExpect(content().contentTypeCompatibleWith(PROBLEM))
+					.andExpect(jsonPath("$.type").value("https://crm.local/problems/unavailable"))
+					.andReturn().getResponse().getContentAsString();
+		}
+		finally {
+			logger.detachAppender(appender);
+		}
+
+		assertThat(body).doesNotContain("HTTP 401", "supabase");
+		assertThat(appender.list).singleElement().satisfies(event -> {
+			assertThat(event.getFormattedMessage()).contains("Falha ao gravar no Storage (HTTP 401).", "/probe/storage-down");
+			assertThat(event.getFormattedMessage()).doesNotContain("supabase", "segredo");
+			assertThat(event.getThrowableProxy()).isNull();
+		});
 	}
 }
