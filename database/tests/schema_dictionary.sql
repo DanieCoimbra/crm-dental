@@ -92,6 +92,42 @@ INSERT INTO expected_cols VALUES
  ('patient_files','created_at','timestamp with time zone',NULL,'NO','now()'),
  ('patient_files','updated_at','timestamp with time zone',NULL,'NO','now()'),
  ('patient_files','version','bigint',NULL,'NO','0'),
+ ('appointments','id','uuid',NULL,'NO','gen_random_uuid()'),
+ ('appointments','clinic_id','uuid',NULL,'NO',NULL),
+ ('appointments','patient_id','uuid',NULL,'NO',NULL),
+ ('appointments','starts_at','timestamp with time zone',NULL,'NO',NULL),
+ ('appointments','ends_at','timestamp with time zone',NULL,'NO',NULL),
+ ('appointments','status','character varying',15,'NO','''SCHEDULED''::character varying'),
+ ('appointments','notes','character varying',500,'YES',NULL),
+ ('appointments','procedure_type_id','uuid',NULL,'YES',NULL),
+ ('appointments','created_by','uuid',NULL,'NO',NULL),
+ ('appointments','created_at','timestamp with time zone',NULL,'NO','now()'),
+ ('appointments','updated_at','timestamp with time zone',NULL,'NO','now()'),
+ ('appointments','version','bigint',NULL,'NO','0'),
+ ('business_hours','id','uuid',NULL,'NO','gen_random_uuid()'),
+ ('business_hours','clinic_id','uuid',NULL,'NO',NULL),
+ ('business_hours','weekday','smallint',NULL,'NO',NULL),
+ ('business_hours','is_open','boolean',NULL,'NO',NULL),
+ ('business_hours','opens_at','time without time zone',NULL,'YES',NULL),
+ ('business_hours','closes_at','time without time zone',NULL,'YES',NULL),
+ ('business_hours','lunch_starts_at','time without time zone',NULL,'YES',NULL),
+ ('business_hours','lunch_ends_at','time without time zone',NULL,'YES',NULL),
+ ('business_hours','created_by','uuid',NULL,'NO',NULL),
+ ('business_hours','created_at','timestamp with time zone',NULL,'NO','now()'),
+ ('business_hours','updated_at','timestamp with time zone',NULL,'NO','now()'),
+ ('business_hours','version','bigint',NULL,'NO','0'),
+ ('clinic_holidays','id','uuid',NULL,'NO','gen_random_uuid()'),
+ ('clinic_holidays','clinic_id','uuid',NULL,'NO',NULL),
+ ('clinic_holidays','holiday_date','date',NULL,'NO',NULL),
+ ('clinic_holidays','name','character varying',80,'NO',NULL),
+ ('clinic_holidays','created_by','uuid',NULL,'NO',NULL),
+ ('clinic_holidays','created_at','timestamp with time zone',NULL,'NO','now()'),
+ ('clinic_holidays','updated_at','timestamp with time zone',NULL,'NO','now()'),
+ ('clinic_holidays','version','bigint',NULL,'NO','0'),
+ ('holidays','holiday_date','date',NULL,'NO',NULL),
+ ('holidays','name','character varying',80,'NO',NULL),
+ ('clinical_notes','appointment_id','uuid',NULL,'YES',NULL),
+ ('clinics','timezone','character varying',50,'NO','''America/Sao_Paulo''::character varying'),
  ('audit_log','id','bigint',NULL,'NO',NULL),
  ('audit_log','clinic_id','uuid',NULL,'NO',NULL),
  ('audit_log','user_id','uuid',NULL,'NO',NULL),
@@ -118,7 +154,8 @@ BEGIN
     UNION ALL
     SELECT format('coluna extra fora do contrato: %s.%s', c.table_name, c.column_name)
       FROM information_schema.columns c
-     WHERE c.table_schema = 'core' AND c.table_name IN ('clinics', 'users', 'refresh_tokens', 'patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log')
+     WHERE c.table_schema = 'core' AND c.table_name IN ('clinics', 'users', 'refresh_tokens', 'patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log',
+                                'appointments', 'business_hours', 'clinic_holidays', 'holidays')
        AND NOT EXISTS (SELECT 1 FROM expected_cols e WHERE e.tbl = c.table_name AND e.col = c.column_name)
   ) x;
   IF v IS NOT NULL THEN
@@ -127,14 +164,16 @@ BEGIN
 
   -- FR-9: nenhuma coluna de plano/trial/cobrança/expiração de conta
   IF EXISTS (SELECT 1 FROM information_schema.columns
-              WHERE table_schema = 'core' AND table_name IN ('clinics', 'users', 'refresh_tokens', 'patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log')
+              WHERE table_schema = 'core' AND table_name IN ('clinics', 'users', 'refresh_tokens', 'patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log',
+                                'appointments', 'business_hours', 'clinic_holidays', 'holidays')
                 AND column_name ~* '(plan|trial|billing|subscription|account_expir|paid)') THEN
     RAISE EXCEPTION 'FR-9: coluna de plano/trial/cobranca encontrada';
   END IF;
 
   -- Nenhum char(n)/text nas tabelas (compatibilidade com o ddl-auto=validate)
   IF EXISTS (SELECT 1 FROM information_schema.columns
-              WHERE table_schema = 'core' AND table_name IN ('clinics', 'users', 'refresh_tokens', 'patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log')
+              WHERE table_schema = 'core' AND table_name IN ('clinics', 'users', 'refresh_tokens', 'patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log',
+                                'appointments', 'business_hours', 'clinic_holidays', 'holidays')
                 AND data_type IN ('character', 'text')) THEN
     RAISE EXCEPTION 'tipos char/text nao sao permitidos nestas tabelas';
   END IF;
@@ -169,7 +208,15 @@ BEGIN
       ('ux_files_storage_key',    true,  '(storage_key)',                          NULL),
       ('ix_files_patient',        false, '(clinic_id, patient_id, created_at DESC, id DESC)', 'deleted_at IS NULL'),
       ('ix_audit_clinic_time',    false, '(clinic_id, occurred_at DESC, id DESC)', NULL),
-      ('ix_audit_record',         false, '(clinic_id, table_name, record_id, occurred_at DESC)', NULL)
+      ('ix_audit_record',         false, '(clinic_id, table_name, record_id, occurred_at DESC)', NULL),
+      -- Fase 2
+      ('ex_appt_no_overlap',        false, 'USING gist (clinic_id, tstzrange(starts_at, ends_at))', '(status)::text <> ''CANCELED''::text'),
+      ('ix_appt_clinic_start',      false, '(clinic_id, starts_at, id)',                 NULL),
+      ('ix_appt_patient',           false, '(clinic_id, patient_id, starts_at DESC, id DESC)', NULL),
+      ('ux_appt_id_patient_clinic', true,  '(id, patient_id, clinic_id)',                NULL),
+      ('ux_bh_clinic_weekday',      true,  '(clinic_id, weekday)',                       NULL),
+      ('ux_clinic_holidays_date',   true,  '(clinic_id, holiday_date)',                  NULL),
+      ('ix_notes_appointment',      false, '(clinic_id, appointment_id)',                'appointment_id IS NOT NULL')
     ) AS t(idx, uniq, cols, pred)
   LOOP
     SELECT indexdef INTO def FROM pg_indexes WHERE schemaname = 'core' AND indexname = r.idx;
@@ -223,7 +270,12 @@ BEGIN
       ('clinical_notes',    'fk_notes_created_by',     'core.users'),
       ('patient_files',     'fk_files_patient',        'core.patients'),
       ('patient_files',     'fk_files_created_by',     'core.users'),
-      ('audit_log',         'fk_audit_user',           'core.users')
+      ('audit_log',         'fk_audit_user',           'core.users'),
+      -- Fase 2
+      ('appointments',      'fk_appt_patient',         'core.patients'),
+      ('appointments',      'fk_appt_created_by',      'core.users'),
+      ('business_hours',    'fk_bh_created_by',        'core.users'),
+      ('clinic_holidays',   'fk_chol_created_by',      'core.users')
     ) AS t(tbl, fk, ref)
   LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_constraint c
@@ -233,7 +285,7 @@ BEGIN
       RAISE EXCEPTION '% deve ser FK composta para % com ON DELETE RESTRICT', r.fk, r.ref;
     END IF;
   END LOOP;
-  FOR r IN SELECT unnest(ARRAY['patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log']) AS tbl LOOP
+  FOR r IN SELECT unnest(ARRAY['patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log', 'appointments', 'business_hours', 'clinic_holidays']) AS tbl LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_constraint c
                     WHERE c.conrelid = ('core.' || r.tbl)::regclass AND c.contype = 'f'
                       AND c.confrelid = 'core.clinics'::regclass AND c.confdeltype = 'r') THEN

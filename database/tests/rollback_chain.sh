@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Teste da cadeia de rollback: executa os scripts de reversão (manuais) como crm_owner, confirma
+# Teste da cadeia de rollback (Fase 1 e Fase 2: U021 -> U001): executa os scripts de reversão (manuais) como crm_owner, confirma
 # que core ficou sem objetos, e prova que as migrations podem ser reaplicadas (ida e volta).
 # DESTRUTIVO: só em banco descartável. Deve ser a ÚLTIMA etapa do harness.
 # Requer: PGHOST/PGPORT/PGUSER/PGPASSWORD (administrador), CRM_OWNER_PW e DB_DIR.
@@ -18,7 +18,7 @@ bad() { echo "  FAIL - $1"; fail=1; }
 echo "rollback_chain:"
 
 # Reversão em ordem inversa de dependência
-for f in U013__core_patient_anonymization U012__core_audit_log U011__core_patient_files U010__core_clinical_notes U009__core_medical_histories U008__core_patients U007__core_session_functions U006__core_bootstrap_functions U003_U004_U005__core_tables U002__core_tenant_function U001__core_privileges; do
+for f in U021__core_appointments_anonymization U020__core_appointments_audit U019__core_notes_appointment_link U018__core_holidays_seed_2026_2030 U017__core_holidays U016__core_business_hours U015__core_appointments U014__core_clinic_timezone U013__core_patient_anonymization U012__core_audit_log U011__core_patient_files U010__core_clinical_notes U009__core_medical_histories U008__core_patients U007__core_session_functions U006__core_bootstrap_functions U003_U004_U005__core_tables U002__core_tenant_function U001__core_privileges; do
   if owner psql -X -q -v ON_ERROR_STOP=1 -f "$DB_DIR/rollback/$f.sql" >/dev/null 2>&1; then
     ok "rollback $f"
   else

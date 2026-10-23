@@ -74,6 +74,11 @@ for mode in $MODES; do
   else
     PGHOST="$RESTORE_PGHOST" PGPORT="$RESTORE_PGPORT" PGDATABASE="$db" PGUSER=crm_owner PGPASSWORD="$owner_pw"       bash "$DB_DIR/scripts/apply_migrations.sh" >/dev/null 2>"$work/migrate.err"       || { echo "  FALHA: migrations no banco de restauração"; tail -3 "$work/migrate.err"; restore_ok=0; }
     if [ "$restore_ok" = 1 ]; then
+      # Fase 2: a V018 semeia core.holidays e o dump traz as mesmas linhas (e as ajustadas depois): o dump é a fonte de verdade,
+      # então o seed é descartado antes do --data-only (senão a PK de holidays colide). Passo obrigatório também na recuperação real.
+      pg psql -X -q -v ON_ERROR_STOP=1 -d "$db" -c "TRUNCATE core.holidays"         || { echo "  FALHA: não foi possível limpar o seed de core.holidays"; restore_ok=0; }
+    fi
+    if [ "$restore_ok" = 1 ]; then
       pg pg_restore --exit-on-error --data-only --disable-triggers --no-owner --no-acl -d "$db" "$work/core.dump" \
         || { echo "  FALHA: pg_restore --data-only retornou erro"; restore_ok=0; }
     fi

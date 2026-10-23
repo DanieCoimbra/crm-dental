@@ -18,9 +18,20 @@ Reversões são **manuais** e executadas por decisão humana: não há ferrament
 | `U012__core_audit_log.sql` | `V012` (apaga a trilha; reverter depois de U013 e antes de U008–U011) |
 | `U013__core_patient_anonymization.sql` | `V013` (anonimizações já feitas não voltam) |
 
+| `U014__core_clinic_timezone.sql` | `V014` (Fase 2; remove `clinics.timezone` e o trigger de validação) |
+| `U015__core_appointments.sql` | `V015` (apaga os agendamentos; reverter antes U016–U021) |
+| `U016__core_business_hours.sql` | `V016` (apaga o horário comercial) |
+| `U017__core_holidays.sql` | `V017` (apaga `holidays` e `clinic_holidays`) |
+| `U018__core_holidays_seed_2026_2030.sql` | `V018` (remove os feriados de 2026-01-01 a 2030-12-31, inclusive os adicionados depois nesse intervalo) |
+| `U019__core_notes_appointment_link.sql` | `V019` (apaga o vínculo `appointment_id` das notas; as notas permanecem) |
+| `U020__core_appointments_audit.sql` | `V020` (remove o trigger e restaura `ck_audit_table`; falha se já houver linhas de auditoria de `appointments`) |
+| `U021__core_appointments_anonymization.sql` | `V021` (restaura `core.anonymize_patient` da V013; anonimizações já feitas não voltam) |
+
+Ordem de reversão da Fase 2: `U021 → U020 → U019 → U018 → U017 → U016 → U015 → U014` (a cadeia completa é `U021 → U001`; `rollback_chain.sh` reverte e reaplica).
+
 Ordem de reversão da Fase 1: `U013 → U012 → U011 → U010 → U009 → U008 → U007`.
 
-`bootstrap/20_extensions.sql` (Fase 1) também não é migration: para desfazer num banco **descartável**, `DROP EXTENSION pg_trgm;` como administrador (só depois de remover o índice `ix_patients_name_trgm`).
+`bootstrap/20_extensions.sql` (Fase 1 e Fase 2) também não é migration: para desfazer num banco **descartável**, como administrador, `DROP EXTENSION btree_gist;` (só depois de reverter a V015, que depende dela) e `DROP EXTENSION pg_trgm;` (só depois de remover o índice `ix_patients_name_trgm`).
 
 ## Bootstrap (`bootstrap/00_roles_and_schema.sql`)
 

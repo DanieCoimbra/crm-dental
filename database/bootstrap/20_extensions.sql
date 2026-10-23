@@ -1,7 +1,8 @@
 -- =====================================================================
--- Fase 1 / F01-session-foundation | 20_extensions.sql
--- Objetivo : instalar a extensão pg_trgm (busca de pacientes por trecho do nome) no schema
---            "extensions" e dar USAGE nesse schema ao crm_owner, que cria o índice GIN (F02).
+-- Fase 1 / F01-session-foundation e Fase 2 / F01-extensions-and-timezone | 20_extensions.sql
+-- Objetivo : instalar as extensões no schema "extensions" e dar USAGE nesse schema ao crm_owner:
+--            pg_trgm (busca de pacientes por trecho do nome; índice GIN da F02 da Fase 1) e
+--            btree_gist (EXCLUDE de conflito de horário em core.appointments; F02 da Fase 2).
 -- Executar : UMA vez (idempotente), como administrador do projeto (postgres), DEPOIS de
 --            00_roles_and_schema.sql. Manualmente com psql (ver database/README.md). NUNCA pela API.
 -- Reverter : ver database/rollback/README.md (o bootstrap não é migration).
@@ -10,6 +11,7 @@
 --            pelo operador LIKE, sem resolver nomes. No Supabase o schema já existe.
 -- Plano B  : se a extensão não puder ser criada, remova o índice ix_patients_name_trgm da F02 e
 --            mantenha só a busca por prefixo (ix_patients_name_prefix).
+--            btree_gist: SEM plano B. Sem ela a V015 não aplica e a garantia de conflito de agenda cai para o backend.
 -- =====================================================================
 \set ON_ERROR_STOP on
 
@@ -32,6 +34,19 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
                   WHERE e.extname = 'pg_trgm' AND n.nspname = 'extensions') THEN
     RAISE EXCEPTION 'extensions: pg_trgm precisa estar no schema extensions (esta em outro schema)';
+  END IF;
+
+  -- Fase 2: operadores de igualdade (uuid) em índice GiST, para o EXCLUDE por clínica
+  BEGIN
+    CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA extensions;
+  EXCEPTION
+    WHEN insufficient_privilege OR feature_not_supported OR undefined_file THEN
+      RAISE EXCEPTION 'extensions: nao foi possivel criar btree_gist (%). Sem ela nao ha garantia de conflito de agenda no banco', SQLERRM;
+  END;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+                  WHERE e.extname = 'btree_gist' AND n.nspname = 'extensions') THEN
+    RAISE EXCEPTION 'extensions: btree_gist precisa estar no schema extensions (esta em outro schema)';
   END IF;
 END $$;
 

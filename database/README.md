@@ -7,7 +7,7 @@ Tudo do banco mora aqui: papéis, schema `core`, migrations, testes e rollback. 
 ```
 database/
 ├─ bootstrap/00_roles_and_schema.sql   papéis e schema core (1 vez, como postgres; idempotente)
-├─ bootstrap/20_extensions.sql         pg_trgm no schema extensions (Fase 1; depois do 00; idempotente)
+├─ bootstrap/20_extensions.sql         pg_trgm (Fase 1) e btree_gist (Fase 2) no schema extensions (depois do 00; idempotente)
 ├─ migrations/V<NNN>__<descricao>.sql  migrations aplicadas por psql (não edite depois de aplicadas)
 ├─ rollback/U<NNN>__*.sql              reversões MANUAIS (não há ferramenta de migração que reverta)
 ├─ scripts/                            scram_verifier.sh, apply_migrations.sh, backup.sh, restore_check.sh
@@ -167,6 +167,25 @@ B1–B6, B9 e B11 são configuração (uma vez por projeto) e bloqueiam a aprova
 ### Desempenho sob RLS (nota de operação)
 
 As políticas chamam as funções de sessão como `(SELECT core.current_app_role())` para que o PostgreSQL as avalie uma vez por consulta. Busca por trecho/prefixo de nome com `LIKE` roda como filtro dentro da clínica (≈ 5 ms com 10 mil pacientes): `LIKE` não é `LEAKPROOF` e, sob RLS, não usa os índices trigram/prefixo. Ver `docs/features/banco/Fase-1/F02-patients/spec.md`, seção 4.1.
+
+## Fase 2 (Agenda): operação
+
+Migrations `V014`–`V021`: `clinics.timezone`, `appointments` (conflito de horário por `EXCLUDE`), `business_hours`, `holidays` + `clinic_holidays` (seed nacional 2026–2030), `clinical_notes.appointment_id`, auditoria de `appointments` e anonimização com `CR004`. Reversão manual: `U021 → U020 → … → U014` (ver `rollback/README.md`; só antes de haver dados, depois restaure do `pg_dump`).
+
+**Antes da V015 (passo manual no Supabase, como `postgres`):** reexecute `bootstrap/20_extensions.sql` (idempotente), que agora também cria `btree_gist` em `extensions`. Sem ela a V015 aborta com a mensagem `btree_gist ausente` e não deixa nada pela metade; **não há plano B** (sem a extensão não há garantia de conflito de agenda no banco).
+
+```bash
+psql "$ADMIN_URL" -v ON_ERROR_STOP=1 -f database/bootstrap/20_extensions.sql
+bash database/scripts/apply_migrations.sh 14        # V014 em diante, como crm_owner
+```
+
+**Testes (59–85):** rodam no mesmo `run_all.sh` (`MIGRATIONS_EXPECTED=21`). `appointments_concurrency.sh` (63, duas conexões como `crm_app`), `migrations_phase2.sh` (82 e 83, banco descartável próprio) e `backup_restore.sh` (85, as 4 tabelas novas no dump) são scripts de shell; o resto é `tests/*.sql`. O teste 84 (`ddl-auto=validate`) depende do backend da Fase 2 e está **pendente**.
+
+**Restauração por recuperação de desastre (modo `data`):** a V018 semeia `core.holidays`; o dump traz as mesmas linhas. Antes do `pg_restore --data-only`, execute `TRUNCATE core.holidays` (o `restore_check.sh` já faz isso).
+
+**Pré-checagem de conflito no backend (nota de desempenho):** sob RLS o operador `&&` de `tstzrange` não é `LEAKPROOF` e não vira condição de índice para o `crm_app` (varre a clínica toda, ~15 ms com 20 mil agendamentos). Use a mesma forma da agenda: `clinic_id = ? AND status <> 'CANCELED' AND status <> 'NO_SHOW' AND starts_at >= :ini - interval '12 hours' AND starts_at < :fim AND ends_at > :ini` (Index Scan em `ix_appt_clinic_start`, < 0,1 ms). A autoridade do conflito continua sendo a constraint `ex_appt_no_overlap` (23P01).
+
+**A validar no Supabase real:** itens 1 a 7 da seção 10 de `docs/global/banco/Fase-2/spec.md` (em especial `btree_gist` e o `CREATE TRIGGER ... write_audit()` da V020 pelo `crm_owner`).
 
 ## Notas
 

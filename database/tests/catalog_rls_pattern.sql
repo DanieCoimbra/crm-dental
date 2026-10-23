@@ -6,6 +6,9 @@
 --   (3) política de SELECT para crm_backup,
 --   (4) nenhuma política com USING (true) para crm_app (ou PUBLIC),
 --   (5) nenhum GRANT de DELETE/TRUNCATE a crm_app sem política correspondente.
+-- Exceção (Fase 2 / F04): core.holidays é catálogo GLOBAL, sem clinic_id. Fica isenta de (1), (2-índice) e de (4) só na política
+-- SELECT de crm_app (feriados nacionais são públicos); continua exigindo ENABLE + FORCE, SELECT para crm_backup e (5). Mutação
+-- só por crm_owner (policies próprias), o que o teste phase2_permissions.sql prova.
 -- Executar: como administrador, depois das migrations. Falha se houver violação.
 -- =====================================================================
 \set ON_ERROR_STOP on
@@ -22,14 +25,14 @@ CREATE FUNCTION pg_temp.rls_pattern_violations() RETURNS SETOF text
   app    AS (SELECT oid FROM pg_roles WHERE rolname = 'crm_app')
   SELECT format('%s: sem coluna clinic_id NOT NULL', t.relname)
     FROM tabelas t
-   WHERE t.relname <> 'clinics'
+   WHERE t.relname NOT IN ('clinics', 'holidays')
      AND NOT EXISTS (SELECT 1 FROM pg_attribute a
                       WHERE a.attrelid = t.oid AND a.attname = 'clinic_id'
                         AND a.attnotnull AND NOT a.attisdropped)
   UNION ALL
   SELECT format('%s: sem indice iniciando por clinic_id', t.relname)
     FROM tabelas t
-   WHERE t.relname <> 'clinics'
+   WHERE t.relname NOT IN ('clinics', 'holidays')
      AND NOT EXISTS (SELECT 1 FROM pg_index i
                       JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
                      WHERE i.indrelid = t.oid AND a.attname = 'clinic_id')
@@ -46,6 +49,7 @@ CREATE FUNCTION pg_temp.rls_pattern_violations() RETURNS SETOF text
   SELECT format('%s: politica %s usa USING (true) para crm_app/PUBLIC', t.relname, p.polname)
     FROM tabelas t JOIN pg_policy p ON p.polrelid = t.oid
    WHERE pg_get_expr(p.polqual, p.polrelid) = 'true'
+     AND NOT (t.relname = 'holidays' AND p.polcmd = 'r')
      AND ((SELECT oid FROM app) = ANY (p.polroles) OR 0 = ANY (p.polroles))
   UNION ALL
   SELECT format('%s: crm_app tem DELETE/TRUNCATE sem politica de DELETE', t.relname)
