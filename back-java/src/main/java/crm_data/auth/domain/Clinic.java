@@ -24,6 +24,8 @@ import lombok.Setter;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Clinic {
 
+	public static final String DEFAULT_TIMEZONE = "America/Sao_Paulo";
+
 	@Id
 	private UUID id;
 
@@ -46,6 +48,14 @@ public class Clinic {
 	@Setter
 	@Column(length = 255)
 	private String address;
+
+	/**
+	 * Fuso IANA da clínica. O valor inicial vai no {@code INSERT} (o Hibernate envia todas as colunas mapeadas, e
+	 * {@code NULL} violaria o {@code NOT NULL}); só o dentista altera, e o banco valida o nome (trigger).
+	 */
+	@Setter
+	@Column(nullable = false, length = 50)
+	private String timezone = DEFAULT_TIMEZONE;
 
 	@Column(name = "created_at", insertable = false, updatable = false)
 	private Instant createdAt;

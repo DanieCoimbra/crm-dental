@@ -209,7 +209,7 @@ class RecordControllersWebTest {
 
 	@Test
 	void noteCreateReturns201ForwardingNotedAtAndRejectsInjectedFields() throws Exception {
-		when(notes.create(any(), any(), any())).thenReturn(note());
+		when(notes.create(any(), any(), any(), any())).thenReturn(note());
 		String body = "{\"content\":\"Restauração do 36\",\"notedAt\":\"2026-10-22T11:00:00Z\",\"id\":\"%s\",\"patientId\":\"%s\",\"createdBy\":\"%s\"}"
 				.formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
 
@@ -220,22 +220,22 @@ class RecordControllersWebTest {
 				.andExpect(jsonPath("$.content").value("Restauração do 36"))
 				.andExpect(content().string(not(containsString("clinicId"))));
 
-		verify(notes).create(patientId, "Restauração do 36", Instant.parse("2026-10-22T11:00:00Z"));
+		verify(notes).create(patientId, "Restauração do 36", Instant.parse("2026-10-22T11:00:00Z"), null);
 	}
 
 	@Test
 	void noteCreateWithoutNotedAtPassesNull() throws Exception {
-		when(notes.create(any(), any(), any())).thenReturn(note());
+		when(notes.create(any(), any(), any(), any())).thenReturn(note());
 
 		mvc.perform(json(post(notesPath()), "{\"content\":\"x\"}").with(as(Role.DENTIST_ADMIN))).andExpect(status().isCreated());
 
-		verify(notes).create(eq(patientId), eq("x"), isNull());
+		verify(notes).create(eq(patientId), eq("x"), isNull(), isNull());
 	}
 
 	@Test
 	void noteContentLimitAndBlankAreValidationErrors() throws Exception {
 		RequestPostProcessor d = as(Role.DENTIST_ADMIN);
-		when(notes.create(any(), any(), any())).thenReturn(note());
+		when(notes.create(any(), any(), any(), any())).thenReturn(note());
 
 		for (String bad : List.of("{}", "{\"content\":\" \"}", "{\"content\":\"" + "a".repeat(5001) + "\"}")) {
 			mvc.perform(json(post(notesPath()), bad).with(d)).andExpect(status().isBadRequest());
@@ -245,7 +245,7 @@ class RecordControllersWebTest {
 
 	@Test
 	void futureNotedAtFromTheServiceIs400() throws Exception {
-		when(notes.create(any(), any(), any()))
+		when(notes.create(any(), any(), any(), any()))
 				.thenThrow(new BusinessException(ProblemTypes.VALIDATION, "A data do atendimento não pode estar no futuro."));
 
 		mvc.perform(json(post(notesPath()), "{\"content\":\"x\",\"notedAt\":\"2999-01-01T00:00:00Z\"}").with(as(Role.DENTIST_ADMIN)))
@@ -273,12 +273,12 @@ class RecordControllersWebTest {
 
 	@Test
 	void noteUpdateRequiresContentNotedAtAndVersion() throws Exception {
-		when(notes.update(any(), any(), any(), any(), anyLong())).thenReturn(note());
+		when(notes.update(any(), any(), any(), any(), any(), anyLong())).thenReturn(note());
 		String path = notesPath() + "/" + noteId;
 
 		mvc.perform(json(put(path), "{\"content\":\"novo\",\"notedAt\":\"2026-10-22T10:00:00Z\",\"version\":4}").with(as(Role.DENTIST_ADMIN)))
 				.andExpect(status().isOk());
-		verify(notes).update(patientId, noteId, "novo", Instant.parse("2026-10-22T10:00:00Z"), 4L);
+		verify(notes).update(patientId, noteId, "novo", Instant.parse("2026-10-22T10:00:00Z"), null, 4L);
 
 		for (String bad : List.of("{\"content\":\"x\",\"notedAt\":\"2026-10-22T10:00:00Z\"}",
 				"{\"content\":\"x\",\"version\":0}", "{\"notedAt\":\"2026-10-22T10:00:00Z\",\"version\":0}")) {
@@ -298,7 +298,53 @@ class RecordControllersWebTest {
 		assertThat(MedicalHistoryResponse.from(history()).toString()).doesNotContain("penicilina");
 		assertThat(NoteResponse.from(note()).toString()).doesNotContain("Restauração");
 		assertThat(new RecordRequests.SaveHistoryRequest("segredo clínico", null).toString()).doesNotContain("segredo");
-		assertThat(new RecordRequests.CreateNoteRequest("segredo clínico", null).toString()).doesNotContain("segredo");
-		assertThat(new RecordRequests.UpdateNoteRequest("segredo clínico", NOW, 0L).toString()).doesNotContain("segredo");
+		assertThat(new RecordRequests.CreateNoteRequest("segredo clínico", null, null).toString()).doesNotContain("segredo");
+		assertThat(new RecordRequests.UpdateNoteRequest("segredo clínico", NOW, 0L, null).toString()).doesNotContain("segredo");
+	}
+
+	// ---- vínculo da nota com o atendimento ----
+
+	@Test
+	void noteCreateForwardsTheAppointmentIdAndTheResponseCarriesIt() throws Exception {
+		UUID appointmentId = UUID.randomUUID();
+		ClinicalNote linked = note();
+		linked.setAppointmentId(appointmentId);
+		when(notes.create(any(), any(), any(), any())).thenReturn(linked);
+
+		mvc.perform(json(post(notesPath()), "{\"content\":\"x\",\"appointmentId\":\"" + appointmentId + "\"}").with(as(Role.DENTIST_ADMIN)))
+				.andExpect(status().isCreated()).andExpect(jsonPath("$.appointmentId").value(appointmentId.toString()));
+
+		verify(notes).create(eq(patientId), eq("x"), isNull(), eq(appointmentId));
+	}
+
+	@Test
+	void anUnlinkedNoteShowsANullAppointmentId() throws Exception {
+		when(notes.create(any(), any(), any(), any())).thenReturn(note());
+
+		mvc.perform(json(post(notesPath()), "{\"content\":\"x\"}").with(as(Role.DENTIST_ADMIN))).andExpect(status().isCreated())
+				.andExpect(jsonPath("$.appointmentId").value(org.hamcrest.Matchers.nullValue()));
+	}
+
+	@Test
+	void noteUpdateReplacesTheLinkNullAndAbsentBothUnlink() throws Exception {
+		UUID appointmentId = UUID.randomUUID();
+		when(notes.update(any(), any(), any(), any(), any(), anyLong())).thenReturn(note());
+		String base = "{\"content\":\"novo\",\"notedAt\":\"2026-10-22T10:00:00Z\",\"version\":4";
+
+		mvc.perform(json(put(notesPath() + "/" + noteId), base + ",\"appointmentId\":\"" + appointmentId + "\"}").with(as(Role.DENTIST_ADMIN)))
+				.andExpect(status().isOk());
+		mvc.perform(json(put(notesPath() + "/" + noteId), base + ",\"appointmentId\":null}").with(as(Role.DENTIST_ADMIN))).andExpect(status().isOk());
+		mvc.perform(json(put(notesPath() + "/" + noteId), base + "}").with(as(Role.DENTIST_ADMIN))).andExpect(status().isOk());
+
+		Instant notedAt = Instant.parse("2026-10-22T10:00:00Z");
+		verify(notes).update(patientId, noteId, "novo", notedAt, appointmentId, 4L);
+		verify(notes, org.mockito.Mockito.times(2)).update(patientId, noteId, "novo", notedAt, null, 4L);
+	}
+
+	@Test
+	void anInvalidAppointmentIdIs400() throws Exception {
+		mvc.perform(json(post(notesPath()), "{\"content\":\"x\",\"appointmentId\":\"nao-e-uuid\"}").with(as(Role.DENTIST_ADMIN)))
+				.andExpect(status().isBadRequest());
+		verifyNoInteractions(notes);
 	}
 }

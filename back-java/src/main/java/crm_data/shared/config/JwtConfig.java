@@ -30,6 +30,8 @@ public class JwtConfig {
 
 	public static final String ISSUER = "crm-clinica";
 	static final int MIN_SECRET_BYTES = 32;
+	/** Barra segredos como 32 vezes o mesmo caractere; um base64 de 48 bytes aleatórios tem bem mais que isso. */
+	static final int MIN_DISTINCT_CHARS = 12;
 
 	@Bean
 	public SecretKey jwtSecretKey(@Value("${crm.jwt.secret:}") String secret) {
@@ -39,6 +41,9 @@ public class JwtConfig {
 		}
 		if (bytes.length < MIN_SECRET_BYTES) {
 			throw new IllegalStateException("CRM_JWT_SECRET deve ter pelo menos " + MIN_SECRET_BYTES + " bytes");
+		}
+		if (secret.chars().distinct().count() < MIN_DISTINCT_CHARS) {
+			throw new IllegalStateException("CRM_JWT_SECRET é previsível demais: gere com openssl rand -base64 48");
 		}
 		return new SecretKeySpec(bytes, "HmacSHA256");
 	}

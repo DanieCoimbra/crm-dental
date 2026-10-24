@@ -35,6 +35,8 @@ import crm_data.shared.error.BusinessException;
 import crm_data.shared.error.ProblemTypes;
 import crm_data.shared.security.Role;
 import crm_data.shared.tenant.TenantContext;
+import org.springframework.context.ApplicationEventPublisher;
+
 import jakarta.persistence.EntityManager;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,6 +48,8 @@ class PatientServiceTest {
 	PatientRepository patients;
 	@Mock
 	EntityManager entityManager;
+	@Mock
+	ApplicationEventPublisher events;
 
 	PatientService service;
 	UUID clinicId = UUID.randomUUID();
@@ -53,7 +57,7 @@ class PatientServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		service = new PatientService(patients, entityManager, Clock.fixed(NOW, ZoneOffset.UTC));
+		service = new PatientService(patients, entityManager, Clock.fixed(NOW, ZoneOffset.UTC), events);
 		TenantContext.set(clinicId, userId, Role.RECEPTIONIST);
 	}
 
@@ -204,5 +208,61 @@ class PatientServiceTest {
 		assertThat(Status.parse("active")).isEqualTo(Status.ACTIVE);
 		assertThat(Status.parse("inactive")).isEqualTo(Status.INACTIVE);
 		assertThat(Status.parse("all")).isEqualTo(Status.ALL);
+	}
+
+
+	@Test
+	void deactivatingPublishesTheSynchronousEventBeforeWritingAndTheEventCarriesOnlyIds() {
+		Patient patient = existing(0);
+		when(patients.findById(patient.getId())).thenReturn(Optional.of(patient));
+		when(patients.saveAndFlush(patient)).thenReturn(patient);
+
+		service.setActive(patient.getId(), false);
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(events, patients);
+		order.verify(events).publishEvent(new PatientEvents.Deactivating(clinicId, patient.getId()));
+		order.verify(patients).saveAndFlush(patient);
+	}
+
+	@Test
+	void reactivatingAndRepeatingTheCurrentStatePublishNothing() {
+		Patient inactive = existing(0);
+		inactive.deactivate(NOW);
+		Patient active = existing(0);
+		when(patients.findById(inactive.getId())).thenReturn(Optional.of(inactive));
+		when(patients.findById(active.getId())).thenReturn(Optional.of(active));
+		when(patients.saveAndFlush(inactive)).thenReturn(inactive);
+
+		service.setActive(inactive.getId(), true);
+		service.setActive(inactive.getId(), true);
+		service.setActive(active.getId(), true);
+
+		org.mockito.Mockito.verifyNoInteractions(events);
+	}
+
+	@Test
+	void inactivatingAnAlreadyInactivePatientIsIdempotentAndDoesNotCancelAgainNorPublish() {
+		Patient inactive = existing(0);
+		inactive.deactivate(NOW);
+		when(patients.findById(inactive.getId())).thenReturn(Optional.of(inactive));
+
+		service.setActive(inactive.getId(), false);
+
+		org.mockito.Mockito.verifyNoInteractions(events);
+		verify(patients, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void aRefusalFromTheListenerKeepsThePatientActiveAndNothingIsWritten() {
+		Patient patient = existing(0);
+		when(patients.findById(patient.getId())).thenReturn(Optional.of(patient));
+		BusinessException refusal = new BusinessException(ProblemTypes.CONFLICT, "Finalize o atendimento antes de inativar o paciente.");
+		org.mockito.Mockito.doThrow(refusal).when(events).publishEvent(any(PatientEvents.Deactivating.class));
+
+		assertThatThrownBy(() -> service.setActive(patient.getId(), false)).isSameAs(refusal);
+
+		assertThat(patient.isActive()).isTrue();
+		assertThat(patient.getDeactivatedAt()).isNull();
+		verify(patients, never()).saveAndFlush(any());
 	}
 }

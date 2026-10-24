@@ -17,6 +17,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import crm_data.shared.security.AccessTokenRevocations;
 import crm_data.support.PlatformWebTest;
 
 @PlatformWebTest
@@ -27,6 +28,9 @@ class TenantContextFilterTest {
 
 	@Autowired
 	MockMvc mvc;
+
+	@Autowired
+	AccessTokenRevocations revocations;
 
 	private static RequestPostProcessor token(Consumer<Jwt.Builder> claims) {
 		return jwt().jwt(claims);
@@ -90,6 +94,22 @@ class TenantContextFilterTest {
 		for (RequestPostProcessor token : bad) {
 			mvc.perform(get("/probe/tenant").with(token)).andExpect(status().isUnauthorized());
 		}
+	}
+
+	@Test
+	void tokenIssuedBeforeTheUserSessionsWereRevokedIsRejectedWith401() throws Exception {
+		UUID revokedUser = UUID.randomUUID();
+		java.time.Instant issuedAt = java.time.Instant.now().minusSeconds(120);
+		RequestPostProcessor oldToken = token(j -> j.subject(revokedUser.toString()).claim("clinic_id", CLINIC.toString())
+				.claim("role", "RECEPTIONIST").issuedAt(issuedAt));
+		mvc.perform(get("/probe/tenant").with(oldToken)).andExpect(status().isOk());
+
+		revocations.revoke(revokedUser);
+
+		mvc.perform(get("/probe/tenant").with(oldToken))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.type").value("https://crm.local/problems/unauthorized"));
+		assertThat(TenantContext.isPresent()).isFalse();
 	}
 
 	@Test

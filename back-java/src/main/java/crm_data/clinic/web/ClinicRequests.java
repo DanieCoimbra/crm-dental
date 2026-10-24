@@ -22,6 +22,7 @@ public final class ClinicRequests {
 			@Size(max = 20, message = "deve ter no máximo 20 caracteres") String phone,
 			@Email(message = "e-mail inválido") @Size(max = 254, message = "deve ter no máximo 254 caracteres") String email,
 			@Size(max = 255, message = "deve ter no máximo 255 caracteres") String address,
+			@Size(max = 50, message = "deve ter no máximo 50 caracteres") @ValidTimeZone String timezone,
 			@NotNull(message = "obrigatório") @Min(value = 0, message = "deve ser maior ou igual a 0") Long version) {
 
 		public UpdateClinicRequest {
@@ -30,6 +31,7 @@ public final class ClinicRequests {
 			phone = RequestText.blankToNull(phone);
 			email = RequestText.blankToNull(email);
 			address = RequestText.blankToNull(address);
+			timezone = RequestText.blankToNull(timezone);
 			if (email != null) {
 				email = RequestText.normalizeEmail(email);
 			}

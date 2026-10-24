@@ -15,8 +15,11 @@ import jakarta.persistence.Entity;
 /** Regra de arquitetura: toda entidade de tabela de negócio herda {@link TenantAwareEntity}. */
 public final class TenantEntityRules {
 
-	/** Entidades que não têm {@code clinic_id}: a própria clínica é o tenant (coluna {@code id}). */
-	static final Set<String> TENANT_ROOTS = Set.of("Clinic");
+	/**
+	 * Entidades que não têm {@code clinic_id}: a própria clínica é o tenant (coluna {@code id}) e os feriados
+	 * nacionais são dado global, somente leitura.
+	 */
+	static final Set<String> TENANT_ROOTS = Set.of("Clinic", "NationalHoliday");
 
 	private TenantEntityRules() {
 	}

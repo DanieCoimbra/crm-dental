@@ -171,6 +171,11 @@ class GlobalExceptionHandlerTest {
 			"CR002|409|conflict|Retenção legal do prontuário vigente. Liberado em 2046-10-22.",
 			"CR002-NODATE|409|conflict|Retenção legal do prontuário vigente.",
 			"CR003|409|conflict|Paciente anonimizado.", "P0002|404|not-found|Paciente não encontrado.",
+			"CR004|409|conflict|Cancele os agendamentos futuros antes de anonimizar.",
+			"CR005|409|conflict|Paciente inativo.", "23P01|409|conflict|Horário já ocupado.",
+			"40P01|409|conflict|O recurso foi alterado por outra operação. Recarregue e tente novamente.",
+			"40001|409|conflict|O recurso foi alterado por outra operação. Recarregue e tente novamente.",
+			"23505-BH|409|conflict|Dia já configurado.", "23505-HOLIDAY|409|conflict|Já existe feriado nesta data.",
 			"42501|403|forbidden|Você não tem permissão para esta operação.",
 			"28000|500|internal|", "23514|500|internal|", "23503|500|internal|", "23505|500|internal|" })
 	void databaseErrorsAreTranslatedBySqlState(String state, int status, String slug, String detail) throws Exception {
@@ -185,6 +190,22 @@ class GlobalExceptionHandlerTest {
 			assertThat(body).contains(detail);
 		}
 		assertThat(body).doesNotContain("52998224725", "SQLException", "constraint");
+	}
+
+	@Test
+	void businessRuleWithReasonExposesTheStableCode() throws Exception {
+		mvc.perform(get("/probe/business-reason").with(user("u")))
+				.andExpect(status().isUnprocessableContent())
+				.andExpect(content().contentTypeCompatibleWith(PROBLEM))
+				.andExpect(jsonPath("$.type").value("https://crm.local/problems/business-rule"))
+				.andExpect(jsonPath("$.reason").value("OUTSIDE_HOURS"));
+	}
+
+	@Test
+	void businessRuleWithoutReasonHasNoReasonProperty() throws Exception {
+		mvc.perform(get("/probe/business/CONFLICT").with(user("u")))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.reason").doesNotExist());
 	}
 
 	@Test

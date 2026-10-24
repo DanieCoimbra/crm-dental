@@ -27,6 +27,8 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -206,6 +208,7 @@ class ClinicUsersWebTest {
 					.andExpect(jsonPath("$.id").value(clinicId.toString()))
 					.andExpect(jsonPath("$.name").value("Clínica Sorriso"))
 					.andExpect(jsonPath("$.document").doesNotExist())
+					.andExpect(jsonPath("$.timezone").value("America/Sao_Paulo"))
 					.andExpect(jsonPath("$.version").value(3));
 		}
 	}
@@ -230,7 +233,7 @@ class ClinicUsersWebTest {
 
 		ArgumentCaptor<ClinicData> data = ArgumentCaptor.forClass(ClinicData.class);
 		verify(clinics).update(data.capture(), eq(3L));
-		assertThat(data.getValue()).isEqualTo(new ClinicData("Clínica Sorriso", null, "11 99999-0000", null, "Rua A, 10"));
+		assertThat(data.getValue()).isEqualTo(new ClinicData("Clínica Sorriso", null, "11 99999-0000", null, "Rua A, 10", null));
 	}
 
 	@Test
@@ -244,6 +247,35 @@ class ClinicUsersWebTest {
 		mvc.perform(json(put("/api/v1/clinic"), tooLong).with(as(Role.DENTIST_ADMIN)))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.errors.length()").value(5));
+		verifyNoInteractions(clinics);
+	}
+
+	@Test
+	void dentistChangesTheTimezoneAndTheServiceReceivesIt() throws Exception {
+		when(clinics.update(any(), anyLong())).thenReturn(clinic);
+
+		mvc.perform(json(put("/api/v1/clinic"), "{\"name\":\"Clínica\",\"timezone\":\" America/Manaus \",\"version\":3}")
+				.with(as(Role.DENTIST_ADMIN))).andExpect(status().isOk());
+
+		ArgumentCaptor<ClinicData> data = ArgumentCaptor.forClass(ClinicData.class);
+		verify(clinics).update(data.capture(), eq(3L));
+		assertThat(data.getValue().timezone()).isEqualTo("America/Manaus");
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "Mars/Phobos", "+03:00", "america/sao_paulo", "GMT+3x", "Xx" })
+	void unknownTimezoneIs400OnTheTimezoneField(String timezone) throws Exception {
+		mvc.perform(json(put("/api/v1/clinic"), "{\"name\":\"Clínica\",\"timezone\":\"" + timezone + "\",\"version\":3}")
+				.with(as(Role.DENTIST_ADMIN)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[?(@.field=='timezone')]").isNotEmpty());
+		verifyNoInteractions(clinics);
+	}
+
+	@Test
+	void receptionistCannotChangeTheTimezone_403() throws Exception {
+		mvc.perform(json(put("/api/v1/clinic"), "{\"name\":\"Clínica\",\"timezone\":\"UTC\",\"version\":3}")
+				.with(as(Role.RECEPTIONIST))).andExpect(status().isForbidden());
 		verifyNoInteractions(clinics);
 	}
 

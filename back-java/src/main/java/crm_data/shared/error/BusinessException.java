@@ -9,10 +9,25 @@ import java.util.Objects;
 public class BusinessException extends RuntimeException {
 
 	private final ProblemTypes type;
+	private final String reason;
 
 	public BusinessException(ProblemTypes type, String message) {
+		this(type, message, null);
+	}
+
+	/**
+	 * @param reason código estável da regra violada (por exemplo {@code LUNCH}), devolvido ao cliente como propriedade
+	 *        {@code reason} do {@code ProblemDetail}; {@code null} se a regra não tem código
+	 */
+	public BusinessException(ProblemTypes type, String message, String reason) {
 		super(message);
 		this.type = Objects.requireNonNull(type, "type");
+		this.reason = reason;
+	}
+
+	/** Código estável da regra violada, ou {@code null}. */
+	public String reason() {
+		return reason;
 	}
 
 	public ProblemTypes type() {

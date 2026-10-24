@@ -163,12 +163,24 @@ class JwtServiceTest {
 
 		assertThatThrownBy(() -> config.jwtSecretKey(shortSecret)).isInstanceOf(IllegalStateException.class)
 				.hasMessageContaining("CRM_JWT_SECRET").hasMessageContaining("32").hasMessageNotContaining(shortSecret);
-		assertThat(config.jwtSecretKey("x".repeat(32))).isNotNull();
+		assertThat(config.jwtSecretKey("abcdefghijklmnopqrstuvwxyz012345")).isNotNull();
 	}
 
 	@Test
 	void secretLengthIsMeasuredInBytesNotCharacters() {
-		String sixteenTwoByteChars = "ç".repeat(16); // 16 caracteres, 32 bytes UTF-8
-		assertThat(config.jwtSecretKey(sixteenTwoByteChars)).isNotNull();
+		String longEnough = "çãéíóúâêôàü" + "abcd" + "çãéí"; // 19 caracteres, 34 bytes UTF-8, 15 distintos
+		assertThat(longEnough.length()).isLessThan(32);
+		assertThat(longEnough.getBytes(java.nio.charset.StandardCharsets.UTF_8).length).isGreaterThanOrEqualTo(32);
+		assertThat(config.jwtSecretKey(longEnough)).isNotNull();
+	}
+
+	@Test
+	void predictableSecretAbortsStartupWithoutPrintingIt() {
+		String repeated = "x".repeat(64);
+		String twoChars = "ab".repeat(32);
+
+		assertThatThrownBy(() -> config.jwtSecretKey(repeated)).isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("CRM_JWT_SECRET").hasMessageNotContaining(repeated);
+		assertThatThrownBy(() -> config.jwtSecretKey(twoChars)).isInstanceOf(IllegalStateException.class);
 	}
 }

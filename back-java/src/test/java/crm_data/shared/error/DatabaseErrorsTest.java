@@ -41,6 +41,14 @@ class DatabaseErrorsTest {
 	}
 
 	@Test
+	void extractsTheExclusionConstraintOfTheAgenda() {
+		SQLException overlap = sql("ERROR: conflicting key value violates exclusion constraint \"ex_appt_no_overlap\"", "23P01");
+
+		assertThat(DatabaseErrors.sqlState(overlap)).contains("23P01");
+		assertThat(DatabaseErrors.constraintName(overlap)).contains("ex_appt_no_overlap");
+	}
+
+	@Test
 	void extractsRetentionReleaseDateFromTheDetail() {
 		SQLException retention = sql("ERROR: retenção vigente\n  Detail: liberado em 2046-10-22", "CR002");
 

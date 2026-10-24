@@ -8,7 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Limite por IP (20/min) em registro, login e refresh. Roda antes da validação do corpo, para que requisições
+ * Limite por IP (20/min) em registro, login e refresh, mais o teto global de registros por hora. Roda antes da validação do corpo, para que requisições
  * malformadas em massa também contem. O limite por IP+e-mail do login fica no {@code LoginService}.
  */
 @RequiredArgsConstructor
@@ -23,6 +23,9 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
 			for (String action : new String[] { "register", "login", "refresh" }) {
 				if (path.equals("/api/v1/auth/" + action)) {
 					rateLimiter.checkIp(action, request.getRemoteAddr());
+					if ("register".equals(action)) {
+						rateLimiter.checkRegistrationAllowed();
+					}
 					break;
 				}
 			}

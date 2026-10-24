@@ -19,6 +19,9 @@ USER crm
 
 # Memória relativa ao limite do contêiner (plano gratuito do Render: 512 MB).
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError"
+# Seguro por padrão: sem esta variável as travas do perfil prod (TLS, CORS https, HSTS, Storage) não rodariam.
+# O docker-compose local sobrescreve para dev.
+ENV SPRING_PROFILES_ACTIVE=prod
 EXPOSE 8080
 
 # Liveness (sem tocar no banco): o orquestrador usa o health check do serviço.

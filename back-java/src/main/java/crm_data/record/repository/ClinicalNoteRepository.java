@@ -16,4 +16,7 @@ public interface ClinicalNoteRepository extends JpaRepository<ClinicalNote, UUID
 
 	/** Nota só se pertencer ao paciente informado (outro paciente ou outra clínica não casa). */
 	Optional<ClinicalNote> findByIdAndPatientId(UUID id, UUID patientId);
+
+	/** Já existe outra nota (que não a informada) para o atendimento? (no máximo uma nota por atendimento) */
+	boolean existsByAppointmentIdAndIdNot(UUID appointmentId, UUID id);
 }

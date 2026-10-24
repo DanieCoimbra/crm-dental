@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -61,6 +62,7 @@ public class PatientService {
 	private final PatientRepository patients;
 	private final EntityManager entityManager;
 	private final Clock clock;
+	private final ApplicationEventPublisher events;
 
 	/**
 	 * @throws BusinessException {@code conflict} (409) se o CPF já existir na clínica
@@ -135,6 +137,8 @@ public class PatientService {
 			patient.activate();
 		}
 		else {
+			// a agenda cancela os futuros na mesma transação (ou recusa, se há atendimento em andamento)
+			events.publishEvent(new PatientEvents.Deactivating(TenantContext.clinicId(), id));
 			patient.deactivate(Instant.now(clock));
 		}
 		return flushAndRefresh(patient);

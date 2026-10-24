@@ -163,9 +163,9 @@ class Phase1RoleMatrixWebTest {
 				.thenReturn(new PatientAnonymizationService.Result(NOW, StorageCleanup.COMPLETED));
 		when(histories.get(any())).thenReturn(history());
 		when(histories.save(any(), any(), any())).thenReturn(new Saved(history(), true));
-		when(notes.create(any(), any(), any())).thenReturn(note());
+		when(notes.create(any(), any(), any(), any())).thenReturn(note());
 		when(notes.list(any(), anyInt(), anyInt())).thenReturn(new PageImpl<>(List.of(note())));
-		when(notes.update(any(), any(), any(), any(), anyLong())).thenReturn(note());
+		when(notes.update(any(), any(), any(), any(), any(), anyLong())).thenReturn(note());
 		when(files.upload(any(), any())).thenReturn(ctx.fileId());
 		when(files.list(any(), anyInt(), anyInt())).thenReturn(new PageImpl<>(List.of(file())));
 		when(files.signedUrl(any(), any())).thenReturn(new SignedUrl(URI.create("https://x.supabase.co/o?token=t"), 60));
@@ -245,7 +245,7 @@ class Phase1RoleMatrixWebTest {
 		ArgumentCaptor<PatientDetails> details = ArgumentCaptor.forClass(PatientDetails.class);
 		verify(patients).create(details.capture());
 		assertThat(details.getValue().name()).isEqualTo("Maria");
-		verify(notes).create(ctx.patientId(), "x", null);
+		verify(notes).create(ctx.patientId(), "x", null, null);
 		verify(histories).save(ctx.patientId(), "x", null);
 		assertThat(created.getResponse().getContentAsString()).doesNotContain("clinicId", "createdBy");
 	}

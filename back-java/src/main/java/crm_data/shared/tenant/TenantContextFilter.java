@@ -11,6 +11,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import crm_data.shared.config.ProblemResponseWriter;
 import crm_data.shared.error.ProblemTypes;
+import crm_data.shared.security.AccessTokenRevocations;
 import crm_data.shared.security.Role;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -30,6 +31,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
 	static final String CLAIM_ROLE = "role";
 
 	private final ProblemResponseWriter problems;
+	private final AccessTokenRevocations revocations;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -53,9 +55,12 @@ public class TenantContextFilter extends OncePerRequestFilter {
 		}
 	}
 
-	private static void populate(Jwt jwt) {
+	private void populate(Jwt jwt) {
 		UUID clinicId = uuid(required(jwt.getClaimAsString(CLAIM_CLINIC_ID), CLAIM_CLINIC_ID));
 		UUID userId = uuid(required(jwt.getSubject(), "sub"));
+		if (revocations.isRevoked(userId, jwt.getIssuedAt())) {
+			throw new IllegalArgumentException("sessão revogada");
+		}
 		Role role = Role.valueOf(required(jwt.getClaimAsString(CLAIM_ROLE), CLAIM_ROLE));
 		TenantContext.set(clinicId, userId, role);
 	}

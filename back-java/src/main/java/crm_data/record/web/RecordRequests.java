@@ -1,6 +1,7 @@
 package crm_data.record.web;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -31,9 +32,10 @@ public final class RecordRequests {
 		}
 	}
 
+	/** @param appointmentId atendimento em que a nota ocorreu (opcional; do mesmo paciente; no máximo uma nota por atendimento) */
 	public record CreateNoteRequest(
 			@NotBlank(message = "obrigatório") @Size(max = 5000, message = "deve ter no máximo 5000 caracteres") String content,
-			Instant notedAt) {
+			Instant notedAt, UUID appointmentId) {
 
 		@Override
 		public String toString() {
@@ -41,10 +43,15 @@ public final class RecordRequests {
 		}
 	}
 
+	/**
+	 * @param appointmentId <strong>substitui</strong> o vínculo com o atendimento: preenchido vincula ou troca; {@code null}
+	 *        ou ausente desvincula. Quem quer manter o vínculo reenvia o valor atual (a resposta da nota o traz)
+	 */
 	public record UpdateNoteRequest(
 			@NotBlank(message = "obrigatório") @Size(max = 5000, message = "deve ter no máximo 5000 caracteres") String content,
 			@NotNull(message = "obrigatório") Instant notedAt,
-			@NotNull(message = "obrigatório") @Min(value = 0, message = "deve ser maior ou igual a 0") Long version) {
+			@NotNull(message = "obrigatório") @Min(value = 0, message = "deve ser maior ou igual a 0") Long version,
+			UUID appointmentId) {
 
 		@Override
 		public String toString() {

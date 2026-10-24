@@ -41,6 +41,11 @@ public class ClinicalNote extends TenantAwareEntity {
 	@Column(nullable = false, length = 27000)
 	private String content;
 
+	/** Atendimento em que a nota ocorreu (opcional; mesmo paciente e clínica garantidos pela FK composta). */
+	@Setter
+	@Column(name = "appointment_id")
+	private UUID appointmentId;
+
 	@Column(name = "created_by", nullable = false, updatable = false)
 	private UUID createdBy;
 

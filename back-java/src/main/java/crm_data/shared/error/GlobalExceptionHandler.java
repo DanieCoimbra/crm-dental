@@ -51,6 +51,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	@ExceptionHandler(BusinessException.class)
 	ResponseEntity<Object> handleBusiness(BusinessException ex, HttpServletRequest request) {
 		ProblemDetail problem = ProblemDetails.of(ex.type(), ex.getMessage(), request);
+		if (ex.reason() != null) {
+			problem.setProperty("reason", ex.reason());
+		}
 		HttpHeaders headers = new HttpHeaders();
 		if (ex instanceof RateLimitedException limited) {
 			headers.set(HttpHeaders.RETRY_AFTER, Long.toString(limited.retryAfterSeconds()));
@@ -86,12 +89,36 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 					.map(date -> "Retenção legal do prontuário vigente. Liberado em " + date + ".")
 					.orElse("Retenção legal do prontuário vigente."), request);
 			case "CR003" -> respond(ProblemTypes.CONFLICT, "Paciente anonimizado.", request);
+			case "CR004" -> respond(ProblemTypes.CONFLICT, "Cancele os agendamentos futuros antes de anonimizar.", request);
+			case "CR005" -> respond(ProblemTypes.CONFLICT, "Paciente inativo.", request);
+			case "23P01" -> respond(ProblemTypes.CONFLICT, ConflictMessages.SLOT_TAKEN, request);
+			// deadlock ou falha de serialização: a operação perdeu a disputa; é retentável, não um defeito (409, não 500)
+			case "40P01", "40001" -> respond(ProblemTypes.CONFLICT, ConflictMessages.STALE_VERSION, request);
+			case "23505" -> uniqueViolation(ex, request);
 			case "P0002" -> respond(ProblemTypes.NOT_FOUND, "Paciente não encontrado.", request);
 			case "42501" -> respond(ProblemTypes.FORBIDDEN, "Você não tem permissão para esta operação.", request);
 			default -> {
 				log.error("Erro de banco em {} {}: {} sqlState={} constraint={}", request.getMethod(),
 						request.getRequestURI(), ex.getClass().getName(), state.isEmpty() ? "-" : state,
 						DatabaseErrors.constraintName(ex).orElse("-"));
+				yield respond(ProblemTypes.INTERNAL, "Ocorreu um erro inesperado. Informe o X-Request-Id ao suporte.",
+						request);
+			}
+		};
+	}
+
+	/**
+	 * Unicidade da agenda traduzida pela constraint. Qualquer outra {@code 23505} segue como 500 (cada service converte
+	 * a sua, por exemplo o CPF repetido): a mensagem do driver repete o valor e nunca é devolvida.
+	 */
+	private ResponseEntity<Object> uniqueViolation(Exception ex, HttpServletRequest request) {
+		String constraint = DatabaseErrors.constraintName(ex).orElse("");
+		return switch (constraint) {
+			case "ux_bh_clinic_weekday" -> respond(ProblemTypes.CONFLICT, "Dia já configurado.", request);
+			case "ux_clinic_holidays_date" -> respond(ProblemTypes.CONFLICT, "Já existe feriado nesta data.", request);
+			default -> {
+				log.error("Erro de banco em {} {}: {} sqlState=23505 constraint={}", request.getMethod(),
+						request.getRequestURI(), ex.getClass().getName(), constraint.isEmpty() ? "-" : constraint);
 				yield respond(ProblemTypes.INTERNAL, "Ocorreu um erro inesperado. Informe o X-Request-Id ao suporte.",
 						request);
 			}

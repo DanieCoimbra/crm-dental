@@ -3,14 +3,19 @@ package crm_data.patient.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.Mockito;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -46,6 +51,74 @@ class PatientLookupServiceTest {
 
 		assertThatCode(() -> lookup.requireExists(id)).doesNotThrowAnyException();
 		assertThatCode(() -> lookup.requireWritable(id)).doesNotThrowAnyException();
+	}
+
+	private PatientRepository.SchedulingState state(boolean active, boolean anonymized) {
+		PatientRepository.SchedulingState state = mock(PatientRepository.SchedulingState.class);
+		Mockito.lenient().when(state.getActive()).thenReturn(active);
+		Mockito.lenient().when(state.getAnonymized()).thenReturn(anonymized);
+		return state;
+	}
+
+	@Test
+	void schedulableRequiresAnExistingActiveNotAnonymizedPatient() {
+		PatientRepository.SchedulingState schedulable = state(true, false);
+		when(patients.schedulingState(id)).thenReturn(List.of(schedulable));
+
+		assertThatCode(() -> lookup.requireSchedulable(id)).doesNotThrowAnyException();
+	}
+
+	@Test
+	void unknownPatientIsNotFoundWhenScheduling() {
+		when(patients.schedulingState(id)).thenReturn(List.of());
+
+		assertThatThrownBy(() -> lookup.requireSchedulable(id)).isInstanceOfSatisfying(BusinessException.class, ex -> {
+			assertThat(ex.type()).isEqualTo(ProblemTypes.NOT_FOUND);
+			assertThat(ex.getMessage()).isEqualTo("Paciente não encontrado.");
+		});
+	}
+
+	@Test
+	void anonymizedPatientCannotBeScheduledEvenIfInactive() {
+		PatientRepository.SchedulingState anonymized = state(false, true);
+		when(patients.schedulingState(id)).thenReturn(List.of(anonymized));
+
+		assertThatThrownBy(() -> lookup.requireSchedulable(id)).isInstanceOfSatisfying(BusinessException.class, ex -> {
+			assertThat(ex.type()).isEqualTo(ProblemTypes.CONFLICT);
+			assertThat(ex.getMessage()).isEqualTo("Paciente anonimizado.");
+		});
+	}
+
+	@Test
+	void inactivePatientCannotBeScheduled() {
+		PatientRepository.SchedulingState inactive = state(false, false);
+		when(patients.schedulingState(id)).thenReturn(List.of(inactive));
+
+		assertThatThrownBy(() -> lookup.requireSchedulable(id)).isInstanceOfSatisfying(BusinessException.class, ex -> {
+			assertThat(ex.type()).isEqualTo(ProblemTypes.CONFLICT);
+			assertThat(ex.getMessage()).isEqualTo("Paciente inativo.");
+		});
+	}
+
+	@Test
+	void briefsMapsRowsByIdAndSkipsTheQueryForNoIds() {
+		PatientRepository.BriefRow row = mock(PatientRepository.BriefRow.class);
+		when(row.getId()).thenReturn(id);
+		when(row.getName()).thenReturn("Maria Souza");
+		when(row.getPhone()).thenReturn("11987654321");
+		when(patients.briefRows(List.of(id))).thenReturn(List.of(row));
+
+		Map<UUID, PatientBrief> briefs = lookup.briefs(List.of(id));
+
+		assertThat(briefs).containsOnlyKeys(id);
+		assertThat(briefs.get(id)).isEqualTo(new PatientBrief(id, "Maria Souza", "11987654321"));
+		assertThat(lookup.briefs(List.of())).isEmpty();
+		verify(patients, never()).briefRows(List.of());
+	}
+
+	@Test
+	void briefToStringNeverShowsNameOrPhone() {
+		assertThat(new PatientBrief(id, "Maria Souza", "11987654321").toString()).doesNotContain("Maria", "11987654321");
 	}
 
 	@Test

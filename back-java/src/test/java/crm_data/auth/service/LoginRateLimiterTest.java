@@ -35,6 +35,22 @@ class LoginRateLimiterTest {
 	private final FakeTime time = new FakeTime();
 	private final LoginRateLimiter limiter = new LoginRateLimiter(time);
 
+	// ---- teto global de registros por hora ----
+
+	@Test
+	void registrationCapIsGlobalAndRefillsAfterOneHour() {
+		LoginRateLimiter capped = new LoginRateLimiter(time, 3);
+		for (int i = 0; i < 3; i++) {
+			capped.checkRegistrationAllowed();
+		}
+
+		assertThatThrownBy(capped::checkRegistrationAllowed).isInstanceOfSatisfying(RateLimitedException.class,
+				ex -> assertThat(ex.retryAfterSeconds()).isBetween(1L, 3600L));
+
+		time.advance(Duration.ofMinutes(61));
+		assertThatCode(capped::checkRegistrationAllowed).doesNotThrowAnyException();
+	}
+
 	// ---- por IP: 20 por minuto, por ação ----
 
 	@Test

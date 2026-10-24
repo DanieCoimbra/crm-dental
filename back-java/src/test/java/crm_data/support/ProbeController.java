@@ -96,10 +96,24 @@ public class ProbeController {
 			case "CR002-NODATE" -> "ERROR: retenção vigente\n  Detail: formato inesperado";
 			case "23505" -> "ERROR: duplicate key value violates unique constraint \"ux_patients_clinic_cpf\"\n"
 					+ "  Detail: Key (clinic_id, cpf)=(x, 52998224725) already exists.";
+			case "23505-BH" -> "ERROR: duplicate key value violates unique constraint \"ux_bh_clinic_weekday\"\n"
+					+ "  Detail: Key (clinic_id, weekday)=(x, 1) already exists.";
+			case "23505-HOLIDAY" -> "ERROR: duplicate key value violates unique constraint \"ux_clinic_holidays_date\"\n"
+					+ "  Detail: Key (clinic_id, holiday_date)=(x, 2026-12-24) already exists.";
+			case "23P01" -> "ERROR: conflicting key value violates exclusion constraint \"ex_appt_no_overlap\"\n"
+					+ "  Detail: Key (clinic_id, tstzrange(starts_at, ends_at))=(x, [2026-11-03 13:00,2026-11-03 14:00)) conflicts"
+					+ " with existing key; paciente 52998224725.";
 			default -> "ERROR: falha " + state + " cpf 52998224725";
 		};
-		String sqlState = state.startsWith("CR002") ? "CR002" : state;
+		String sqlState = state.startsWith("CR002") ? "CR002" : state.startsWith("23505") ? "23505" : state;
 		throw new DataIntegrityViolationException("could not execute statement", new SQLException(message, sqlState));
+	}
+
+	/** Regra de negócio com {@code reason}, como as da agenda (422). */
+	@GetMapping("/probe/business-reason")
+	void businessReason() {
+		throw new crm_data.shared.error.BusinessException(crm_data.shared.error.ProblemTypes.BUSINESS_RULE,
+				"Horário fora do expediente.", "OUTSIDE_HOURS");
 	}
 
 	/** Erro de banco embrulhado numa exceção que NÃO é DataAccessException (cai no handler genérico). */

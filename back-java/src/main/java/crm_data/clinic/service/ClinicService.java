@@ -19,8 +19,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ClinicService {
 
-	/** Campos editáveis (opcionais já normalizados: vazio vira {@code null}). */
-	public record ClinicData(String name, String document, String phone, String email, String address) {
+	/**
+	 * Campos editáveis (opcionais já normalizados: vazio vira {@code null}). {@code timezone} ausente mantém o fuso
+	 * atual.
+	 */
+	public record ClinicData(String name, String document, String phone, String email, String address,
+			String timezone) {
 	}
 
 	private final ClinicRepository clinics;
@@ -48,6 +52,9 @@ public class ClinicService {
 		clinic.setPhone(data.phone());
 		clinic.setEmail(data.email());
 		clinic.setAddress(data.address());
+		if (data.timezone() != null) {
+			clinic.setTimezone(data.timezone());
+		}
 		Clinic saved = clinics.saveAndFlush(clinic); // @Version também protege a corrida entre dois PUT com a mesma versão
 		events.publishEvent(new ClinicEvents.Updated(saved.getId()));
 		return saved;

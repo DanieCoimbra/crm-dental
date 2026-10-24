@@ -13,6 +13,14 @@ public final class PatientEvents {
 	private PatientEvents() {
 	}
 
+	/**
+	 * {@code Patient.Deactivating}: o paciente vai ser inativado. Publicado <strong>antes de gravar</strong>, de forma
+	 * síncrona e dentro da transação, para a agenda cancelar os futuros (ou recusar, se há atendimento em andamento);
+	 * qualquer exceção do ouvinte reverte a inativação. Só ids.
+	 */
+	public record Deactivating(UUID clinicId, UUID patientId) {
+	}
+
 	/** {@code Patient.Anonymized}: anonimização concluída (publicado depois do commit). */
 	public record Anonymized(UUID clinicId, UUID patientId, int objectCount, StorageCleanup status) {
 	}

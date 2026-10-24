@@ -134,6 +134,7 @@ public class PatientAnonymizationService {
 					.map(date -> "Retenção legal do prontuário vigente. Liberado em " + date + ".")
 					.orElse("Retenção legal do prontuário vigente."));
 			case "CR003" -> new BusinessException(ProblemTypes.CONFLICT, "Paciente anonimizado.");
+			case "CR004" -> new BusinessException(ProblemTypes.CONFLICT, "Cancele os agendamentos futuros antes de anonimizar.");
 			case "P0002" -> new BusinessException(ProblemTypes.NOT_FOUND, "Paciente não encontrado.");
 			case "42501" -> new BusinessException(ProblemTypes.FORBIDDEN, "Você não tem permissão para esta operação.");
 			default -> error;

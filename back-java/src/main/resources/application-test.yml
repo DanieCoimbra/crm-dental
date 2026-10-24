@@ -5,3 +5,5 @@ spring:
 
 crm:
   cors-origins: https://app.test.local
+  auth:
+    registrations-per-hour: 100000 # os testes registram centenas de clínicas

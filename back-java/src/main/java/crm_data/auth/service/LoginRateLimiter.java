@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import crm_data.shared.error.RateLimitedException;
@@ -28,6 +29,8 @@ public class LoginRateLimiter {
 	static final int REQUESTS_PER_MINUTE_PER_IP = 20;
 	static final int LOGIN_FAILURES_PER_MINUTE = 5;
 	static final int LOGIN_FAILURES_PER_EMAIL = 20;
+	/** Teto global de registros de clínica por hora (qualquer IP): freia a criação em massa por quem rotaciona IPs. */
+	static final int DEFAULT_REGISTRATIONS_PER_HOUR = 60;
 	private static final Duration WINDOW = Duration.ofMinutes(1);
 	private static final Duration EMAIL_WINDOW = Duration.ofMinutes(15);
 	/** Maior que a maior janela: uma entrada com falhas pendentes nunca é descartada antes de a janela expirar. */
@@ -55,14 +58,31 @@ public class LoginRateLimiter {
 	private final ConcurrentHashMap<String, Entry> entries = new ConcurrentHashMap<>();
 	private final ConcurrentHashMap<String, Seen> knownLocations = new ConcurrentHashMap<>();
 	private final AtomicInteger operations = new AtomicInteger();
+	/** Fora do mapa de entradas: o despejo por ociosidade (20 min) zeraria o teto de uma hora. */
+	private final Bucket registrations;
 
 	@Autowired
-	public LoginRateLimiter() {
-		this(TimeMeter.SYSTEM_MILLISECONDS);
+	public LoginRateLimiter(@Value("${crm.auth.registrations-per-hour:60}") int registrationsPerHour) {
+		this(TimeMeter.SYSTEM_MILLISECONDS, registrationsPerHour);
 	}
 
 	LoginRateLimiter(TimeMeter timeMeter) {
+		this(timeMeter, DEFAULT_REGISTRATIONS_PER_HOUR);
+	}
+
+	LoginRateLimiter(TimeMeter timeMeter, int registrationsPerHour) {
 		this.timeMeter = timeMeter;
+		this.registrations = Bucket.builder().withCustomTimePrecision(timeMeter)
+				.addLimit(limit -> limit.capacity(registrationsPerHour).refillIntervally(registrationsPerHour, Duration.ofHours(1)))
+				.build();
+	}
+
+	/** Conta um registro de clínica no teto global da hora. @throws RateLimitedException 429 acima do teto */
+	public void checkRegistrationAllowed() {
+		var probe = registrations.tryConsumeAndReturnRemaining(1);
+		if (!probe.isConsumed()) {
+			throw limited(probe.getNanosToWaitForRefill());
+		}
 	}
 
 	/** Conta uma requisição da ação (por IP). @throws RateLimitedException 429 acima de 20 por minuto */

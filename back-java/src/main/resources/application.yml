@@ -29,6 +29,10 @@ spring:
         default_schema: core
         jdbc:
           time_zone: UTC
+        type:
+          # LocalDate/LocalTime/LocalDateTime vão direto ao driver (setObject/getObject). Sem isto, o jdbc.time_zone acima
+          # desloca o horário pelo fuso da JVM (08:00 virava 11:00 no banco, e 24:00 era lido como 21:00).
+          java_time_use_direct_jdbc: true
 
 server:
   port: ${PORT:8080}
@@ -86,6 +90,7 @@ crm:
     secret: ${CRM_JWT_SECRET:}
   auth:
     bcrypt-strength: 12
+    registrations-per-hour: 60 # teto global de clínicas novas por hora (qualquer IP)
   crypto:
     # sem valores padrão: a aplicação não sobe sem chaveiro válido (shared/crypto/CryptoConfig)
     keys: ${CRM_AES_KEYS:}

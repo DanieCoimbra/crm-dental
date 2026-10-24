@@ -28,7 +28,7 @@ public class ClinicController {
 	@PutMapping
 	public ClinicResponse update(@Valid @RequestBody UpdateClinicRequest request) {
 		ClinicData data = new ClinicData(request.name(), request.document(), request.phone(), request.email(),
-				request.address());
+				request.address(), request.timezone());
 		return ClinicResponse.from(clinics.update(data, request.version()));
 	}
 }

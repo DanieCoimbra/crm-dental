@@ -65,7 +65,7 @@ class ClinicServiceTest {
 
 	@Test
 	void updatesAllFieldsWhenTheVersionMatchesAndPublishesTheEvent() {
-		Clinic updated = service.update(new ClinicData("Clínica Nova", "12.345.678/0001-90", "11 3333-4444", "contato@clinica.com", "Rua A, 10"), 4L);
+		Clinic updated = service.update(new ClinicData("Clínica Nova", "12.345.678/0001-90", "11 3333-4444", "contato@clinica.com", "Rua A, 10", null), 4L);
 
 		assertThat(updated.getName()).isEqualTo("Clínica Nova");
 		assertThat(updated.getDocument()).isEqualTo("12.345.678/0001-90");
@@ -76,17 +76,27 @@ class ClinicServiceTest {
 	}
 
 	@Test
+	void timezoneAbsentKeepsTheCurrentZoneAndPresentReplacesIt() {
+		assertThat(clinic.getTimezone()).isEqualTo("America/Sao_Paulo");
+
+		assertThat(service.update(new ClinicData("Clínica", null, null, null, null, null), 4L).getTimezone())
+				.isEqualTo("America/Sao_Paulo");
+		assertThat(service.update(new ClinicData("Clínica", null, null, null, null, "America/Manaus"), 4L).getTimezone())
+				.isEqualTo("America/Manaus");
+	}
+
+	@Test
 	void optionalFieldsCanBeClearedWithNull() {
 		clinic.setPhone("11 3333-4444");
 
-		Clinic updated = service.update(new ClinicData("Clínica", null, null, null, null), 4L);
+		Clinic updated = service.update(new ClinicData("Clínica", null, null, null, null, null), 4L);
 
 		assertThat(updated.getPhone()).isNull();
 	}
 
 	@Test
 	void staleVersionIsConflictAndNothingIsSaved() {
-		assertThatThrownBy(() -> service.update(new ClinicData("Outra", null, null, null, null), 3L))
+		assertThatThrownBy(() -> service.update(new ClinicData("Outra", null, null, null, null, null), 3L))
 				.isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.type()).isEqualTo(ProblemTypes.CONFLICT));
 
 		assertThat(clinic.getName()).isEqualTo("Clínica Sorriso");

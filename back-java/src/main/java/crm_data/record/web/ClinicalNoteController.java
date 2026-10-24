@@ -38,7 +38,7 @@ public class ClinicalNoteController {
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public NoteResponse create(@PathVariable UUID patientId, @Valid @RequestBody CreateNoteRequest request) {
-		return NoteResponse.from(notes.create(patientId, request.content(), request.notedAt()));
+		return NoteResponse.from(notes.create(patientId, request.content(), request.notedAt(), request.appointmentId()));
 	}
 
 	@GetMapping
@@ -51,6 +51,6 @@ public class ClinicalNoteController {
 	@PutMapping("/{noteId}")
 	public NoteResponse update(@PathVariable UUID patientId, @PathVariable UUID noteId,
 			@Valid @RequestBody UpdateNoteRequest request) {
-		return NoteResponse.from(notes.update(patientId, noteId, request.content(), request.notedAt(), request.version()));
+		return NoteResponse.from(notes.update(patientId, noteId, request.content(), request.notedAt(), request.appointmentId(), request.version()));
 	}
 }

@@ -29,6 +29,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import crm_data.patient.service.PatientLookup;
+import crm_data.scheduling.service.AppointmentLookup;
 import crm_data.record.domain.ClinicalNote;
 import crm_data.record.repository.ClinicalNoteRepository;
 import crm_data.shared.error.BusinessException;
@@ -47,6 +48,8 @@ class ClinicalNoteServiceTest {
 	@Mock
 	PatientLookup patients;
 	@Mock
+	AppointmentLookup appointments;
+	@Mock
 	EntityManager entityManager;
 
 	ClinicalNoteService service;
@@ -55,7 +58,7 @@ class ClinicalNoteServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		service = new ClinicalNoteService(notes, patients, entityManager, Clock.fixed(NOW, ZoneOffset.UTC));
+		service = new ClinicalNoteService(notes, patients, appointments, entityManager, Clock.fixed(NOW, ZoneOffset.UTC));
 		TenantContext.set(UUID.randomUUID(), userId, Role.DENTIST_ADMIN);
 	}
 
@@ -78,7 +81,7 @@ class ClinicalNoteServiceTest {
 	void createWithoutNotedAtUsesNowAndStampsTheCreator() {
 		when(notes.saveAndFlush(any(ClinicalNote.class))).thenAnswer(i -> i.getArgument(0));
 
-		ClinicalNote note = service.create(patientId, " texto ", null);
+		ClinicalNote note = service.create(patientId, " texto ", null, null);
 
 		assertThat(note.getNotedAt()).isEqualTo(NOW);
 		assertThat(note.getContent()).isEqualTo(" texto "); // não é aparado
@@ -94,13 +97,13 @@ class ClinicalNoteServiceTest {
 
 		Instant limit = NOW.plusSeconds(300);
 
-		assertThat(service.create(patientId, "x", limit).getNotedAt()).isEqualTo(limit);
-		assertThat(service.create(patientId, "x", NOW.minusSeconds(86_400 * 30L)).getNotedAt()).isEqualTo(NOW.minusSeconds(86_400 * 30L));
+		assertThat(service.create(patientId, "x", limit, null).getNotedAt()).isEqualTo(limit);
+		assertThat(service.create(patientId, "x", NOW.minusSeconds(86_400 * 30L), null).getNotedAt()).isEqualTo(NOW.minusSeconds(86_400 * 30L));
 	}
 
 	@Test
 	void notedAtBeyondFiveMinutesIsAValidationErrorAndNothingIsSaved() {
-		assertThatThrownBy(() -> service.create(patientId, "x", NOW.plusSeconds(301)))
+		assertThatThrownBy(() -> service.create(patientId, "x", NOW.plusSeconds(301), null))
 				.satisfies(e -> assertType(e, ProblemTypes.VALIDATION));
 		verify(notes, never()).saveAndFlush(any());
 	}
@@ -110,8 +113,8 @@ class ClinicalNoteServiceTest {
 		BusinessException anonymized = new BusinessException(ProblemTypes.CONFLICT, "Paciente anonimizado.");
 		doThrow(anonymized).when(patients).requireWritable(patientId);
 
-		assertThatThrownBy(() -> service.create(patientId, "x", null)).isSameAs(anonymized);
-		assertThatThrownBy(() -> service.update(patientId, UUID.randomUUID(), "x", NOW, 0)).isSameAs(anonymized);
+		assertThatThrownBy(() -> service.create(patientId, "x", null, null)).isSameAs(anonymized);
+		assertThatThrownBy(() -> service.update(patientId, UUID.randomUUID(), "x", NOW, null, 0)).isSameAs(anonymized);
 		verify(notes, never()).saveAndFlush(any());
 	}
 
@@ -121,7 +124,7 @@ class ClinicalNoteServiceTest {
 		when(notes.findByIdAndPatientId(note.getId(), patientId)).thenReturn(Optional.of(note));
 		when(notes.saveAndFlush(note)).thenReturn(note);
 
-		ClinicalNote updated = service.update(patientId, note.getId(), "novo", NOW.minusSeconds(60), 3);
+		ClinicalNote updated = service.update(patientId, note.getId(), "novo", NOW.minusSeconds(60), null, 3);
 
 		assertThat(updated.getContent()).isEqualTo("novo");
 		assertThat(updated.getNotedAt()).isEqualTo(NOW.minusSeconds(60));
@@ -133,7 +136,7 @@ class ClinicalNoteServiceTest {
 		ClinicalNote note = existing(3);
 		when(notes.findByIdAndPatientId(note.getId(), patientId)).thenReturn(Optional.of(note));
 
-		assertThatThrownBy(() -> service.update(patientId, note.getId(), "novo", NOW, 2))
+		assertThatThrownBy(() -> service.update(patientId, note.getId(), "novo", NOW, null, 2))
 				.satisfies(e -> assertType(e, ProblemTypes.CONFLICT));
 		assertThat(note.getContent()).isEqualTo("antigo");
 	}
@@ -143,7 +146,7 @@ class ClinicalNoteServiceTest {
 		UUID noteId = UUID.randomUUID();
 		when(notes.findByIdAndPatientId(noteId, patientId)).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> service.update(patientId, noteId, "x", NOW, 0)).satisfies(e -> assertType(e, ProblemTypes.NOT_FOUND));
+		assertThatThrownBy(() -> service.update(patientId, noteId, "x", NOW, null, 0)).satisfies(e -> assertType(e, ProblemTypes.NOT_FOUND));
 	}
 
 	@Test
@@ -151,7 +154,7 @@ class ClinicalNoteServiceTest {
 		ClinicalNote note = existing(0);
 		when(notes.findByIdAndPatientId(note.getId(), patientId)).thenReturn(Optional.of(note));
 
-		assertThatThrownBy(() -> service.update(patientId, note.getId(), "x", NOW.plusSeconds(3600), 0))
+		assertThatThrownBy(() -> service.update(patientId, note.getId(), "x", NOW.plusSeconds(3600), null, 0))
 				.satisfies(e -> assertType(e, ProblemTypes.VALIDATION));
 		verify(notes, never()).saveAndFlush(any());
 	}
@@ -169,5 +172,95 @@ class ClinicalNoteServiceTest {
 		assertThat(captor.getValue().getPageSize()).isEqualTo(30);
 		assertThat(captor.getValue().getSort()).isEqualTo(Sort.by(Sort.Order.desc("notedAt"), Sort.Order.desc("id")));
 		verify(patients).requireExists(patientId);
+	}
+
+
+	private final UUID appointmentId = UUID.randomUUID();
+
+	@Test
+	void createWithAnAppointmentLocksItChecksUniquenessAndLinksTheNote() {
+		when(notes.saveAndFlush(any(ClinicalNote.class))).thenAnswer(i -> i.getArgument(0));
+
+		ClinicalNote note = service.create(patientId, "texto", null, appointmentId);
+
+		assertThat(note.getAppointmentId()).isEqualTo(appointmentId);
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(appointments, notes);
+		order.verify(appointments).lockOfPatient(appointmentId, patientId);
+		order.verify(notes).existsByAppointmentIdAndIdNot(appointmentId, note.getId());
+		order.verify(notes).saveAndFlush(note);
+	}
+
+	@Test
+	void createWithoutAnAppointmentNeverTouchesTheAgenda() {
+		when(notes.saveAndFlush(any(ClinicalNote.class))).thenAnswer(i -> i.getArgument(0));
+
+		ClinicalNote note = service.create(patientId, "texto", null, null);
+
+		assertThat(note.getAppointmentId()).isNull();
+		org.mockito.Mockito.verifyNoInteractions(appointments);
+		verify(notes, never()).existsByAppointmentIdAndIdNot(any(), any());
+	}
+
+	@Test
+	void aSecondNoteForTheSameAppointmentIs409AndNothingIsSaved() {
+		when(notes.existsByAppointmentIdAndIdNot(any(), any())).thenReturn(true);
+
+		assertThatThrownBy(() -> service.create(patientId, "texto", null, appointmentId)).satisfies(e -> assertType(e, ProblemTypes.CONFLICT));
+
+		verify(notes, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void anAppointmentOfAnotherPatientOrUnknownStopsBeforeTheUniquenessCheck() {
+		BusinessException other = new BusinessException(ProblemTypes.CONFLICT, "O atendimento é de outro paciente.");
+		doThrow(other).when(appointments).lockOfPatient(appointmentId, patientId);
+
+		assertThatThrownBy(() -> service.create(patientId, "texto", null, appointmentId)).isSameAs(other);
+
+		verify(notes, never()).existsByAppointmentIdAndIdNot(any(), any());
+		verify(notes, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void updateReplacesTheLinkAndTheNoteItselfIsExcludedFromTheUniquenessCheck() {
+		ClinicalNote note = existing(2);
+		note.setAppointmentId(appointmentId);
+		when(notes.findByIdAndPatientId(note.getId(), patientId)).thenReturn(Optional.of(note));
+		when(notes.saveAndFlush(note)).thenReturn(note);
+		UUID other = UUID.randomUUID();
+
+		service.update(patientId, note.getId(), "novo", NOW, appointmentId, 2); // reeditar a nota já vinculada
+		service.update(patientId, note.getId(), "novo", NOW, other, 2); // trocar de atendimento
+
+		verify(notes).existsByAppointmentIdAndIdNot(appointmentId, note.getId());
+		verify(notes).existsByAppointmentIdAndIdNot(other, note.getId());
+		assertThat(note.getAppointmentId()).isEqualTo(other);
+	}
+
+	@Test
+	void updateWithoutAnAppointmentUnlinksWithoutLockingOrChecking() {
+		ClinicalNote note = existing(2);
+		note.setAppointmentId(appointmentId);
+		when(notes.findByIdAndPatientId(note.getId(), patientId)).thenReturn(Optional.of(note));
+		when(notes.saveAndFlush(note)).thenReturn(note);
+
+		ClinicalNote unlinked = service.update(patientId, note.getId(), "novo", NOW, null, 2);
+
+		assertThat(unlinked.getAppointmentId()).isNull();
+		org.mockito.Mockito.verifyNoInteractions(appointments);
+		verify(notes, never()).existsByAppointmentIdAndIdNot(any(), any());
+	}
+
+	@Test
+	void updateToAnAppointmentThatAlreadyHasAnotherNoteIs409AndKeepsTheOldLink() {
+		ClinicalNote note = existing(2);
+		note.setAppointmentId(appointmentId);
+		when(notes.findByIdAndPatientId(note.getId(), patientId)).thenReturn(Optional.of(note));
+		UUID taken = UUID.randomUUID();
+		when(notes.existsByAppointmentIdAndIdNot(taken, note.getId())).thenReturn(true);
+
+		assertThatThrownBy(() -> service.update(patientId, note.getId(), "novo", NOW, taken, 2)).satisfies(e -> assertType(e, ProblemTypes.CONFLICT));
+
+		verify(notes, never()).saveAndFlush(any());
 	}
 }

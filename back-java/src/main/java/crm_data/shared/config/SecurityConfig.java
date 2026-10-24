@@ -1,5 +1,8 @@
 package crm_data.shared.config;
 
+import java.time.Clock;
+
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +24,7 @@ import org.springframework.security.web.header.HeaderWriterFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 import crm_data.shared.error.ProblemTypes;
+import crm_data.shared.security.AccessTokenRevocations;
 import crm_data.shared.tenant.TenantContextFilter;
 import crm_data.shared.web.ClinicalCacheHeaders;
 import jakarta.servlet.DispatcherType;
@@ -35,8 +39,14 @@ import jakarta.servlet.DispatcherType;
 public class SecurityConfig {
 
 	@Bean
+	AccessTokenRevocations accessTokenRevocations(ObjectProvider<Clock> clock) {
+		return new AccessTokenRevocations(clock.getIfAvailable(Clock::systemUTC));
+	}
+
+	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http, @Qualifier("corsConfigurationSource") CorsConfigurationSource corsSource,
-			ProblemResponseWriter problems, SecurityHeadersConfig headersConfig) throws Exception {
+			ProblemResponseWriter problems, SecurityHeadersConfig headersConfig,
+			AccessTokenRevocations revocations) throws Exception {
 		AuthenticationEntryPoint unauthorized = (request, response, ex) -> {
 			response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
 			problems.write(request, response, ProblemTypes.UNAUTHORIZED, "Autenticação necessária.");
@@ -49,7 +59,7 @@ public class SecurityConfig {
 			.addFilterAfter(CorsConfig.corsFilter(corsSource, problems), HeaderWriterFilter.class)
 			.addFilterAfter(new ClinicalCacheHeaders(), HeaderWriterFilter.class)
 			// depois da autenticação (JWT, F04) e antes da autorização: popula o tenant da requisição
-			.addFilterBefore(new TenantContextFilter(problems), AuthorizationFilter.class)
+			.addFilterBefore(new TenantContextFilter(problems, revocations), AuthorizationFilter.class)
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.requestCache(cache -> cache.disable())
 			.headers(headersConfig::apply)
@@ -60,6 +70,12 @@ public class SecurityConfig {
 				// regras de papel por rota (segunda barreira: @PreAuthorize nos services)
 				.requestMatchers("/api/v1/users/**").hasRole("DENTIST_ADMIN")
 				.requestMatchers(HttpMethod.PUT, "/api/v1/clinic").hasRole("DENTIST_ADMIN")
+				// agenda: leitura para os dois papéis; expediente e feriados da clínica só o dentista configura
+				.requestMatchers(HttpMethod.PUT, "/api/v1/business-hours").hasRole("DENTIST_ADMIN")
+				.requestMatchers("/api/v1/clinic-holidays", "/api/v1/clinic-holidays/**").hasRole("DENTIST_ADMIN")
+				// a recepção confirma, cancela e marca falta; só o dentista inicia, finaliza e reativa
+				.requestMatchers(HttpMethod.POST, "/api/v1/appointments/*/start", "/api/v1/appointments/*/finish",
+						"/api/v1/appointments/*/reactivate").hasRole("DENTIST_ADMIN")
 				.requestMatchers(HttpMethod.PATCH, "/api/v1/patients/*/active").hasRole("DENTIST_ADMIN")
 				.requestMatchers(HttpMethod.POST, "/api/v1/patients/*/anonymize").hasRole("DENTIST_ADMIN")
 				.requestMatchers("/api/v1/audit-log/**").hasRole("DENTIST_ADMIN")
