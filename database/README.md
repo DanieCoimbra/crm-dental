@@ -7,7 +7,7 @@ Tudo do banco mora aqui: papéis, schema `core`, migrations, testes e rollback. 
 ```
 database/
 ├─ bootstrap/00_roles_and_schema.sql   papéis e schema core (1 vez, como postgres; idempotente)
-├─ bootstrap/20_extensions.sql         pg_trgm (Fase 1) e btree_gist (Fase 2) no schema extensions (depois do 00; idempotente)
+├─ bootstrap/20_extensions.sql         pg_trgm (Fase 1) e btree_gist (Fase 2) no schema extensions (depois do 00; idempotente); a Fase 3 não adiciona extensão
 ├─ migrations/V<NNN>__<descricao>.sql  migrations aplicadas por psql (não edite depois de aplicadas)
 ├─ rollback/U<NNN>__*.sql              reversões MANUAIS (não há ferramenta de migração que reverta)
 ├─ scripts/                            scram_verifier.sh, apply_migrations.sh, backup.sh, restore_check.sh
@@ -26,6 +26,23 @@ docker compose -f database/docker-compose.yml down -v
 É o mesmo comando do `db-pr.yml`. O harness cria os papéis de stub do Supabase, roda o bootstrap, aplica as
 migrations com `scripts/apply_migrations.sh` (como `crm_owner`), roda todos os `tests/*.sql`
 e por último a cadeia de rollback (destrutiva; só em banco descartável).
+
+## Fase 3: comercial e financeiro (V022–V029)
+
+Seis tabelas novas em `core` (`procedure_types`, `budgets`, `budget_items`, `budget_documents`, `installments`, `payments`) e a FK de `appointments.procedure_type_id`. **Nada manual no Supabase:** sem extensão nova; o PDF do orçamento vai no mesmo bucket privado dos exames (`CRM_STORAGE_*`, prefixo `budgets/`) e o banco guarda só os metadados.
+
+| Migration | Conteúdo |
+|---|---|
+| `V022` / `V023` | catálogo de procedimentos; FK composta do agendamento |
+| `V024` | orçamento e itens (número por clínica, total calculado pelo banco, snapshot de preço, congelamento, status e carimbos) |
+| `V025` | metadados do PDF no Storage (revisões, `sha256`, `deleted_at`) |
+| `V026` | parcelas (soma = total conferida no `COMMIT` por constraint trigger adiável) |
+| `V027` | pagamentos append-only, estorno e status automático da parcela |
+| `V028` / `V029` | auditoria das 4 tabelas; anonimização (`CR006`, notas zeradas, PDFs marcados) |
+
+Regras que o backend precisa respeitar (detalhes em `docs/features/banco/Fase-3/*/contract.md`): transação em `READ COMMITTED`; **não enviar** `number`, `total_amount`, `sent_at`, `decided_at`, `description`, `unit_price` do item nem `revision` (o banco preenche; reler a linha depois); o desconto do orçamento entra por `UPDATE` depois dos itens; a falha `CR011` (parcelas não somam o total) só aparece no `COMMIT`.
+
+Testes novos (todos rodam em `tests/run_all.sh`): `procedure_types`, `budgets`, `budget_items`, `budget_status`, `installments`, `payments`, `payments_append_only`, `budget_documents`, `money_invariants` (propriedade, 1.600 operações com semente fixa), `audit_commercial`, `anonymize_commercial`, `phase3_isolation`, `phase3_permissions`, `phase3_performance` (200 mil linhas financeiras), `commercial_concurrency.sh` (duas conexões) e `migrations_phase3.sh` (reversões e função de anonimização restaurada). A suíte completa leva cerca de 3 minutos.
 
 ## Criar uma migration
 

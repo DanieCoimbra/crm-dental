@@ -13,14 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -34,7 +27,6 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import crm_data.shared.security.Role;
-import crm_data.support.DatabaseContainer;
 import crm_data.support.tenant.PatientFixtures;
 import crm_data.support.tenant.TenantFixtures.Clinic;
 import tools.jackson.databind.JsonNode;

@@ -134,7 +134,83 @@ INSERT INTO expected_cols VALUES
  ('audit_log','table_name','character varying',30,'NO',NULL),
  ('audit_log','record_id','uuid',NULL,'NO',NULL),
  ('audit_log','action','character varying',10,'NO',NULL),
- ('audit_log','occurred_at','timestamp with time zone',NULL,'NO','now()');
+ ('audit_log','occurred_at','timestamp with time zone',NULL,'NO','now()'),
+ -- Fase 3: dinheiro sempre numeric(12,2) (a precisão é conferida em phase3_permissions.sql); status e listas em varchar, nunca char/text
+ ('procedure_types','id','uuid',NULL,'NO','gen_random_uuid()'),
+ ('procedure_types','clinic_id','uuid',NULL,'NO',NULL),
+ ('procedure_types','name','character varying',80,'NO',NULL),
+ ('procedure_types','base_price','numeric',NULL,'NO',NULL),
+ ('procedure_types','default_duration_minutes','smallint',NULL,'NO',NULL),
+ ('procedure_types','color','character varying',7,'NO',NULL),
+ ('procedure_types','active','boolean',NULL,'NO','true'),
+ ('procedure_types','created_by','uuid',NULL,'NO',NULL),
+ ('procedure_types','created_at','timestamp with time zone',NULL,'NO','now()'),
+ ('procedure_types','updated_at','timestamp with time zone',NULL,'NO','now()'),
+ ('procedure_types','version','bigint',NULL,'NO','0'),
+ ('budgets','id','uuid',NULL,'NO','gen_random_uuid()'),
+ ('budgets','clinic_id','uuid',NULL,'NO',NULL),
+ ('budgets','number','integer',NULL,'NO',NULL),
+ ('budgets','patient_id','uuid',NULL,'NO',NULL),
+ ('budgets','appointment_id','uuid',NULL,'YES',NULL),
+ ('budgets','status','character varying',10,'NO','''DRAFT''::character varying'),
+ ('budgets','discount_amount','numeric',NULL,'NO','0'),
+ ('budgets','total_amount','numeric',NULL,'NO','0'),
+ ('budgets','valid_until','date',NULL,'YES',NULL),
+ ('budgets','notes','character varying',500,'YES',NULL),
+ ('budgets','sent_at','timestamp with time zone',NULL,'YES',NULL),
+ ('budgets','decided_at','timestamp with time zone',NULL,'YES',NULL),
+ ('budgets','created_by','uuid',NULL,'NO',NULL),
+ ('budgets','created_at','timestamp with time zone',NULL,'NO','now()'),
+ ('budgets','updated_at','timestamp with time zone',NULL,'NO','now()'),
+ ('budgets','version','bigint',NULL,'NO','0'),
+ ('budget_items','id','uuid',NULL,'NO','gen_random_uuid()'),
+ ('budget_items','clinic_id','uuid',NULL,'NO',NULL),
+ ('budget_items','budget_id','uuid',NULL,'NO',NULL),
+ ('budget_items','procedure_type_id','uuid',NULL,'NO',NULL),
+ ('budget_items','description','character varying',120,'NO',NULL),
+ ('budget_items','quantity','smallint',NULL,'NO','1'),
+ ('budget_items','unit_price','numeric',NULL,'NO',NULL),
+ ('budget_items','discount_amount','numeric',NULL,'NO','0'),
+ ('budget_items','line_total','numeric',NULL,'YES',NULL),
+ ('budget_items','position','smallint',NULL,'NO',NULL),
+ ('budget_items','created_at','timestamp with time zone',NULL,'NO','now()'),
+ ('budget_items','updated_at','timestamp with time zone',NULL,'NO','now()'),
+ ('budget_items','version','bigint',NULL,'NO','0'),
+ ('budget_documents','id','uuid',NULL,'NO','gen_random_uuid()'),
+ ('budget_documents','clinic_id','uuid',NULL,'NO',NULL),
+ ('budget_documents','budget_id','uuid',NULL,'NO',NULL),
+ ('budget_documents','patient_id','uuid',NULL,'NO',NULL),
+ ('budget_documents','revision','smallint',NULL,'NO',NULL),
+ ('budget_documents','storage_key','character varying',120,'NO',NULL),
+ ('budget_documents','content_type','character varying',20,'NO',NULL),
+ ('budget_documents','size_bytes','bigint',NULL,'NO',NULL),
+ ('budget_documents','sha256','character varying',64,'NO',NULL),
+ ('budget_documents','generated_at','timestamp with time zone',NULL,'NO','now()'),
+ ('budget_documents','deleted_at','timestamp with time zone',NULL,'YES',NULL),
+ ('budget_documents','created_by','uuid',NULL,'NO',NULL),
+ ('budget_documents','created_at','timestamp with time zone',NULL,'NO','now()'),
+ ('installments','id','uuid',NULL,'NO','gen_random_uuid()'),
+ ('installments','clinic_id','uuid',NULL,'NO',NULL),
+ ('installments','budget_id','uuid',NULL,'NO',NULL),
+ ('installments','patient_id','uuid',NULL,'NO',NULL),
+ ('installments','number','smallint',NULL,'NO',NULL),
+ ('installments','amount','numeric',NULL,'NO',NULL),
+ ('installments','due_date','date',NULL,'NO',NULL),
+ ('installments','status','character varying',10,'NO','''OPEN''::character varying'),
+ ('installments','created_by','uuid',NULL,'NO',NULL),
+ ('installments','created_at','timestamp with time zone',NULL,'NO','now()'),
+ ('installments','updated_at','timestamp with time zone',NULL,'NO','now()'),
+ ('installments','version','bigint',NULL,'NO','0'),
+ ('payments','id','uuid',NULL,'NO','gen_random_uuid()'),
+ ('payments','clinic_id','uuid',NULL,'NO',NULL),
+ ('payments','installment_id','uuid',NULL,'NO',NULL),
+ ('payments','kind','character varying',10,'NO',NULL),
+ ('payments','amount','numeric',NULL,'NO',NULL),
+ ('payments','method','character varying',15,'NO',NULL),
+ ('payments','paid_on','date',NULL,'NO',NULL),
+ ('payments','reverses_payment_id','uuid',NULL,'YES',NULL),
+ ('payments','created_by','uuid',NULL,'NO',NULL),
+ ('payments','created_at','timestamp with time zone',NULL,'NO','now()');
 
 DO $$
 DECLARE
@@ -155,14 +231,16 @@ BEGIN
     SELECT format('coluna extra fora do contrato: %s.%s', c.table_name, c.column_name)
       FROM information_schema.columns c
      WHERE c.table_schema = 'core' AND c.table_name IN ('clinics', 'users', 'refresh_tokens', 'patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log',
-                                'appointments', 'business_hours', 'clinic_holidays', 'holidays')
+                                'appointments', 'business_hours', 'clinic_holidays', 'holidays',
+                                'procedure_types', 'budgets', 'budget_items', 'budget_documents', 'installments', 'payments')
        AND NOT EXISTS (SELECT 1 FROM expected_cols e WHERE e.tbl = c.table_name AND e.col = c.column_name)
   ) x;
   IF v IS NOT NULL THEN
     RAISE EXCEPTION E'dicionario divergente:\n%', v;
   END IF;
 
-  -- FR-9: nenhuma coluna de plano/trial/cobrança/expiração de conta
+  -- FR-9: nenhuma coluna de plano/trial/cobrança/expiração de conta (assinatura do SaaS). Fica de fora a Fase 3, cujas tabelas guardam o que o
+  -- PACIENTE paga à clínica (payments.paid_on etc.): é o domínio financeiro, não cobrança do produto.
   IF EXISTS (SELECT 1 FROM information_schema.columns
               WHERE table_schema = 'core' AND table_name IN ('clinics', 'users', 'refresh_tokens', 'patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log',
                                 'appointments', 'business_hours', 'clinic_holidays', 'holidays')
@@ -173,7 +251,8 @@ BEGIN
   -- Nenhum char(n)/text nas tabelas (compatibilidade com o ddl-auto=validate)
   IF EXISTS (SELECT 1 FROM information_schema.columns
               WHERE table_schema = 'core' AND table_name IN ('clinics', 'users', 'refresh_tokens', 'patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log',
-                                'appointments', 'business_hours', 'clinic_holidays', 'holidays')
+                                'appointments', 'business_hours', 'clinic_holidays', 'holidays',
+                                'procedure_types', 'budgets', 'budget_items', 'budget_documents', 'installments', 'payments')
                 AND data_type IN ('character', 'text')) THEN
     RAISE EXCEPTION 'tipos char/text nao sao permitidos nestas tabelas';
   END IF;
@@ -216,7 +295,33 @@ BEGIN
       ('ux_appt_id_patient_clinic', true,  '(id, patient_id, clinic_id)',                NULL),
       ('ux_bh_clinic_weekday',      true,  '(clinic_id, weekday)',                       NULL),
       ('ux_clinic_holidays_date',   true,  '(clinic_id, holiday_date)',                  NULL),
-      ('ix_notes_appointment',      false, '(clinic_id, appointment_id)',                'appointment_id IS NOT NULL')
+      ('ix_notes_appointment',      false, '(clinic_id, appointment_id)',                'appointment_id IS NOT NULL'),
+      -- Fase 3
+      ('ux_ptype_id_clinic',          true,  '(id, clinic_id)',                          NULL),
+      ('ux_ptype_clinic_name',        true,  '(clinic_id, lower((name)::text))',         'active'),
+      ('ix_appt_procedure',           false, '(clinic_id, procedure_type_id)',           'procedure_type_id IS NOT NULL'),
+      ('ux_budgets_clinic_number',    true,  '(clinic_id, number)',                      NULL),
+      ('ux_budgets_id_clinic',        true,  '(id, clinic_id)',                          NULL),
+      ('ux_budgets_id_patient_clinic', true, '(id, patient_id, clinic_id)',              NULL),
+      ('ix_budgets_patient',          false, '(clinic_id, patient_id, created_at DESC, id DESC)', NULL),
+      ('ix_budgets_status',           false, '(clinic_id, status, created_at DESC, id DESC)',     NULL),
+      ('ix_budgets_decided',          false, '(clinic_id, decided_at, id)',              '(status)::text = ''APPROVED''::text'),
+      ('ix_budgets_appointment',      false, '(clinic_id, appointment_id)',              'appointment_id IS NOT NULL'),
+      ('ux_items_budget_position',    true,  '(budget_id, "position")',                  NULL),
+      ('ix_items_procedure',          false, '(clinic_id, procedure_type_id)',           NULL),
+      ('ux_bdoc_storage_key',         true,  '(storage_key)',                            NULL),
+      ('ux_bdoc_budget_revision',     true,  '(budget_id, revision)',                    NULL),
+      ('ix_bdoc_budget_active',       false, '(budget_id, revision DESC)',               'deleted_at IS NULL'),
+      ('ix_bdoc_patient',             false, '(clinic_id, patient_id)',                  NULL),
+      ('ux_inst_id_clinic',           true,  '(id, clinic_id)',                          NULL),
+      ('ux_inst_budget_number',       true,  '(budget_id, number)',                      '(status)::text <> ''CANCELED''::text'),
+      ('ix_inst_budget',              false, '(budget_id, number, id)',                  NULL),
+      ('ix_inst_patient',             false, '(clinic_id, patient_id, due_date, id)',    NULL),
+      ('ix_inst_open_due',            false, '(clinic_id, due_date, id)',                '(status)::text = ''OPEN''::text'),
+      ('ux_pay_id_inst_clinic',       true,  '(id, installment_id, clinic_id)',          NULL),
+      ('ux_pay_reverses',             true,  '(reverses_payment_id)',                    NULL),
+      ('ix_pay_installment',          false, '(clinic_id, installment_id)',              NULL),
+      ('ix_pay_clinic_paid',          false, '(clinic_id, paid_on, id)',                 NULL)
     ) AS t(idx, uniq, cols, pred)
   LOOP
     SELECT indexdef INTO def FROM pg_indexes WHERE schemaname = 'core' AND indexname = r.idx;
@@ -275,7 +380,18 @@ BEGIN
       ('appointments',      'fk_appt_patient',         'core.patients'),
       ('appointments',      'fk_appt_created_by',      'core.users'),
       ('business_hours',    'fk_bh_created_by',        'core.users'),
-      ('clinic_holidays',   'fk_chol_created_by',      'core.users')
+      ('clinic_holidays',   'fk_chol_created_by',      'core.users'),
+      -- Fase 3
+      ('appointments',      'fk_appt_procedure',       'core.procedure_types'),
+      ('procedure_types',   'fk_ptype_created_by',     'core.users'),
+      ('budgets',           'fk_budgets_patient',      'core.patients'),
+      ('budgets',           'fk_budgets_created_by',   'core.users'),
+      ('budget_items',      'fk_items_budget',         'core.budgets'),
+      ('budget_items',      'fk_items_procedure',      'core.procedure_types'),
+      ('budget_documents',  'fk_bdoc_created_by',      'core.users'),
+      ('installments',      'fk_inst_created_by',      'core.users'),
+      ('payments',          'fk_pay_installment',      'core.installments'),
+      ('payments',          'fk_pay_created_by',       'core.users')
     ) AS t(tbl, fk, ref)
   LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_constraint c
@@ -285,7 +401,23 @@ BEGIN
       RAISE EXCEPTION '% deve ser FK composta para % com ON DELETE RESTRICT', r.fk, r.ref;
     END IF;
   END LOOP;
-  FOR r IN SELECT unnest(ARRAY['patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log', 'appointments', 'business_hours', 'clinic_holidays']) AS tbl LOOP
+  -- Fase 3: FKs compostas de TRÊS colunas (paciente, atendimento e orçamento de origem, estorno), todas ON DELETE RESTRICT
+  FOR r IN SELECT * FROM (VALUES
+      ('budgets',          'fk_budgets_appointment', 'core.appointments'),
+      ('budget_documents', 'fk_bdoc_budget',         'core.budgets'),
+      ('installments',     'fk_inst_budget',         'core.budgets'),
+      ('payments',         'fk_pay_reverses',        'core.payments')
+    ) AS t(tbl, fk, ref)
+  LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint c
+                    WHERE c.conname = r.fk AND c.conrelid = ('core.' || r.tbl)::regclass
+                      AND c.contype = 'f' AND c.confrelid = r.ref::regclass
+                      AND c.confdeltype = 'r' AND array_length(c.conkey, 1) = 3) THEN
+      RAISE EXCEPTION '% deve ser FK composta de 3 colunas para % com ON DELETE RESTRICT', r.fk, r.ref;
+    END IF;
+  END LOOP;
+  FOR r IN SELECT unnest(ARRAY['patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log', 'appointments', 'business_hours', 'clinic_holidays',
+                               'procedure_types', 'budgets', 'budget_items', 'budget_documents', 'installments', 'payments']) AS tbl LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_constraint c
                     WHERE c.conrelid = ('core.' || r.tbl)::regclass AND c.contype = 'f'
                       AND c.confrelid = 'core.clinics'::regclass AND c.confdeltype = 'r') THEN

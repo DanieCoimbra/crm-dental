@@ -27,6 +27,17 @@ Reversões são **manuais** e executadas por decisão humana: não há ferrament
 | `U020__core_appointments_audit.sql` | `V020` (remove o trigger e restaura `ck_audit_table`; falha se já houver linhas de auditoria de `appointments`) |
 | `U021__core_appointments_anonymization.sql` | `V021` (restaura `core.anonymize_patient` da V013; anonimizações já feitas não voltam) |
 
+| `U022__core_procedure_types.sql` | `V022` (Fase 3; apaga o catálogo de procedimentos; reverter antes U023 e U024) |
+| `U023__core_appointments_procedure_fk.sql` | `V023` (remove a FK e o índice; a coluna e os valores permanecem; sempre segura) |
+| `U024__core_budgets.sql` | `V024` (apaga orçamentos e itens; reverter antes U025, U026, U028 e U029) |
+| `U025__core_budget_documents.sql` | `V025` (apaga os metadados dos PDFs; os objetos do Storage ficam órfãos) |
+| `U026__core_installments.sql` | `V026` (apaga as parcelas; reverter antes U027) |
+| `U027__core_payments.sql` | `V027` (apaga os pagamentos: só seguro antes de haver dados; o `DROP TABLE` é DDL do dono e não passa pelos triggers de somente inserção) |
+| `U028__core_commercial_audit.sql` | `V028` (remove os 4 triggers e restaura `ck_audit_table`; **falha, de forma atômica, se já houver linhas de auditoria das tabelas novas**: o log é só de inserção, então se restaura do `pg_dump`) |
+| `U029__core_commercial_anonymization.sql` | `V029` (restaura `core.anonymize_patient` da V021 e remove os grants e políticas do `crm_definer` da Fase 3; notas e PDFs já tratados não voltam) |
+
+Ordem de reversão da Fase 3: `U029 → U028 → U027 → U026 → U025 → U024 → U023 → U022`. A cadeia completa é `U029 → U001`; `rollback_chain.sh` reverte e reaplica, e `migrations_phase3.sh` prova a cadeia da Fase 3 e a recusa da U028 com auditoria gravada.
+
 Ordem de reversão da Fase 2: `U021 → U020 → U019 → U018 → U017 → U016 → U015 → U014` (a cadeia completa é `U021 → U001`; `rollback_chain.sh` reverte e reaplica).
 
 Ordem de reversão da Fase 1: `U013 → U012 → U011 → U010 → U009 → U008 → U007`.

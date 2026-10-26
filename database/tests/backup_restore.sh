@@ -24,7 +24,7 @@ work="$(mktemp -d)"
 cleanup() {
   # Fase 1: audit_log é só de inserção (inclusive TRUNCATE, por trigger) e as FKs são RESTRICT; esta limpeza desliga o
   # trigger de TRUNCATE só aqui e esvazia as tabelas clínicas e da agenda (Fase 2), que só este teste popula com dados commitados
-  admin -c "ALTER TABLE core.audit_log DISABLE TRIGGER trg_audit_log_no_truncate; TRUNCATE core.audit_log, core.appointments, core.business_hours, core.clinic_holidays, core.patient_files, core.clinical_notes, core.medical_histories, core.patients; ALTER TABLE core.audit_log ENABLE TRIGGER trg_audit_log_no_truncate" >/dev/null 2>&1
+  admin -c "ALTER TABLE core.audit_log DISABLE TRIGGER trg_audit_log_no_truncate; ALTER TABLE core.payments DISABLE TRIGGER trg_pay_no_truncate; TRUNCATE core.audit_log, core.payments, core.installments, core.budget_documents, core.budget_items, core.budgets, core.appointments, core.procedure_types, core.business_hours, core.clinic_holidays, core.patient_files, core.clinical_notes, core.medical_histories, core.patients; ALTER TABLE core.audit_log ENABLE TRIGGER trg_audit_log_no_truncate; ALTER TABLE core.payments ENABLE TRIGGER trg_pay_no_truncate" >/dev/null 2>&1
   admin -c "DELETE FROM core.refresh_tokens WHERE clinic_id IN (SELECT id FROM core.clinics WHERE name LIKE 'bkp-test-%')" >/dev/null 2>&1
   admin -c "DELETE FROM core.users WHERE clinic_id IN (SELECT id FROM core.clinics WHERE name LIKE 'bkp-test-%')" >/dev/null 2>&1
   admin -c "DELETE FROM core.clinics WHERE name LIKE 'bkp-test-%'" >/dev/null 2>&1
@@ -67,7 +67,26 @@ seed_clinical() { # $1 clínica  $2 usuário  $3 paciente  $4 nome  $5 CPF  $6 s
             INSERT INTO core.business_hours (clinic_id, weekday, is_open, opens_at, closes_at, created_by)
               VALUES ('$1', 1, true, '08:00', '18:00', '$2');
             INSERT INTO core.clinic_holidays (clinic_id, holiday_date, name, created_by)
-              VALUES ('$1', DATE '2031-05-06', 'bkp-feriado-$6', '$2')" >/dev/null
+              VALUES ('$1', DATE '2031-05-06', 'bkp-feriado-$6', '$2');
+            -- Fase 3: procedimento, orçamento com item, PDF, parcela e pagamento (o orçamento passa por SENT e APPROVED)
+            DO \$\$
+            DECLARE v_pt uuid := gen_random_uuid(); v_b uuid := gen_random_uuid(); v_i uuid := gen_random_uuid();
+            BEGIN
+              INSERT INTO core.procedure_types (id, clinic_id, name, base_price, default_duration_minutes, color, created_by)
+                VALUES (v_pt, '$1', 'bkp-proc-$6', 150.00, 30, '#3366FF', '$2');
+              INSERT INTO core.budgets (id, clinic_id, patient_id, notes, created_by)
+                VALUES (v_b, '$1', '$3', 'bkp-orcamento-$6', '$2');
+              INSERT INTO core.budget_items (clinic_id, budget_id, procedure_type_id, quantity, position)
+                VALUES ('$1', v_b, v_pt, 2, 1);
+              UPDATE core.budgets SET status = 'SENT' WHERE id = v_b;
+              INSERT INTO core.budget_documents (clinic_id, budget_id, patient_id, storage_key, content_type, size_bytes, sha256, created_by)
+                VALUES ('$1', v_b, '$3', '$1/$3/budgets/' || gen_random_uuid(), 'application/pdf', 2000, repeat('a', 64), '$2');
+              UPDATE core.budgets SET status = 'APPROVED' WHERE id = v_b;
+              INSERT INTO core.installments (id, clinic_id, budget_id, patient_id, number, amount, due_date, created_by)
+                VALUES (v_i, '$1', v_b, '$3', 1, 300.00, DATE '2031-06-10', '$2');
+              INSERT INTO core.payments (clinic_id, installment_id, kind, amount, method, paid_on, created_by)
+                VALUES ('$1', v_i, 'PAYMENT', 100.00, 'PIX', DATE '2031-06-11', '$2');
+            END \$\$" >/dev/null
 }
 seed_clinical "$A" "$UA" "$PA" "bkp-paciente-a" 10000000001 A
 seed_clinical "$B" "$UB" "$PB" "bkp-paciente-b" 20000000002 B
@@ -106,8 +125,8 @@ echo "$data" | grep -q 'bkp-paciente-a' && echo "$data" | grep -q 'bkp-paciente-
   && echo "$data" | grep -q 'QUJDQUJDQUJD' && echo "$data" | grep -q 'QUJEQUJEQUJE' \
   && ok "26: o dump traz pacientes, prontuario cifrado e exames das clinicas A e B" || bad "26: faltam linhas clinicas no dump"
 n_clin=$(grep -Ec '^(patients|medical_histories|clinical_notes|patient_files)[|]2[|]2$' "$work/pkg/counts.txt")
-n_aud=$(grep -Ec '^audit_log[|]10[|]10$' "$work/pkg/counts.txt")   # 8 da Fase 1 + 2 agendamentos (V020)
-[ "$n_clin" = "4" ] && [ "$n_aud" = "1" ] && ok "26: counts.txt traz as 5 tabelas da Fase 1 (2 linhas por tabela clinica; 10 de auditoria)" \
+n_aud=$(grep -Ec '^audit_log[|]24[|]24$' "$work/pkg/counts.txt")   # 8 da Fase 1 + 2 agendamentos (V020) + 14 da Fase 3 (V028)
+[ "$n_clin" = "4" ] && [ "$n_aud" = "1" ] && ok "26: counts.txt traz as 5 tabelas da Fase 1 (2 linhas por tabela clinica; 24 de auditoria)" \
   || bad "26: contagens da Fase 1 divergem em counts.txt: $(grep -E '^(patients|medical_histories|clinical_notes|patient_files|audit_log)[|]' "$work/pkg/counts.txt" | tr '\n' ' ')"
 echo "$data" | grep -q 'audit_log_id_seq' && ok "26: a sequencia da identidade do audit_log entra no dump" || bad "26: sequencia do audit_log ausente do dump"
 # Fase 2: as 4 tabelas novas (e as duas colunas novas) entram no dump com as linhas das DUAS clínicas
@@ -117,6 +136,12 @@ n_hol=$(grep -Ec '^holidays[|]50[|]50$' "$work/pkg/counts.txt")
 [ "$n_ag" = "3" ] && [ "$n_hol" = "1" ] && ok "26: counts.txt traz as 4 tabelas da Fase 2 (2 linhas por tabela de clinica; 50 feriados nacionais)"   || bad "26: contagens da Fase 2 divergem em counts.txt: $(grep -E '^(appointments|business_hours|clinic_holidays|holidays)[|]' "$work/pkg/counts.txt" | tr '
 ' ' ')"
 echo "$data" | grep -Eq 'COPY core\.clinics .*timezone' && echo "$data" | grep -Eq 'COPY core\.clinical_notes .*appointment_id'   && ok "26: clinics.timezone e clinical_notes.appointment_id entram no dump" || bad "26: colunas novas ausentes do dump"
+# Fase 3: as 6 tabelas novas entram no dump com as linhas das DUAS clínicas (teste 119)
+echo "$data" | grep -q 'bkp-proc-A' && echo "$data" | grep -q 'bkp-proc-B' && echo "$data" | grep -q 'bkp-orcamento-A' && echo "$data" | grep -q 'bkp-orcamento-B' \
+  && ok "26: o dump traz procedimentos e orcamentos das clinicas A e B (Fase 3)" || bad "26: faltam linhas da Fase 3 no dump"
+n_f3=$(grep -Ec '^(procedure_types|budgets|budget_items|budget_documents|installments|payments)[|]2[|]2$' "$work/pkg/counts.txt")
+[ "$n_f3" = "6" ] && ok "26: counts.txt traz as 6 tabelas da Fase 3 (2 linhas por tabela)" \
+  || bad "26: contagens da Fase 3 divergem em counts.txt: $(grep -E '^(procedure_types|budgets|budget_items|budget_documents|installments|payments)[|]' "$work/pkg/counts.txt" | tr '\n' ' ')"
 pg_restore -l "$work/pkg/core.dump" | grep -q 'POLICY' && ok "26: o dump traz as politicas RLS" || bad "26: dump sem politicas RLS"
 ! pg_restore -l "$work/pkg/core.dump" | grep -Eq 'ACL|OWNER TO' && ok "26: o dump nao traz GRANTs nem donos (--no-acl --no-owner)" || bad "26: dump contem ACL/OWNER"
 
