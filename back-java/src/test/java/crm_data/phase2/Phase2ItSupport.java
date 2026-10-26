@@ -95,6 +95,11 @@ public abstract class Phase2ItSupport {
 	protected record Setup(Clinic clinic, String patient) {
 	}
 
+	/** Monta um {@link Setup} para subclasses de outros pacotes (o construtor do record é protegido). */
+	protected static Setup setupOf(Clinic clinic, String patient) {
+		return new Setup(clinic, patient);
+	}
+
 	protected Setup openClinic() throws Exception {
 		Clinic clinic = newClinic();
 		StringBuilder days = new StringBuilder();

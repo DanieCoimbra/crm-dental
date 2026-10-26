@@ -73,6 +73,9 @@ logging:
     # nem o SQL nem os valores ligados aos parâmetros (CPF, nome) podem ir para o log
     org.hibernate.SQL: warn
     org.hibernate.orm.jdbc.bind: warn
+    # a mensagem do driver repete os valores da linha (CPF numa duplicidade, valores monetários num CHECK, nomes): o
+    # GlobalExceptionHandler já registra só classe, SQLState e nome da constraint
+    org.hibernate.orm.jdbc.error: "off"
   pattern:
     level: "%5p [%X{requestId:-}]"
 
@@ -85,6 +88,12 @@ crm:
     signed-url-ttl: 60s
     local-dir: ${CRM_STORAGE_LOCAL_DIR:} # só dev/teste (url vazia); vazio = diretório temporário
   hsts-enabled: false
+  documents:
+    # envio do PDF do orçamento (grava no Storage dentro da transação; ver FileStorage). Todos têm padrão no código.
+    upload-timeout: 10s # leitura do Storage no envio (bean documentStorage)
+    max-concurrent: 3 # envios com PDF simultâneos por instância (pool do banco tem 10 conexões)
+    sends-per-minute: 6 # por usuário
+    transaction-timeout: 20s # teto da transação do envio
   jwt:
     # sem valor padrão: a aplicação não sobe sem segredo de pelo menos 32 bytes (shared/config/JwtConfig)
     secret: ${CRM_JWT_SECRET:}

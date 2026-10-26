@@ -20,13 +20,15 @@ class ClinicalCacheHeadersTest {
 	@ValueSource(strings = { "/api/v1/patients", "/api/v1/patients/abc", "/api/v1/patients/abc/files/1/download-url",
 			"/api/v1/audit-log", "/api/v1/audit-log/x", "/api/v1/patients/abc/appointments", "/api/v1/appointments",
 			"/api/v1/appointments/abc/confirm", "/api/v1/business-hours", "/api/v1/holidays", "/api/v1/clinic-holidays",
-			"/api/v1/clinic-holidays/abc" })
+			"/api/v1/clinic-holidays/abc", "/api/v1/procedure-types", "/api/v1/procedure-types/abc/active",
+			"/api/v1/budgets", "/api/v1/budgets/abc/documents/def/download-url", "/api/v1/installments/abc/payments",
+			"/api/v1/payments/abc/reversal", "/api/v1/finance/cash-flow" })
 	void clinicalRoutesAreNoStore(String path) throws Exception {
 		assertThat(cacheControlFor(path)).isEqualTo("no-store");
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = { "/api/v1/auth/login", "/api/v1/patientsX", "/api/v1/clinic", "/api/v1/appointmentsX", "/probe/ok" })
+	@ValueSource(strings = { "/api/v1/auth/login", "/api/v1/patientsX", "/api/v1/clinic", "/api/v1/appointmentsX", "/api/v1/budgetsX", "/api/v1/finances", "/probe/ok" })
 	void otherRoutesAreUntouched(String path) throws Exception {
 		assertThat(cacheControlFor(path)).isNull();
 	}

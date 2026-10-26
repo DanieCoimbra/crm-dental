@@ -18,6 +18,8 @@
 		<!-- Fora do BOM do Spring Boot -->
 		<springdoc.version>3.1.1</springdoc.version>
 		<bucket4j.version>8.21.0</bucket4j.version>
+		<!-- PDF do orçamento (Fase 3, F04); série 2.x mantém o pacote com.lowagie.text -->
+		<openpdf.version>2.4.0</openpdf.version>
 		<!-- lombok.version é gerenciada pelo spring-boot-starter-parent -->
 	</properties>
 	<dependencies>
@@ -60,6 +62,11 @@
 			<groupId>com.bucket4j</groupId>
 			<artifactId>bucket4j_jdk17-core</artifactId>
 			<version>${bucket4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.github.librepdf</groupId>
+			<artifactId>openpdf</artifactId>
+			<version>${openpdf.version}</version>
 		</dependency>
 		<!-- Ativo só no perfil dev (springdoc.api-docs.enabled / swagger-ui.enabled) -->
 		<dependency>

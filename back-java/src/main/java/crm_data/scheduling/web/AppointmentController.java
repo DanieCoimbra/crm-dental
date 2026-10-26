@@ -35,7 +35,7 @@ public class AppointmentController {
 	@PostMapping
 	public ResponseEntity<AppointmentResponse> create(@Valid @RequestBody CreateAppointmentRequest request) {
 		AppointmentView created = appointments.create(request.patientId(), request.startsAt(), request.endsAt(),
-				request.normalizedNotes(), request.fits());
+				request.normalizedNotes(), request.fits(), request.procedureTypeId());
 		return ResponseEntity.created(URI.create("/api/v1/appointments/" + created.appointment().getId()))
 				.body(AppointmentResponse.from(created));
 	}
@@ -56,6 +56,6 @@ public class AppointmentController {
 	@PutMapping("/{id}")
 	public AppointmentResponse reschedule(@PathVariable UUID id, @Valid @RequestBody RescheduleRequest request) {
 		return AppointmentResponse.from(appointments.reschedule(id, request.startsAt(), request.endsAt(),
-				request.normalizedNotes(), request.fits(), request.version()));
+				request.normalizedNotes(), request.fits(), request.procedureTypeId(), request.version()));
 	}
 }

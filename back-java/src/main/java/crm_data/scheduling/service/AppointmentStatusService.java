@@ -12,6 +12,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import crm_data.catalog.service.ProcedureBrief;
+import crm_data.catalog.service.ProcedureTypeLookup;
 import crm_data.clinic.service.ClinicZones;
 import crm_data.patient.service.PatientBrief;
 import crm_data.patient.service.PatientLookup;
@@ -43,6 +45,7 @@ public class AppointmentStatusService {
 	private final ClinicZones zones;
 	private final ApplicationEventPublisher events;
 	private final Clock clock;
+	private final ProcedureTypeLookup procedures;
 
 	@PreAuthorize("hasAnyRole('DENTIST_ADMIN', 'RECEPTIONIST')")
 	@Transactional
@@ -108,7 +111,9 @@ public class AppointmentStatusService {
 		events.publishEvent(new SchedulingEvents.StatusChanged(TenantContext.clinicId(), saved.getId(), from.name(),
 				saved.getStatus().name(), TenantContext.userId()));
 		PatientBrief brief = patients.briefs(List.of(saved.getPatientId())).get(saved.getPatientId());
-		return new AppointmentView(saved, brief);
+		UUID procedureId = saved.getProcedureTypeId();
+		ProcedureBrief procedure = procedureId == null ? null : procedures.briefs(List.of(procedureId)).get(procedureId);
+		return new AppointmentView(saved, brief, procedure);
 	}
 
 	private void requireExtraRules(Action action, Appointment appointment) {

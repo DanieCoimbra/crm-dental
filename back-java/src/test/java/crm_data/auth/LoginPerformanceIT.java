@@ -37,6 +37,7 @@ class LoginPerformanceIT {
 	private static final String PASSWORD = "SenhaForte2026";
 	/** 4 por padrão (meta do contrato); -Dperf.concurrent=50 reproduz a medição que embasou a decisão. */
 	private static final int CONCURRENT = Integer.getInteger("perf.concurrent", 4);
+	private static final int ROUNDS = 5;
 
 	@DynamicPropertySource
 	static void database(DynamicPropertyRegistry registry) {
@@ -63,12 +64,28 @@ class LoginPerformanceIT {
 			login(email, "10.9.1." + i);
 		}
 
+		// ROUNDS rajadas de CONCURRENT logins: o p95 de cada rajada (com 4 amostras é o máximo) oscila com a CPU da máquina;
+		// vale a mediana dos p95 das rajadas, que o ruído de uma rajada isolada não move, contra o mesmo limite do contrato.
+		List<Long> burstP95 = new ArrayList<>();
+		for (int round = 0; round < ROUNDS; round++) {
+			burstP95.add(burst(email, round));
+		}
+		Collections.sort(burstP95);
+		long p95 = burstP95.get(burstP95.size() / 2);
+		System.out.printf("F04 login (BCrypt custo %d, %d concorrentes, %d CPUs): p95 por rajada=%s mediana=%d ms%n", bcryptStrength, CONCURRENT,
+				Runtime.getRuntime().availableProcessors(), burstP95, p95);
+
+		assertThat(p95).as("mediana dos p95 do login em ms (limite: %d)", limitMs()).isLessThanOrEqualTo(limitMs());
+	}
+
+	/** Uma rajada de logins concorrentes; devolve o p95 dela. */
+	private long burst(String email, int round) throws Exception {
 		ExecutorService pool = Executors.newFixedThreadPool(CONCURRENT);
 		CountDownLatch ready = new CountDownLatch(CONCURRENT);
 		CountDownLatch go = new CountDownLatch(1);
 		List<Future<Long>> futures = new ArrayList<>();
 		for (int i = 0; i < CONCURRENT; i++) {
-			String ip = "10.9.2." + (i + 1); // um IP por requisição: mede o login, não o limitador
+			String ip = "10.9." + (2 + round) + "." + (i + 1); // um IP por requisição: mede o login, não o limitador
 			futures.add(pool.submit(() -> {
 				ready.countDown();
 				go.await();
@@ -86,12 +103,7 @@ class LoginPerformanceIT {
 		}
 		pool.shutdownNow();
 		Collections.sort(latencies);
-		long p50 = latencies.get(latencies.size() / 2);
-		long p95 = latencies.get((int) Math.ceil(latencies.size() * 0.95) - 1);
-		System.out.printf("F04 login (BCrypt custo %d, %d concorrentes, %d CPUs): p50=%d ms p95=%d ms max=%d ms%n",
-				bcryptStrength, CONCURRENT, Runtime.getRuntime().availableProcessors(), p50, p95, latencies.get(latencies.size() - 1));
-
-		assertThat(p95).as("p95 do login em ms (limite: %d)", limitMs()).isLessThanOrEqualTo(limitMs());
+		return latencies.get((int) Math.ceil(latencies.size() * 0.95) - 1);
 	}
 
 	/**

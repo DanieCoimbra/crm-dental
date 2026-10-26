@@ -21,8 +21,8 @@ import lombok.Setter;
 
 /**
  * Agendamento. O conflito de horário é garantido pelo banco ({@code ex_appt_no_overlap}); a máquina de status é do
- * backend. {@code patientId} e {@code createdBy} são imutáveis. {@code procedure_type_id} existe na tabela mas não é
- * mapeada (Fase 3). {@code notes} é texto claro e não leva dado clínico; ainda assim não há {@code @ToString}.
+ * backend. {@code patientId} e {@code createdBy} são imutáveis. {@code procedureTypeId} (Fase 3) é opcional e editável: o
+ * {@code PUT} o substitui. {@code notes} é texto claro e não leva dado clínico; ainda assim não há {@code @ToString}.
  */
 @Entity
 @Table(name = "appointments", schema = "core")
@@ -53,6 +53,11 @@ public class Appointment extends TenantAwareEntity {
 	@Column(length = 500)
 	private String notes;
 
+	/** Procedimento do atendimento (opcional, FK composta no banco). Sem {@code @ManyToOne}: o catálogo resolve por interface. */
+	@Setter
+	@Column(name = "procedure_type_id")
+	private UUID procedureTypeId;
+
 	@Column(name = "created_by", nullable = false, updatable = false)
 	private UUID createdBy;
 
@@ -72,8 +77,14 @@ public class Appointment extends TenantAwareEntity {
 	@Version
 	private Long version;
 
-	/** Agendamento novo: sempre {@code SCHEDULED}. */
+	/** Agendamento novo, sem procedimento: sempre {@code SCHEDULED}. */
 	public Appointment(UUID id, UUID patientId, Instant startsAt, Instant endsAt, String notes, UUID createdBy) {
+		this(id, patientId, startsAt, endsAt, notes, createdBy, null);
+	}
+
+	/** Agendamento novo: sempre {@code SCHEDULED}; {@code procedureTypeId} é opcional. */
+	public Appointment(UUID id, UUID patientId, Instant startsAt, Instant endsAt, String notes, UUID createdBy,
+			UUID procedureTypeId) {
 		this.id = id;
 		this.patientId = patientId;
 		this.startsAt = startsAt;
@@ -81,5 +92,6 @@ public class Appointment extends TenantAwareEntity {
 		this.status = AppointmentStatus.SCHEDULED;
 		this.notes = notes;
 		this.createdBy = createdBy;
+		this.procedureTypeId = procedureTypeId;
 	}
 }

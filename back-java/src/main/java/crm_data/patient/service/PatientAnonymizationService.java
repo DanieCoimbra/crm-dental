@@ -3,6 +3,7 @@ package crm_data.patient.service;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,6 +17,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import crm_data.record.service.PatientFileService;
 import crm_data.shared.error.BusinessException;
+import crm_data.shared.error.ConflictMessages;
 import crm_data.shared.error.DatabaseErrors;
 import crm_data.shared.error.ProblemTypes;
 import crm_data.shared.storage.StorageException;
@@ -46,11 +48,15 @@ public class PatientAnonymizationService {
 		COMPLETED, PENDING
 	}
 
-	/** Resultado devolvido ao cliente. */
-	public record Result(Instant anonymizedAt, StorageCleanup storageCleanup) {
+	/**
+	 * Resultado devolvido ao cliente.
+	 *
+	 * @param openBudgets orçamentos em aberto ({@code DRAFT}/{@code SENT}) do paciente, só como aviso
+	 */
+	public record Result(Instant anonymizedAt, StorageCleanup storageCleanup, int openBudgets) {
 	}
 
-	private record DatabasePhase(Instant anonymizedAt, List<String> storageKeys) {
+	private record DatabasePhase(Instant anonymizedAt, List<String> storageKeys, int openBudgets) {
 
 		/** Nunca imprime as chaves. */
 		@Override
@@ -63,11 +69,14 @@ public class PatientAnonymizationService {
 	private final PatientFileService files;
 	private final ApplicationEventPublisher events;
 	private final TransactionTemplate tx;
+	private final List<AnonymizationContributor> contributors;
 
 	public PatientAnonymizationService(EntityManager entityManager, PatientFileService files,
-			PlatformTransactionManager transactionManager, ApplicationEventPublisher events) {
+			PlatformTransactionManager transactionManager, ApplicationEventPublisher events,
+			List<AnonymizationContributor> contributors) {
 		this.entityManager = entityManager;
 		this.files = files;
+		this.contributors = List.copyOf(contributors);
 		this.events = events;
 		this.tx = new TransactionTemplate(transactionManager);
 	}
@@ -85,7 +94,14 @@ public class PatientAnonymizationService {
 			database = tx.execute(status -> {
 				Instant anonymizedAt = toInstant(entityManager.createNativeQuery("SELECT core.anonymize_patient(:id)")
 						.setParameter("id", patientId).getSingleResult());
-				return new DatabasePhase(anonymizedAt, List.copyOf(files.storageKeysOf(patientId)));
+				// listar depois da função, na mesma transação: um upload concorrente falha com CR003 e nada escapa da lista
+				List<String> keys = new ArrayList<>(files.storageKeysOf(patientId));
+				int open = 0;
+				for (AnonymizationContributor contributor : contributors) {
+					keys.addAll(contributor.objectKeys(patientId));
+					open += contributor.openItems(patientId);
+				}
+				return new DatabasePhase(anonymizedAt, List.copyOf(keys), open);
 			});
 		}
 		catch (RuntimeException ex) {
@@ -94,7 +110,7 @@ public class PatientAnonymizationService {
 
 		StorageCleanup cleanup = purge(patientId, database.storageKeys());
 		events.publishEvent(new PatientEvents.Anonymized(clinicId, patientId, database.storageKeys().size(), cleanup));
-		return new Result(database.anonymizedAt(), cleanup);
+		return new Result(database.anonymizedAt(), cleanup, database.openBudgets());
 	}
 
 	/**
@@ -135,6 +151,7 @@ public class PatientAnonymizationService {
 					.orElse("Retenção legal do prontuário vigente."));
 			case "CR003" -> new BusinessException(ProblemTypes.CONFLICT, "Paciente anonimizado.");
 			case "CR004" -> new BusinessException(ProblemTypes.CONFLICT, "Cancele os agendamentos futuros antes de anonimizar.");
+			case "CR006" -> new BusinessException(ProblemTypes.CONFLICT, ConflictMessages.OPEN_INSTALLMENTS);
 			case "P0002" -> new BusinessException(ProblemTypes.NOT_FOUND, "Paciente não encontrado.");
 			case "42501" -> new BusinessException(ProblemTypes.FORBIDDEN, "Você não tem permissão para esta operação.");
 			default -> error;

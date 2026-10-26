@@ -160,7 +160,7 @@ class Phase1RoleMatrixWebTest {
 		when(patients.update(any(), any(), anyLong())).thenReturn(patient());
 		when(patients.setActive(any(), anyBoolean())).thenReturn(patient());
 		when(anonymization.anonymize(any()))
-				.thenReturn(new PatientAnonymizationService.Result(NOW, StorageCleanup.COMPLETED));
+				.thenReturn(new PatientAnonymizationService.Result(NOW, StorageCleanup.COMPLETED, 0));
 		when(histories.get(any())).thenReturn(history());
 		when(histories.save(any(), any(), any())).thenReturn(new Saved(history(), true));
 		when(notes.create(any(), any(), any(), any())).thenReturn(note());

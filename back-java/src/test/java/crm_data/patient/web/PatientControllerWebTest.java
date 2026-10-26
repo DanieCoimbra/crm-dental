@@ -376,7 +376,7 @@ class PatientControllerWebTest {
 	@Test
 	void onlyTheDentistAnonymizesAndTheReceptionistNeverReachesTheService() throws Exception {
 		UUID id = UUID.randomUUID();
-		when(anonymization.anonymize(id)).thenReturn(new Result(Instant.parse("2046-10-22T13:00:00Z"), StorageCleanup.PENDING));
+		when(anonymization.anonymize(id)).thenReturn(new Result(Instant.parse("2046-10-22T13:00:00Z"), StorageCleanup.PENDING, 0));
 
 		mvc.perform(post("/api/v1/patients/" + id + "/anonymize").with(as(Role.RECEPTIONIST)))
 				.andExpect(status().isForbidden())
@@ -388,7 +388,8 @@ class PatientControllerWebTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.anonymizedAt").value("2046-10-22T13:00:00Z"))
 				.andExpect(jsonPath("$.storageCleanup").value("PENDING"))
-				.andExpect(jsonPath("$.length()").value(2));
+				.andExpect(jsonPath("$.openBudgets").value(0))
+				.andExpect(jsonPath("$.length()").value(3));
 		verify(anonymization).anonymize(id);
 	}
 

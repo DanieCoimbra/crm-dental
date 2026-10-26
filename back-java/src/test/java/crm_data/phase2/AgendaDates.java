@@ -14,9 +14,9 @@ import java.util.Set;
  * Datas dos ITs da agenda: sempre no futuro e em semanas sem feriado nacional de data fixa (a regra da recepção bloqueia
  * feriado, e o seed da clínica de teste traz os nacionais de 2026 a 2030). A Sexta-feira Santa é móvel e nunca é usada.
  */
-final class AgendaDates {
+public final class AgendaDates {
 
-	static final ZoneId SAO_PAULO = ZoneId.of("America/Sao_Paulo");
+	public static final ZoneId SAO_PAULO = ZoneId.of("America/Sao_Paulo");
 
 	private static final Set<String> FIXED_HOLIDAYS = Set.of("01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "11-20", "12-25");
 
@@ -34,12 +34,12 @@ final class AgendaDates {
 	}
 
 	/** Segunda-feira de uma semana sem feriado, a partir de duas semanas à frente. */
-	static LocalDate monday() {
+	public static LocalDate monday() {
 		return mondays(1).get(0);
 	}
 
 	/** As próximas {@code count} segundas-feiras de semanas sem feriado. */
-	static List<LocalDate> mondays(int count) {
+	public static List<LocalDate> mondays(int count) {
 		List<LocalDate> result = new ArrayList<>();
 		LocalDate monday = LocalDate.now(SAO_PAULO).with(TemporalAdjusters.next(DayOfWeek.MONDAY)).plusWeeks(1);
 		while (result.size() < count) {
@@ -55,7 +55,7 @@ final class AgendaDates {
 	 * Uma segunda-feira já passada (a mais recente) cuja semana não tem feriado nacional de data fixa. O dentista também é
 	 * bloqueado por feriado sem o encaixe, então "a segunda passada" não pode cair num: o teste dependeria da data de hoje.
 	 */
-	static LocalDate pastMonday() {
+	public static LocalDate pastMonday() {
 		LocalDate monday = LocalDate.now(SAO_PAULO).with(TemporalAdjusters.previous(DayOfWeek.MONDAY));
 		while (weekHasHoliday(monday)) {
 			monday = monday.minusWeeks(1);
@@ -64,7 +64,7 @@ final class AgendaDates {
 	}
 
 	/** O instante (ISO-8601, UTC) de {@code date hour:minute} na hora local de São Paulo. */
-	static String at(LocalDate date, int hour, int minute) {
+	public static String at(LocalDate date, int hour, int minute) {
 		return LocalDateTime.of(date, LocalTime.of(hour, minute)).atZone(SAO_PAULO).toInstant().toString();
 	}
 }

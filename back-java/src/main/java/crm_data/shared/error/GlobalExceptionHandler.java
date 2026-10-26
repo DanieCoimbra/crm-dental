@@ -19,6 +19,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -58,7 +59,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		if (ex instanceof RateLimitedException limited) {
 			headers.set(HttpHeaders.RETRY_AFTER, Long.toString(limited.retryAfterSeconds()));
 		}
+		else if (ex instanceof BusyException busy) {
+			headers.set(HttpHeaders.RETRY_AFTER, Long.toString(busy.retryAfterSeconds()));
+		}
 		return problem(ex.type().status(), headers, problem);
+	}
+
+	/** Validação feita pelo service, com a lista de campos (mesmo formato do Bean Validation). */
+	@ExceptionHandler(FieldValidationException.class)
+	ResponseEntity<Object> handleFieldValidation(FieldValidationException ex, HttpServletRequest request) {
+		return validation(ex.errors(), request);
 	}
 
 	@ExceptionHandler(OptimisticLockingFailureException.class)
@@ -91,6 +101,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 			case "CR003" -> respond(ProblemTypes.CONFLICT, "Paciente anonimizado.", request);
 			case "CR004" -> respond(ProblemTypes.CONFLICT, "Cancele os agendamentos futuros antes de anonimizar.", request);
 			case "CR005" -> respond(ProblemTypes.CONFLICT, "Paciente inativo.", request);
+			// Fase 3: dinheiro. CR011 só estoura no COMMIT (chega por TransactionSystemException, ver abaixo)
+			case "CR006" -> respond(ProblemTypes.CONFLICT, ConflictMessages.OPEN_INSTALLMENTS, request);
+			case "CR007" -> respond(ProblemTypes.CONFLICT, ConflictMessages.BUDGET_FROZEN, request);
+			case "CR008" -> respond(ProblemTypes.CONFLICT, ConflictMessages.BUDGET_STATUS, request);
+			case "CR009" -> respond(ProblemTypes.CONFLICT, ConflictMessages.INSTALLMENT_RULE, request);
+			case "CR010" -> respond(ProblemTypes.CONFLICT, ConflictMessages.PAYMENT_RULE, request);
+			case "CR011" -> respond(ProblemTypes.CONFLICT, ConflictMessages.INSTALLMENTS_SUM, request);
+			case "23514" -> checkViolation(ex, request);
 			case "23P01" -> respond(ProblemTypes.CONFLICT, ConflictMessages.SLOT_TAKEN, request);
 			// deadlock ou falha de serialização: a operação perdeu a disputa; é retentável, não um defeito (409, não 500)
 			case "40P01", "40001" -> respond(ProblemTypes.CONFLICT, ConflictMessages.STALE_VERSION, request);
@@ -108,6 +126,38 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	}
 
 	/**
+	 * O commit (por exemplo o {@code CR011}, constraint trigger adiado) falha fora do {@code flush}: o Spring entrega a
+	 * {@link TransactionSystemException}, que não é {@link DataAccessException}. Sem este tratamento a soma errada das
+	 * parcelas viraria 500. O {@code SQLState} é procurado na cadeia de causas e segue o mesmo caminho dos demais erros do
+	 * banco; sem {@code SQLState} conhecido, o resultado é o 500 genérico (só a classe e o estado vão ao log).
+	 */
+	@ExceptionHandler(TransactionSystemException.class)
+	ResponseEntity<Object> handleTransactionSystem(TransactionSystemException ex, HttpServletRequest request) {
+		if (DatabaseErrors.sqlState(ex).isEmpty()) {
+			// falha de commit sem erro de banco na causa: mantém o log completo da stack, como o handler genérico
+			return handleUnexpected(ex, request);
+		}
+		return handleDatabase(ex, request);
+	}
+
+	/**
+	 * {@code 23514}: só duas constraints viram resposta de negócio (valor acima do teto que escapou da validação
+	 * prévia); qualquer outra é defeito do backend e vira 500, com o nome da constraint no log.
+	 */
+	private ResponseEntity<Object> checkViolation(Exception ex, HttpServletRequest request) {
+		String constraint = DatabaseErrors.constraintName(ex).orElse("");
+		if (constraint.equals("ck_items_line") || constraint.equals("ck_budgets_total")) {
+			ProblemDetail problem = ProblemDetails.of(ProblemTypes.BUSINESS_RULE, ConflictMessages.AMOUNT_OUT_OF_RANGE,
+					request);
+			problem.setProperty("reason", "AMOUNT_OUT_OF_RANGE");
+			return problem(ProblemTypes.BUSINESS_RULE.status(), new HttpHeaders(), problem);
+		}
+		log.error("Erro de banco em {} {}: {} sqlState=23514 constraint={}", request.getMethod(), request.getRequestURI(),
+				ex.getClass().getName(), constraint.isEmpty() ? "-" : constraint);
+		return respond(ProblemTypes.INTERNAL, "Ocorreu um erro inesperado. Informe o X-Request-Id ao suporte.", request);
+	}
+
+	/**
 	 * Unicidade da agenda traduzida pela constraint. Qualquer outra {@code 23505} segue como 500 (cada service converte
 	 * a sua, por exemplo o CPF repetido): a mensagem do driver repete o valor e nunca é devolvida.
 	 */
@@ -116,6 +166,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		return switch (constraint) {
 			case "ux_bh_clinic_weekday" -> respond(ProblemTypes.CONFLICT, "Dia já configurado.", request);
 			case "ux_clinic_holidays_date" -> respond(ProblemTypes.CONFLICT, "Já existe feriado nesta data.", request);
+			case "ux_ptype_clinic_name" -> respond(ProblemTypes.CONFLICT, ConflictMessages.PROCEDURE_NAME_TAKEN, request);
+			case "ux_pay_reverses" -> respond(ProblemTypes.CONFLICT, ConflictMessages.PAYMENT_REVERSED, request);
+			case "ux_inst_budget_number" -> respond(ProblemTypes.CONFLICT, ConflictMessages.PLAN_CHANGED, request);
 			default -> {
 				log.error("Erro de banco em {} {}: {} sqlState=23505 constraint={}", request.getMethod(),
 						request.getRequestURI(), ex.getClass().getName(), constraint.isEmpty() ? "-" : constraint);

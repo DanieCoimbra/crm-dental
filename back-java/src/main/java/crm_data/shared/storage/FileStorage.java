@@ -8,10 +8,14 @@ import java.util.Collection;
 
 /**
  * Armazenamento de arquivos (exames), por trás de duas implementações: {@link SupabaseFileStorage} (produção, bucket
- * privado) e {@link LocalFileStorage} (dev e teste). Nunca deve ser chamado dentro de uma transação de banco.
+ * privado) e {@link LocalFileStorage} (dev e teste). <strong>Regra:</strong> nunca chamar dentro de uma transação de
+ * banco (o pool tem 10 conexões). <strong>Única exceção (Fase 3, H1):</strong> o envio do PDF do orçamento e a nova
+ * revisão gravam o objeto dentro da transação, para que o orçamento só fique {@code SENT} com o PDF registrado; isso só
+ * vale pelo bean {@code documentStorage} (timeout de 10 s), com semáforo de envios simultâneos, limite por usuário e
+ * compensação (apagar o objeto se a transação falhar). Nenhum outro fluxo pode usar essa exceção.
  *
- * <p>A {@code key} é sempre {@code <clinic_id>/<patient_id>/<uuid>} (ver {@link StorageKeys}); as implementações
- * rejeitam qualquer chave fora desse padrão. Falhas de infraestrutura (rede, 4xx/5xx do Storage, timeout) viram
+ * <p>A {@code key} segue {@link StorageKeys}: {@code <clinic_id>/<patient_id>/<uuid>} (exames) ou
+ * {@code <clinic_id>/<patient_id>/budgets/<uuid>} (PDF de orçamento); as implementações rejeitam qualquer outra. Falhas de infraestrutura (rede, 4xx/5xx do Storage, timeout) viram
  * {@link StorageException}, cuja mensagem nunca traz URL, chave nem nome de arquivo.
  */
 public interface FileStorage {

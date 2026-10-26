@@ -35,6 +35,18 @@ class PatientLookupService implements PatientLookup {
 	}
 
 	@Override
+	@Transactional
+	public void lockWritable(UUID patientId) {
+		List<Boolean> flag = patients.anonymizedFlagLocked(patientId);
+		if (flag.isEmpty()) {
+			throw new BusinessException(ProblemTypes.NOT_FOUND, "Paciente não encontrado.");
+		}
+		if (Boolean.TRUE.equals(flag.get(0))) {
+			throw new BusinessException(ProblemTypes.CONFLICT, "Paciente anonimizado.");
+		}
+	}
+
+	@Override
 	@Transactional(readOnly = true)
 	public void requireSchedulable(UUID patientId) {
 		List<PatientRepository.SchedulingState> state = patients.schedulingState(patientId);

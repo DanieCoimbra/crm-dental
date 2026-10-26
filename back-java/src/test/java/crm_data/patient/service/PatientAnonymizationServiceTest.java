@@ -91,7 +91,7 @@ class PatientAnonymizationServiceTest {
 		lenient().when(entityManager.createNativeQuery(anyString())).thenReturn(query);
 		lenient().when(query.setParameter(anyString(), any())).thenReturn(query);
 		lenient().when(query.getSingleResult()).thenReturn(OffsetDateTime.ofInstant(NOW, ZoneOffset.UTC));
-		service = new PatientAnonymizationService(entityManager, files, tm, events);
+		service = new PatientAnonymizationService(entityManager, files, tm, events, List.of());
 		TenantContext.set(clinicId, UUID.randomUUID(), Role.DENTIST_ADMIN);
 	}
 
@@ -213,9 +213,10 @@ class PatientAnonymizationServiceTest {
 
 	@Test
 	void databaseErrorsAreTranslatedAndNothingElseRuns() {
-		String[][] cases = { { "CR001", "ativo" }, { "CR003", "ja anonimizado" }, { "P0002", "inexistente" }, { "42501", "papel" } };
-		ProblemTypes[] types = { ProblemTypes.CONFLICT, ProblemTypes.CONFLICT, ProblemTypes.NOT_FOUND, ProblemTypes.FORBIDDEN };
-		String[] messages = { "Inative o paciente antes de anonimizar.", "Paciente anonimizado.", "Paciente não encontrado.",
+		String[][] cases = { { "CR001", "ativo" }, { "CR003", "ja anonimizado" }, { "CR006", "parcela" }, { "P0002", "inexistente" }, { "42501", "papel" } };
+		ProblemTypes[] types = { ProblemTypes.CONFLICT, ProblemTypes.CONFLICT, ProblemTypes.CONFLICT, ProblemTypes.NOT_FOUND, ProblemTypes.FORBIDDEN };
+		String[] messages = { "Inative o paciente antes de anonimizar.", "Paciente anonimizado.",
+				"Quite ou cancele as parcelas em aberto antes de anonimizar.", "Paciente não encontrado.",
 				"Você não tem permissão para esta operação." };
 
 		for (int i = 0; i < cases.length; i++) {
@@ -271,5 +272,63 @@ class PatientAnonymizationServiceTest {
 		assertThatThrownBy(() -> service.anonymize(patientId)).isInstanceOfSatisfying(BusinessException.class,
 				ex -> assertThat(ex.type()).isEqualTo(ProblemTypes.UNAUTHORIZED));
 		verify(entityManager, never()).createNativeQuery(eq("SELECT core.anonymize_patient(:id)"));
+	}
+
+	// ---- contribuintes (F07): chaves dos PDFs e orçamentos em aberto ----
+
+	@Test
+	void contributorsAddTheirKeysAfterTheFunctionInTheSameTransactionAndTheOpenCountIsSummed() {
+		AnonymizationContributor first = org.mockito.Mockito.mock(AnonymizationContributor.class);
+		AnonymizationContributor second = org.mockito.Mockito.mock(AnonymizationContributor.class);
+		service = new PatientAnonymizationService(entityManager, files, transactionManagerOf(inTransaction), events, List.of(first, second));
+		when(files.storageKeysOf(patientId)).thenReturn(List.of("exame"));
+		doAnswer(i -> {
+			assertThat(inTransaction.get()).as("o contribuinte roda na transação da função").isTrue();
+			return List.of("pdf-1", "pdf-2");
+		}).when(first).objectKeys(patientId);
+		when(second.objectKeys(patientId)).thenReturn(List.of());
+		when(first.openItems(patientId)).thenReturn(2);
+		when(second.openItems(patientId)).thenReturn(1);
+
+		Result result = service.anonymize(patientId);
+
+		assertThat(result.openBudgets()).isEqualTo(3);
+		verify(files).purgeObjects(List.of("exame", "pdf-1", "pdf-2"));
+		ArgumentCaptor<Object> event = ArgumentCaptor.forClass(Object.class);
+		verify(events).publishEvent(event.capture());
+		assertThat(event.getValue()).isEqualTo(new PatientEvents.Anonymized(clinicId, patientId, 3, StorageCleanup.COMPLETED));
+	}
+
+	@Test
+	void contributorKeysAreNeverInTheEventsAndAFailedPurgeOfThemIsStillPending() {
+		AnonymizationContributor contributor = org.mockito.Mockito.mock(AnonymizationContributor.class);
+		service = new PatientAnonymizationService(entityManager, files, transactionManagerOf(inTransaction), events, List.of(contributor));
+		when(files.storageKeysOf(patientId)).thenReturn(List.of());
+		when(contributor.objectKeys(patientId)).thenReturn(List.of("segredo/da/chave"));
+		doThrow(new crm_data.shared.storage.StorageException("falha")).when(files).purgeObjects(any());
+
+		Result result = service.anonymize(patientId);
+
+		assertThat(result.storageCleanup()).isEqualTo(StorageCleanup.PENDING);
+		ArgumentCaptor<Object> event = ArgumentCaptor.forClass(Object.class);
+		verify(events, org.mockito.Mockito.times(2)).publishEvent(event.capture());
+		assertThat(event.getAllValues()).allSatisfy(e -> assertThat(e.toString()).doesNotContain("segredo"));
+	}
+
+	private PlatformTransactionManager transactionManagerOf(AtomicBoolean flag) {
+		PlatformTransactionManager tm = mock(PlatformTransactionManager.class);
+		lenient().when(tm.getTransaction(any(TransactionDefinition.class))).thenAnswer(i -> {
+			flag.set(true);
+			return new SimpleTransactionStatus();
+		});
+		lenient().doAnswer(i -> {
+			flag.set(false);
+			return null;
+		}).when(tm).commit(any());
+		lenient().doAnswer(i -> {
+			flag.set(false);
+			return null;
+		}).when(tm).rollback(any());
+		return tm;
 	}
 }

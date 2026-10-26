@@ -94,8 +94,9 @@ class AppointmentsIT extends Phase2ItSupport {
 	@Test
 	void serverOwnedFieldsInTheBodyAreIgnored() throws Exception {
 		Setup setup = openClinic();
-		String extra = ",\"status\":\"COMPLETED\",\"createdBy\":\"%s\",\"clinicId\":\"%s\",\"id\":\"%s\",\"procedureTypeId\":\"%s\""
-				.formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+		// procedureTypeId deixou de ser ignorado na Fase 3 (F02): é campo da API e é validado (ver ProcedureTypesIT)
+		String extra = ",\"status\":\"COMPLETED\",\"createdBy\":\"%s\",\"clinicId\":\"%s\",\"id\":\"%s\""
+				.formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
 		LocalDate monday = monday();
 
 		JsonNode created = read(mvc.perform(create(setup, Role.RECEPTIONIST, at(monday, 9, 0), at(monday, 10, 0), extra))

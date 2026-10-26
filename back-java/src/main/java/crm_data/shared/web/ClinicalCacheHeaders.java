@@ -15,13 +15,15 @@ import jakarta.servlet.http.HttpServletResponse;
  * Marca com {@code Cache-Control: no-store} as respostas das rotas clínicas ({@code /api/v1/patients/**} e
  * {@code /api/v1/audit-log/**}), que carregam dado de saúde e URLs assinadas, e das rotas da agenda
  * ({@code /appointments}, {@code /business-hours}, {@code /holidays}, {@code /clinic-holidays}), que revelam quem é
- * paciente da clínica. O cabeçalho é definido antes da
+ * paciente da clínica, e as rotas comerciais e financeiras da Fase 3 ({@code /procedure-types}, {@code /budgets},
+ * {@code /installments}, {@code /payments}, {@code /finance}), que carregam valores e PDFs. O cabeçalho é definido antes da
  * cadeia; o escritor padrão do Spring Security não sobrescreve um {@code Cache-Control} já presente.
  */
 public class ClinicalCacheHeaders extends OncePerRequestFilter {
 
 	private static final List<String> PREFIXES = List.of("/api/v1/patients", "/api/v1/audit-log", "/api/v1/appointments",
-			"/api/v1/business-hours", "/api/v1/holidays", "/api/v1/clinic-holidays");
+			"/api/v1/business-hours", "/api/v1/holidays", "/api/v1/clinic-holidays", "/api/v1/procedure-types",
+			"/api/v1/budgets", "/api/v1/installments", "/api/v1/payments", "/api/v1/finance");
 
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {

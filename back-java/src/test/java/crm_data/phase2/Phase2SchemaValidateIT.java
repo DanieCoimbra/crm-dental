@@ -35,7 +35,7 @@ class Phase2SchemaValidateIT extends Phase2ItSupport {
 	void allTwentyOneMigrationsExistAndTheAgendaObjectsAreInPlace() throws IOException {
 		Path migrations = Path.of("..", "database", "migrations");
 		try (Stream<Path> files = Files.list(migrations)) {
-			assertThat(files.filter(f -> f.getFileName().toString().matches("V0\\d\\d__.*\\.sql")).count()).isEqualTo(21);
+			assertThat(files.filter(f -> f.getFileName().toString().matches("V0\\d\\d__.*\\.sql")).count()).isGreaterThanOrEqualTo(21); // o contêiner aplica todas (V001–V029 desde a Fase 3)
 		}
 		var admin = DatabaseContainer.admin();
 		assertThat(admin.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = 'core' AND table_type = 'BASE TABLE'", String.class))

@@ -76,6 +76,6 @@ public class PatientController {
 	@PostMapping("/{id}/anonymize")
 	public AnonymizationResponse anonymize(@PathVariable UUID id) {
 		Result result = anonymization.anonymize(id);
-		return new AnonymizationResponse(result.anonymizedAt(), result.storageCleanup().name());
+		return new AnonymizationResponse(result.anonymizedAt(), result.storageCleanup().name(), result.openBudgets());
 	}
 }

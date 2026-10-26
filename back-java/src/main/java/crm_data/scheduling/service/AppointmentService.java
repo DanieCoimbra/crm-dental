@@ -22,6 +22,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import crm_data.catalog.service.ProcedureBrief;
+import crm_data.catalog.service.ProcedureTypeLookup;
 import crm_data.clinic.service.ClinicZones;
 import crm_data.patient.service.PatientBrief;
 import crm_data.patient.service.PatientLookup;
@@ -48,8 +50,15 @@ import lombok.RequiredArgsConstructor;
 @PreAuthorize("hasAnyRole('DENTIST_ADMIN', 'RECEPTIONIST')")
 public class AppointmentService {
 
-	/** Agendamento com o paciente resumido (nome e telefone vêm de {@code patient}, em lote). */
-	public record AppointmentView(Appointment appointment, PatientBrief patient) {
+	/**
+	 * Agendamento com o paciente resumido (nome e telefone vêm de {@code patient}, em lote) e o procedimento resumido
+	 * (de {@code catalog}, também em lote; {@code null} se o agendamento não tem procedimento).
+	 */
+	public record AppointmentView(Appointment appointment, PatientBrief patient, ProcedureBrief procedure) {
+
+		public AppointmentView(Appointment appointment, PatientBrief patient) {
+			this(appointment, patient, null);
+		}
 	}
 
 	private static final String ONLY_DENTIST_FITS = "Somente o dentista pode agendar fora do expediente.";
@@ -61,22 +70,33 @@ public class AppointmentService {
 	private final HolidayService holidays;
 	private final ApplicationEventPublisher events;
 	private final Clock clock;
+	private final ProcedureTypeLookup procedures;
+
+	/** Cria um agendamento sem procedimento. {@code @Transactional} próprio: a chamada interna não passa pelo proxy. */
+	@Transactional
+	public AppointmentView create(UUID patientId, Instant startsAt, Instant endsAt, String notes, boolean allowOutsideHours) {
+		return create(patientId, startsAt, endsAt, notes, allowOutsideHours, null);
+	}
 
 	/**
 	 * @param allowOutsideHours encaixe: ignora expediente, almoço e feriado; só o dentista pode (a recepção recebe 403)
-	 * @throws BusinessException 403 (encaixe da recepção), 404/409 (paciente), 422 com {@code reason} (regra de horário),
-	 *         409 {@code "Horário já ocupado."} pela constraint
+	 * @param procedureTypeId procedimento do atendimento; {@code null} = sem procedimento
+	 * @throws BusinessException 403 (encaixe da recepção), 404/409 (paciente), 404 (procedimento inexistente), 422 com
+	 *         {@code reason} (regra de horário ou {@code PROCEDURE_INACTIVE}), 409 {@code "Horário já ocupado."} pela
+	 *         constraint
 	 */
 	@Transactional
-	public AppointmentView create(UUID patientId, Instant startsAt, Instant endsAt, String notes, boolean allowOutsideHours) {
+	public AppointmentView create(UUID patientId, Instant startsAt, Instant endsAt, String notes, boolean allowOutsideHours,
+			UUID procedureTypeId) {
 		Role role = TenantContext.role();
 		requireMayFit(role, allowOutsideHours);
 		patients.requireSchedulable(patientId);
+		requireProcedure(procedureTypeId);
 		boolean fitsOnlyByException = enforceSlotRules(role, startsAt, endsAt, allowOutsideHours);
 
 		UUID userId = TenantContext.userId();
-		Appointment appointment = SlotRace.saveAndFlush(appointments, 
-				new Appointment(UUID.randomUUID(), patientId, startsAt, endsAt, notes, userId));
+		Appointment appointment = SlotRace.saveAndFlush(appointments,
+				new Appointment(UUID.randomUUID(), patientId, startsAt, endsAt, notes, userId, procedureTypeId));
 
 		UUID clinicId = TenantContext.clinicId();
 		events.publishEvent(new SchedulingEvents.AppointmentCreated(clinicId, appointment.getId(), patientId, userId));
@@ -122,7 +142,9 @@ public class AppointmentService {
 		Page<Appointment> found = appointments.findByPatientId(patientId,
 				PageRequest.of(page, size, Sort.by(Sort.Order.desc("startsAt"), Sort.Order.desc("id"))));
 		PatientBrief brief = patients.briefs(List.of(patientId)).get(patientId);
-		return found.map(appointment -> new AppointmentView(appointment, brief));
+		Map<UUID, ProcedureBrief> procedureBriefs = procedureBriefsOf(found.getContent());
+		return found.map(appointment -> new AppointmentView(appointment, brief,
+				procedureOf(procedureBriefs, appointment.getProcedureTypeId())));
 	}
 
 	/** @throws BusinessException {@code not-found} (404) se não existe na clínica */
@@ -132,15 +154,27 @@ public class AppointmentService {
 	}
 
 	/**
-	 * Remarca e/ou edita a observação de um agendamento {@code SCHEDULED}/{@code CONFIRMED}. As regras de horário só
-	 * valem se o horário mudou; um {@code CONFIRMED} remarcado volta a {@code SCHEDULED}. O paciente nunca muda.
-	 *
-	 * @param notes substitui a observação ({@code null} limpa)
-	 * @throws BusinessException 403, 404, 409 ({@code version} defasada ou status que não permite), 422
+	 * Remarca e/ou edita a observação, removendo o procedimento (o {@code PUT} substitui o vínculo).
+	 * {@code @Transactional} próprio: a chamada interna não passa pelo proxy.
 	 */
 	@Transactional
 	public AppointmentView reschedule(UUID id, Instant startsAt, Instant endsAt, String notes, boolean allowOutsideHours,
 			long expectedVersion) {
+		return reschedule(id, startsAt, endsAt, notes, allowOutsideHours, null, expectedVersion);
+	}
+
+	/**
+	 * Remarca e/ou edita a observação de um agendamento {@code SCHEDULED}/{@code CONFIRMED}. As regras de horário só
+	 * valem se o horário mudou; um {@code CONFIRMED} remarcado volta a {@code SCHEDULED}. O paciente nunca muda.
+	 *
+	 * @param notes substitui a observação ({@code null} limpa)
+	 * @param procedureTypeId <strong>substitui</strong> o procedimento: {@code null} remove o vínculo e o cliente
+	 *        reenvia o atual para mantê-lo (como {@code notes}); se preenchido, precisa existir e estar ativo
+	 * @throws BusinessException 403, 404, 409 ({@code version} defasada ou status que não permite), 422
+	 */
+	@Transactional
+	public AppointmentView reschedule(UUID id, Instant startsAt, Instant endsAt, String notes, boolean allowOutsideHours,
+			UUID procedureTypeId, long expectedVersion) {
 		Role role = TenantContext.role();
 		requireMayFit(role, allowOutsideHours);
 		Appointment appointment = load(id);
@@ -151,6 +185,7 @@ public class AppointmentService {
 		if (status != AppointmentStatus.SCHEDULED && status != AppointmentStatus.CONFIRMED) {
 			throw new BusinessException(ProblemTypes.CONFLICT, "O agendamento está " + status + " e não pode ser alterado.");
 		}
+		requireProcedure(procedureTypeId);
 		boolean timeChanged = !startsAt.equals(appointment.getStartsAt()) || !endsAt.equals(appointment.getEndsAt());
 		boolean fitsOnlyByException = false;
 		if (timeChanged) {
@@ -162,6 +197,7 @@ public class AppointmentService {
 			}
 		}
 		appointment.setNotes(notes);
+		appointment.setProcedureTypeId(procedureTypeId);
 		Appointment saved = SlotRace.saveAndFlush(appointments, appointment);
 
 		UUID clinicId = TenantContext.clinicId();
@@ -176,6 +212,13 @@ public class AppointmentService {
 	}
 
 	// ---- regras ----
+
+	/** Procedimento preenchido precisa existir na clínica (404) e estar ativo (422 {@code PROCEDURE_INACTIVE}). */
+	private void requireProcedure(UUID procedureTypeId) {
+		if (procedureTypeId != null) {
+			procedures.requireActive(procedureTypeId);
+		}
+	}
 
 	/** O encaixe é do dentista: a recepção que o pede recebe 403 antes de qualquer outra regra de negócio. */
 	private static void requireMayFit(Role role, boolean allowOutsideHours) {
@@ -235,10 +278,21 @@ public class AppointmentService {
 
 	private List<AppointmentView> views(List<Appointment> found) {
 		Map<UUID, PatientBrief> briefs = patients.briefs(found.stream().map(Appointment::getPatientId).distinct().toList());
+		Map<UUID, ProcedureBrief> procedureBriefs = procedureBriefsOf(found);
 		List<AppointmentView> views = new ArrayList<>(found.size());
 		for (Appointment appointment : found) {
-			views.add(new AppointmentView(appointment, briefs.get(appointment.getPatientId())));
+			views.add(new AppointmentView(appointment, briefs.get(appointment.getPatientId()),
+					procedureOf(procedureBriefs, appointment.getProcedureTypeId())));
 		}
 		return views;
+	}
+
+	/** Resumos dos procedimentos da lista numa só consulta (sem N+1); vazio se nenhum agendamento tem procedimento. */
+	private Map<UUID, ProcedureBrief> procedureBriefsOf(List<Appointment> found) {
+		return procedures.briefs(found.stream().map(Appointment::getProcedureTypeId).filter(Objects::nonNull).distinct().toList());
+	}
+
+	private static ProcedureBrief procedureOf(Map<UUID, ProcedureBrief> briefs, UUID procedureTypeId) {
+		return procedureTypeId == null ? null : briefs.get(procedureTypeId);
 	}
 }

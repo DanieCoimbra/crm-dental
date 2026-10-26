@@ -36,6 +36,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import crm_data.catalog.service.ProcedureBrief;
+import crm_data.catalog.service.ProcedureTypeLookup;
 import crm_data.clinic.service.ClinicZones;
 import crm_data.patient.service.PatientBrief;
 import crm_data.patient.service.PatientLookup;
@@ -62,8 +64,9 @@ class AppointmentServiceTest {
 	private final BusinessHoursService businessHours = mock(BusinessHoursService.class);
 	private final HolidayService holidays = mock(HolidayService.class);
 	private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+	private final ProcedureTypeLookup procedures = mock(ProcedureTypeLookup.class);
 	private final AppointmentService service = new AppointmentService(appointments, patients, zones, businessHours, holidays,
-			events, Clock.fixed(NOW, ZoneOffset.UTC));
+			events, Clock.fixed(NOW, ZoneOffset.UTC), procedures);
 
 	private final UUID clinicId = UUID.randomUUID();
 	private final UUID userId = UUID.randomUUID();
@@ -406,6 +409,151 @@ class AppointmentServiceTest {
 					assertThat(ex.getMessage()).contains(status.name());
 				});
 		verify(appointments, never()).saveAndFlush(any());
+	}
+
+	// ---- procedimento (Fase 3, F02) ----
+
+	private final UUID procedureId = UUID.randomUUID();
+
+	private Appointment existingWithProcedure(AppointmentStatus status, UUID procedure) {
+		Appointment appointment = existing(status, at(MONDAY, 9, 0), 0);
+		appointment.setProcedureTypeId(procedure);
+		return appointment;
+	}
+
+	@Test
+	void createWithAProcedureChecksItBeforeSavingAndStoresIt() {
+		when(procedures.briefs(anyCollection())).thenReturn(Map.of(procedureId, new ProcedureBrief(procedureId, "Restauração", "#3B82F6")));
+
+		AppointmentView created = service.create(patientId, at(MONDAY, 9, 0), at(MONDAY, 9, 45), null, false, procedureId);
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(procedures, appointments);
+		order.verify(procedures).requireActive(procedureId);
+		ArgumentCaptor<Appointment> saved = ArgumentCaptor.forClass(Appointment.class);
+		order.verify(appointments).saveAndFlush(saved.capture());
+		assertThat(saved.getValue().getProcedureTypeId()).isEqualTo(procedureId);
+		assertThat(created.procedure().name()).isEqualTo("Restauração");
+	}
+
+	@Test
+	void createWithoutProcedureNeverTouchesTheCatalogToValidateAndHasANullProcedure() {
+		AppointmentView created = service.create(patientId, at(MONDAY, 9, 0), at(MONDAY, 9, 45), null, false);
+
+		verify(procedures, never()).requireActive(any());
+		assertThat(created.procedure()).isNull();
+		ArgumentCaptor<Appointment> saved = ArgumentCaptor.forClass(Appointment.class);
+		verify(appointments).saveAndFlush(saved.capture());
+		assertThat(saved.getValue().getProcedureTypeId()).isNull();
+	}
+
+	@Test
+	void anInactiveOrUnknownProcedureStopsTheCreationBeforeAnyWrite() {
+		doThrow(new BusinessException(ProblemTypes.BUSINESS_RULE, "O procedimento está inativo.", "PROCEDURE_INACTIVE"))
+				.doThrow(new BusinessException(ProblemTypes.NOT_FOUND, "Procedimento não encontrado."))
+				.when(procedures).requireActive(procedureId);
+
+		assertRule(() -> service.create(patientId, at(MONDAY, 9, 0), at(MONDAY, 9, 45), null, false, procedureId),
+				ProblemTypes.BUSINESS_RULE, "PROCEDURE_INACTIVE");
+		assertRule(() -> service.create(patientId, at(MONDAY, 9, 0), at(MONDAY, 9, 45), null, false, procedureId),
+				ProblemTypes.NOT_FOUND, null);
+
+		verify(appointments, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void theProcedureIsCheckedAfterThePatientSoAMissingPatientKeepsItsOwnError() {
+		doThrow(new BusinessException(ProblemTypes.NOT_FOUND, "Paciente não encontrado.")).when(patients).requireSchedulable(patientId);
+
+		assertThatThrownBy(() -> service.create(patientId, at(MONDAY, 9, 0), at(MONDAY, 9, 45), null, false, procedureId))
+				.isInstanceOf(BusinessException.class);
+
+		verifyNoInteractions(procedures);
+	}
+
+	@Test
+	void rescheduleReplacesTheProcedureAndNullClearsIt() {
+		Appointment appointment = existingWithProcedure(AppointmentStatus.SCHEDULED, procedureId);
+		when(appointments.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+		UUID other = UUID.randomUUID();
+
+		service.reschedule(appointment.getId(), at(MONDAY, 9, 0), at(MONDAY, 10, 0), "obs", false, other, 0L);
+		assertThat(appointment.getProcedureTypeId()).isEqualTo(other);
+		verify(procedures).requireActive(other);
+
+		service.reschedule(appointment.getId(), at(MONDAY, 9, 0), at(MONDAY, 10, 0), "obs", false, null, 0L);
+		assertThat(appointment.getProcedureTypeId()).as("ausente ou null remove o vínculo (D1)").isNull();
+	}
+
+	@Test
+	void theShortRescheduleOverloadClearsTheProcedure() {
+		Appointment appointment = existingWithProcedure(AppointmentStatus.SCHEDULED, procedureId);
+		when(appointments.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+
+		service.reschedule(appointment.getId(), at(MONDAY, 9, 0), at(MONDAY, 10, 0), "obs", false, 0L);
+
+		assertThat(appointment.getProcedureTypeId()).isNull();
+	}
+
+	@Test
+	void keepingTheSameInactiveProcedureOnAnEditIsRefusedLikeAnyOtherValue() {
+		Appointment appointment = existingWithProcedure(AppointmentStatus.SCHEDULED, procedureId);
+		when(appointments.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+		doThrow(new BusinessException(ProblemTypes.BUSINESS_RULE, "O procedimento está inativo.", "PROCEDURE_INACTIVE"))
+				.when(procedures).requireActive(procedureId);
+
+		assertRule(() -> service.reschedule(appointment.getId(), at(MONDAY, 9, 0), at(MONDAY, 10, 0), "obs", false, procedureId, 0L),
+				ProblemTypes.BUSINESS_RULE, "PROCEDURE_INACTIVE");
+
+		verify(appointments, never()).saveAndFlush(any());
+	}
+
+	@Test
+	void aWrongVersionOrStatusWinsOverTheProcedureCheck() {
+		Appointment stale = existingWithProcedure(AppointmentStatus.SCHEDULED, procedureId);
+		Appointment done = existingWithProcedure(AppointmentStatus.COMPLETED, procedureId);
+		when(appointments.findById(stale.getId())).thenReturn(Optional.of(stale));
+		when(appointments.findById(done.getId())).thenReturn(Optional.of(done));
+
+		assertThatThrownBy(() -> service.reschedule(stale.getId(), at(MONDAY, 9, 0), at(MONDAY, 10, 0), null, false, procedureId, 9L))
+				.isInstanceOf(BusinessException.class);
+		assertThatThrownBy(() -> service.reschedule(done.getId(), at(MONDAY, 9, 0), at(MONDAY, 10, 0), null, false, procedureId, 0L))
+				.isInstanceOf(BusinessException.class);
+
+		verifyNoInteractions(procedures);
+	}
+
+	@Test
+	void theAgendaResolvesAllProceduresInOneCallAndOnlyForTheOnesThatHaveOne() {
+		Appointment withProcedure = existingWithProcedure(AppointmentStatus.SCHEDULED, procedureId);
+		Appointment sameProcedure = existingWithProcedure(AppointmentStatus.CONFIRMED, procedureId);
+		Appointment without = existingWithProcedure(AppointmentStatus.SCHEDULED, null);
+		when(appointments.findWindow(any(), any(), any())).thenReturn(List.of(withProcedure, sameProcedure, without));
+		when(procedures.briefs(anyCollection())).thenReturn(Map.of(procedureId, new ProcedureBrief(procedureId, "Canal", "#EF4444")));
+
+		List<AppointmentView> views = service.list(MONDAY, MONDAY, List.of());
+
+		assertThat(views).extracting(v -> v.procedure() == null ? null : v.procedure().name()).containsExactly("Canal", "Canal", null);
+		ArgumentCaptor<java.util.Collection<UUID>> ids = ArgumentCaptor.forClass(java.util.Collection.class);
+		verify(procedures).briefs(ids.capture());
+		assertThat(ids.getValue()).containsExactly(procedureId);
+	}
+
+	@Test
+	void anAppointmentWhoseProcedureWasNotResolvedHasANullProcedureInsteadOfFailing() {
+		Appointment appointment = existingWithProcedure(AppointmentStatus.SCHEDULED, procedureId);
+		when(appointments.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+		when(procedures.briefs(anyCollection())).thenReturn(Map.of());
+
+		assertThat(service.get(appointment.getId()).procedure()).isNull();
+	}
+
+	@Test
+	void theHistoryAlsoCarriesTheProcedureSummary() {
+		Appointment appointment = existingWithProcedure(AppointmentStatus.COMPLETED, procedureId);
+		when(appointments.findByPatientId(any(), any())).thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(appointment)));
+		when(procedures.briefs(anyCollection())).thenReturn(Map.of(procedureId, new ProcedureBrief(procedureId, "Limpeza", "#10B981")));
+
+		assertThat(service.historyOf(patientId, 0, 20).getContent()).extracting(v -> v.procedure().name()).containsExactly("Limpeza");
 	}
 
 	// ---- histórico do paciente ----

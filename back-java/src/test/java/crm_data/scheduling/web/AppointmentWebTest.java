@@ -42,6 +42,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import crm_data.catalog.service.ProcedureBrief;
 import crm_data.patient.service.PatientBrief;
 import crm_data.scheduling.domain.Appointment;
 import crm_data.scheduling.domain.AppointmentStatus;
@@ -104,7 +105,7 @@ class AppointmentWebTest {
 	@ParameterizedTest
 	@EnumSource(Role.class)
 	void bothRolesCreateAndTheResponseHasTheContractShape(Role role) throws Exception {
-		when(appointments.create(any(), any(), any(), any(), anyBoolean())).thenReturn(view(AppointmentStatus.SCHEDULED));
+		when(appointments.create(any(), any(), any(), any(), anyBoolean(), any())).thenReturn(view(AppointmentStatus.SCHEDULED));
 
 		mvc.perform(json(post("/api/v1/appointments"), create("2026-11-03T13:00:00Z", "2026-11-03T13:45:00Z", ",\"notes\":\"  Retorno  \"")).with(as(role)))
 				.andExpect(status().isCreated())
@@ -119,24 +120,96 @@ class AppointmentWebTest {
 				.andExpect(content().string(Matchers.not(Matchers.containsString("clinicId"))))
 				.andExpect(content().string(Matchers.not(Matchers.containsString("procedureTypeId"))));
 
-		verify(appointments).create(UUID.fromString(PATIENT), START, START.plusSeconds(2700), "Retorno", false);
+		verify(appointments).create(UUID.fromString(PATIENT), START, START.plusSeconds(2700), "Retorno", false, null);
 	}
 
 	@Test
 	void createIgnoresServerOwnedFieldsAndReadsOffsetInstants() throws Exception {
-		when(appointments.create(any(), any(), any(), any(), anyBoolean())).thenReturn(view(AppointmentStatus.SCHEDULED));
-		String extra = ",\"id\":\"%s\",\"clinicId\":\"%s\",\"createdBy\":\"%s\",\"status\":\"COMPLETED\",\"procedureTypeId\":\"%s\",\"allowOutsideHours\":true"
-				.formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+		when(appointments.create(any(), any(), any(), any(), anyBoolean(), any())).thenReturn(view(AppointmentStatus.SCHEDULED));
+		String extra = ",\"id\":\"%s\",\"clinicId\":\"%s\",\"createdBy\":\"%s\",\"status\":\"COMPLETED\",\"allowOutsideHours\":true"
+				.formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
 
 		mvc.perform(json(post("/api/v1/appointments"), create("2026-11-03T10:00:00-03:00", "2026-11-03T10:45:00-03:00", extra))
 				.with(as(Role.DENTIST_ADMIN))).andExpect(status().isCreated());
 
-		verify(appointments).create(UUID.fromString(PATIENT), START, START.plusSeconds(2700), null, true);
+		verify(appointments).create(UUID.fromString(PATIENT), START, START.plusSeconds(2700), null, true, null);
+	}
+
+	// ---- procedimento (Fase 3, F02) ----
+
+	private static final UUID PROCEDURE = UUID.fromString("c1a2b3d4-0e5f-4a6b-8c7d-9e0f1a2b3c4d");
+
+	private AppointmentView viewWithProcedure() {
+		AppointmentView base = view(AppointmentStatus.SCHEDULED);
+		return new AppointmentView(base.appointment(), base.patient(), new ProcedureBrief(PROCEDURE, "Restauração", "#3B82F6"));
+	}
+
+	@Test
+	void theProcedureIdIsPassedOnAndTheResponseCarriesTheProcedureSummaryButNeverItsId() throws Exception {
+		when(appointments.create(any(), any(), any(), any(), anyBoolean(), any())).thenReturn(viewWithProcedure());
+
+		mvc.perform(json(post("/api/v1/appointments"),
+				create("2026-11-03T13:00:00Z", "2026-11-03T13:45:00Z", ",\"procedureTypeId\":\"" + PROCEDURE + "\""))
+				.with(as(Role.RECEPTIONIST)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.procedure.id").value(PROCEDURE.toString()))
+				.andExpect(jsonPath("$.procedure.name").value("Restauração"))
+				.andExpect(jsonPath("$.procedure.color").value("#3B82F6"))
+				.andExpect(content().string(Matchers.not(Matchers.containsString("procedureTypeId"))));
+
+		verify(appointments).create(UUID.fromString(PATIENT), START, START.plusSeconds(2700), null, false, PROCEDURE);
+	}
+
+	@Test
+	void anAppointmentWithoutProcedureHasANullProcedure() throws Exception {
+		when(appointments.get(any())).thenReturn(view(AppointmentStatus.SCHEDULED));
+
+		mvc.perform(get("/api/v1/appointments/" + UUID.randomUUID()).with(as(Role.DENTIST_ADMIN)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.procedure").value(Matchers.nullValue()));
+	}
+
+	@Test
+	void reschedulePassesTheProcedureIdAndWithoutItTheServiceReceivesNullToClearTheLink() throws Exception {
+		when(appointments.reschedule(any(), any(), any(), any(), anyBoolean(), any(), anyLong())).thenReturn(viewWithProcedure());
+		UUID id = UUID.randomUUID();
+		String window = "\"startsAt\":\"2026-11-03T14:00:00Z\",\"endsAt\":\"2026-11-03T14:45:00Z\"";
+
+		mvc.perform(json(put("/api/v1/appointments/" + id), "{" + window + ",\"procedureTypeId\":\"" + PROCEDURE + "\",\"version\":2}")
+				.with(as(Role.RECEPTIONIST))).andExpect(status().isOk());
+		mvc.perform(json(put("/api/v1/appointments/" + id), "{" + window + ",\"version\":3}").with(as(Role.RECEPTIONIST)))
+				.andExpect(status().isOk());
+
+		verify(appointments).reschedule(id, Instant.parse("2026-11-03T14:00:00Z"), Instant.parse("2026-11-03T14:45:00Z"), null, false,
+				PROCEDURE, 2L);
+		verify(appointments).reschedule(id, Instant.parse("2026-11-03T14:00:00Z"), Instant.parse("2026-11-03T14:45:00Z"), null, false,
+				null, 3L);
+	}
+
+	@Test
+	void aProcedureThatIsNotAUuidIsRejectedWith400() throws Exception {
+		mvc.perform(json(post("/api/v1/appointments"),
+				create("2026-11-03T13:00:00Z", "2026-11-03T13:45:00Z", ",\"procedureTypeId\":\"restauracao\""))
+				.with(as(Role.DENTIST_ADMIN)))
+				.andExpect(status().isBadRequest());
+		verifyNoInteractions(appointments);
+	}
+
+	@Test
+	void theServiceErrorsOfTheProcedureKeepTheirStatusAndReason() throws Exception {
+		when(appointments.create(any(), any(), any(), any(), anyBoolean(), any()))
+				.thenThrow(new BusinessException(ProblemTypes.BUSINESS_RULE, "O procedimento está inativo.", "PROCEDURE_INACTIVE"))
+				.thenThrow(new BusinessException(ProblemTypes.NOT_FOUND, "Procedimento não encontrado."));
+		String body = create("2026-11-03T13:00:00Z", "2026-11-03T13:45:00Z", ",\"procedureTypeId\":\"" + PROCEDURE + "\"");
+
+		mvc.perform(json(post("/api/v1/appointments"), body).with(as(Role.RECEPTIONIST)))
+				.andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.reason").value("PROCEDURE_INACTIVE"));
+		mvc.perform(json(post("/api/v1/appointments"), body).with(as(Role.RECEPTIONIST))).andExpect(status().isNotFound());
 	}
 
 	@Test
 	void theFitFlagFromTheReceptionistIsPassedOnSoTheServiceCanRefuseIt() throws Exception {
-		when(appointments.create(any(), any(), any(), any(), eq(true)))
+		when(appointments.create(any(), any(), any(), any(), eq(true), any()))
 				.thenThrow(new BusinessException(ProblemTypes.FORBIDDEN, "Somente o dentista pode agendar fora do expediente."));
 
 		mvc.perform(json(post("/api/v1/appointments"), create("2026-11-03T13:00:00Z", "2026-11-03T13:45:00Z", ",\"allowOutsideHours\":true"))
@@ -178,7 +251,7 @@ class AppointmentWebTest {
 
 	@Test
 	void theLimitsOf5MinutesAnd12HoursAreAccepted() throws Exception {
-		when(appointments.create(any(), any(), any(), any(), anyBoolean())).thenReturn(view(AppointmentStatus.SCHEDULED));
+		when(appointments.create(any(), any(), any(), any(), anyBoolean(), any())).thenReturn(view(AppointmentStatus.SCHEDULED));
 
 		mvc.perform(json(post("/api/v1/appointments"), create("2026-11-03T13:00:00Z", "2026-11-03T13:05:00Z", "")).with(as(Role.RECEPTIONIST)))
 				.andExpect(status().isCreated());
@@ -190,19 +263,19 @@ class AppointmentWebTest {
 
 	@Test
 	void notesThatAreBlankAreRejectedAndEmptyOrMissingMeansNone() throws Exception {
-		when(appointments.create(any(), any(), any(), any(), anyBoolean())).thenReturn(view(AppointmentStatus.SCHEDULED));
+		when(appointments.create(any(), any(), any(), any(), anyBoolean(), any())).thenReturn(view(AppointmentStatus.SCHEDULED));
 
 		mvc.perform(json(post("/api/v1/appointments"), create("2026-11-03T13:00:00Z", "2026-11-03T13:45:00Z", ",\"notes\":\"   \""))
 				.with(as(Role.RECEPTIONIST))).andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[?(@.field=='notes')]").isNotEmpty());
 		mvc.perform(json(post("/api/v1/appointments"), create("2026-11-03T13:00:00Z", "2026-11-03T13:45:00Z", ",\"notes\":null"))
 				.with(as(Role.RECEPTIONIST))).andExpect(status().isCreated());
 
-		verify(appointments).create(any(), any(), any(), isNull(), eq(false));
+		verify(appointments).create(any(), any(), any(), isNull(), eq(false), isNull());
 	}
 
 	@Test
 	void ruleErrorsFromTheServiceKeepTheirStatusAndReason() throws Exception {
-		when(appointments.create(any(), any(), any(), any(), anyBoolean()))
+		when(appointments.create(any(), any(), any(), any(), anyBoolean(), any()))
 				.thenThrow(new BusinessException(ProblemTypes.BUSINESS_RULE, "O horário cai no intervalo de almoço.", "LUNCH"));
 
 		mvc.perform(json(post("/api/v1/appointments"), create("2026-11-03T15:00:00Z", "2026-11-03T15:45:00Z", "")).with(as(Role.RECEPTIONIST)))
@@ -273,14 +346,14 @@ class AppointmentWebTest {
 	@EnumSource(Role.class)
 	void bothRolesRescheduleAndPatientIdInTheBodyIsIgnored(Role role) throws Exception {
 		UUID id = UUID.randomUUID();
-		when(appointments.reschedule(any(), any(), any(), any(), anyBoolean(), anyLong())).thenReturn(view(AppointmentStatus.SCHEDULED));
+		when(appointments.reschedule(any(), any(), any(), any(), anyBoolean(), any(), anyLong())).thenReturn(view(AppointmentStatus.SCHEDULED));
 		String body = "{\"patientId\":\"%s\",\"startsAt\":\"2026-11-03T14:00:00Z\",\"endsAt\":\"2026-11-03T14:45:00Z\",\"notes\":null,\"version\":2}"
 				.formatted(UUID.randomUUID());
 
 		mvc.perform(json(put("/api/v1/appointments/" + id), body).with(as(role))).andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("SCHEDULED"));
 
-		verify(appointments).reschedule(id, Instant.parse("2026-11-03T14:00:00Z"), Instant.parse("2026-11-03T14:45:00Z"), null, false, 2L);
+		verify(appointments).reschedule(id, Instant.parse("2026-11-03T14:00:00Z"), Instant.parse("2026-11-03T14:45:00Z"), null, false, null, 2L);
 	}
 
 	@Test
@@ -300,7 +373,7 @@ class AppointmentWebTest {
 
 	@Test
 	void staleVersionAndWrongStatusFromTheServiceAre409() throws Exception {
-		when(appointments.reschedule(any(), any(), any(), any(), anyBoolean(), anyLong()))
+		when(appointments.reschedule(any(), any(), any(), any(), anyBoolean(), any(), anyLong()))
 				.thenThrow(new BusinessException(ProblemTypes.CONFLICT, "O agendamento está COMPLETED e não pode ser alterado."));
 
 		mvc.perform(json(put("/api/v1/appointments/" + UUID.randomUUID()),

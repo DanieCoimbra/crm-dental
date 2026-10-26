@@ -20,6 +20,17 @@ public interface PatientLookup {
 	void requireWritable(UUID patientId);
 
 	/**
+	 * Como {@link #requireWritable}, mas <strong>trava a linha do paciente</strong> (compartilhada) até o fim da transação do
+	 * chamador. Para quem grava algo que a anonimização precisa enxergar (por exemplo o PDF do orçamento, que traz o nome do
+	 * paciente e um objeto no Storage que ela precisa limpar): o que chega antes da anonimização entra na limpeza; o que
+	 * chega depois falha com 409. Exige transação ativa.
+	 *
+	 * @throws crm_data.shared.error.BusinessException {@code not-found} (404) se não existe; {@code conflict} (409) se
+	 *         anonimizado
+	 */
+	void lockWritable(UUID patientId);
+
+	/**
 	 * Paciente que pode receber agendamento: existe na clínica, não está anonimizado e está ativo.
 	 *
 	 * @throws crm_data.shared.error.BusinessException {@code not-found} (404) se não existe; {@code conflict} (409)

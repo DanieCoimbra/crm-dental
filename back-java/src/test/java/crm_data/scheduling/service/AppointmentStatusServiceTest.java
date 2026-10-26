@@ -29,6 +29,7 @@ import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import crm_data.catalog.service.ProcedureTypeLookup;
 import crm_data.clinic.service.ClinicZones;
 import crm_data.patient.service.PatientBrief;
 import crm_data.patient.service.PatientLookup;
@@ -52,8 +53,9 @@ class AppointmentStatusServiceTest {
 	private final PatientLookup patients = mock(PatientLookup.class);
 	private final ClinicZones zones = mock(ClinicZones.class);
 	private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+	private final ProcedureTypeLookup procedures = mock(ProcedureTypeLookup.class);
 	private final AppointmentStatusService service = new AppointmentStatusService(appointments, patients, zones, events,
-			Clock.fixed(NOW, ZoneOffset.UTC));
+			Clock.fixed(NOW, ZoneOffset.UTC), procedures);
 
 	private final UUID clinicId = UUID.randomUUID();
 	private final UUID userId = UUID.randomUUID();

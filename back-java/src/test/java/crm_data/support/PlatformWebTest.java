@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 
 import crm_data.shared.config.CorsConfig;
+import crm_data.shared.config.JsonStrictnessConfig;
 import crm_data.shared.config.JwtConfig;
 import crm_data.shared.config.ProblemResponseWriter;
 import crm_data.shared.config.SecurityConfig;
@@ -22,7 +23,7 @@ import crm_data.shared.web.RequestIdFilter;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @WebMvcTest(ProbeController.class)
-@Import({ SecurityConfig.class, CorsConfig.class, SecurityHeadersConfig.class, ProblemResponseWriter.class,
+@Import({ SecurityConfig.class, CorsConfig.class, SecurityHeadersConfig.class, ProblemResponseWriter.class, JsonStrictnessConfig.class,
 		RequestIdFilter.class, JwtConfig.class })
 @TestPropertySource(properties = { "crm.cors-origins=https://app.test.local",
 		"crm.jwt.secret=segredo-somente-de-teste-com-mais-de-32-bytes" })

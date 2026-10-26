@@ -131,4 +131,22 @@ class PatientLookupServiceTest {
 			assertThat(ex.getMessage()).isEqualTo("Paciente anonimizado.");
 		});
 	}
+
+	@Test
+	void lockWritableUsesTheLockingQueryAndRefusesAnonymizedOrUnknownPatients() {
+		when(patients.anonymizedFlagLocked(id)).thenReturn(List.of(false));
+		assertThatCode(() -> lookup.lockWritable(id)).doesNotThrowAnyException();
+
+		UUID anonymized = UUID.randomUUID();
+		when(patients.anonymizedFlagLocked(anonymized)).thenReturn(List.of(true));
+		assertThatThrownBy(() -> lookup.lockWritable(anonymized)).isInstanceOfSatisfying(BusinessException.class, ex -> {
+			assertThat(ex.type()).isEqualTo(ProblemTypes.CONFLICT);
+			assertThat(ex.getMessage()).isEqualTo("Paciente anonimizado.");
+		});
+		UUID unknown = UUID.randomUUID();
+		when(patients.anonymizedFlagLocked(unknown)).thenReturn(List.of());
+		assertThatThrownBy(() -> lookup.lockWritable(unknown)).isInstanceOfSatisfying(BusinessException.class,
+				ex -> assertThat(ex.type()).isEqualTo(ProblemTypes.NOT_FOUND));
+		verify(patients, never()).anonymizedFlag(id); // a checagem sem trava não é usada quando se pede a trava
+	}
 }

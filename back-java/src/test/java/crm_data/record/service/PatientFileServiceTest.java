@@ -103,7 +103,7 @@ class PatientFileServiceTest {
 			return null;
 		}).when(tm).rollback(any());
 		CrmProperties properties = new CrmProperties(List.of(),
-				new CrmProperties.Storage("", "", "", Duration.ofSeconds(60), ""), false);
+				new CrmProperties.Storage("", "", "", Duration.ofSeconds(60), ""), false, null);
 		service = new PatientFileService(files, patients, storage, tm, Clock.fixed(NOW, ZoneOffset.UTC), properties);
 		TenantContext.set(clinicId, userId, Role.RECEPTIONIST);
 	}

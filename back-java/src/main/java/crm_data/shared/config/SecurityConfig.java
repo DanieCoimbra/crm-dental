@@ -83,6 +83,17 @@ public class SecurityConfig {
 				// exames: a recepção só anexa (POST cai em authenticated); lista, URL assinada e remoção são do dentista
 				.requestMatchers(HttpMethod.GET, "/api/v1/patients/*/files/**").hasRole("DENTIST_ADMIN")
 				.requestMatchers(HttpMethod.DELETE, "/api/v1/patients/*/files/**").hasRole("DENTIST_ADMIN")
+				// comercial e financeiro (Fase 3): a recepção só lê procedimentos, orçamentos e PDFs; escrita e todo o
+				// financeiro (parcelas, pagamentos, relatórios, ficha) são do dentista. Mais específico antes do geral.
+				.requestMatchers(HttpMethod.POST, "/api/v1/procedure-types", "/api/v1/procedure-types/**")
+					.hasRole("DENTIST_ADMIN")
+				.requestMatchers(HttpMethod.PUT, "/api/v1/procedure-types/**").hasRole("DENTIST_ADMIN")
+				.requestMatchers(HttpMethod.PATCH, "/api/v1/procedure-types/**").hasRole("DENTIST_ADMIN")
+				.requestMatchers(HttpMethod.POST, "/api/v1/budgets", "/api/v1/budgets/**").hasRole("DENTIST_ADMIN")
+				.requestMatchers(HttpMethod.PUT, "/api/v1/budgets/**").hasRole("DENTIST_ADMIN")
+				.requestMatchers(HttpMethod.GET, "/api/v1/budgets/*/installments").hasRole("DENTIST_ADMIN")
+				.requestMatchers("/api/v1/installments/**", "/api/v1/payments/**", "/api/v1/finance/**",
+						"/api/v1/patients/*/financial").hasRole("DENTIST_ADMIN")
 				.anyRequest().authenticated())
 			.oauth2ResourceServer(resourceServer -> resourceServer
 				.bearerTokenResolver(bearerTokenResolver())

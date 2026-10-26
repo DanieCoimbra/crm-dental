@@ -20,6 +20,15 @@ public interface PatientRepository extends JpaRepository<Patient, UUID>, JpaSpec
 	@Query("select (p.anonymizedAt is not null) from Patient p where p.id = :id")
 	List<Boolean> anonymizedFlag(@Param("id") UUID id);
 
+	/**
+	 * Como {@link #anonymizedFlag}, mas trava a linha do paciente em modo compartilhado ({@code FOR SHARE}) até o fim da
+	 * transação: a anonimização (que trava a mesma linha para escrever) espera esta transação terminar, e quem chega depois
+	 * dela lê o estado já anonimizado. Exige transação ativa.
+	 */
+	@org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_READ)
+	@Query("select (p.anonymizedAt is not null) from Patient p where p.id = :id")
+	List<Boolean> anonymizedFlagLocked(@Param("id") UUID id);
+
 	/** Estado que importa para agendar; lista vazia se o paciente não existe na clínica do tenant. */
 	@Query("select p.active as active, (p.anonymizedAt is not null) as anonymized from Patient p where p.id = :id")
 	List<SchedulingState> schedulingState(@Param("id") UUID id);
