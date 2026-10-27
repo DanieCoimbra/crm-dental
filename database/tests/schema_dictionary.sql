@@ -32,6 +32,8 @@ INSERT INTO expected_cols VALUES
  ('users','created_at','timestamp with time zone',NULL,'NO','now()'),
  ('users','updated_at','timestamp with time zone',NULL,'NO','now()'),
  ('users','version','bigint',NULL,'NO','0'),
+ ('users','cro_number','character varying',15,'YES',NULL),
+ ('users','cro_state','character varying',2,'YES',NULL),
  ('refresh_tokens','id','uuid',NULL,'NO','gen_random_uuid()'),
  ('refresh_tokens','clinic_id','uuid',NULL,'NO',NULL),
  ('refresh_tokens','user_id','uuid',NULL,'NO',NULL),
@@ -210,7 +212,26 @@ INSERT INTO expected_cols VALUES
  ('payments','paid_on','date',NULL,'NO',NULL),
  ('payments','reverses_payment_id','uuid',NULL,'YES',NULL),
  ('payments','created_by','uuid',NULL,'NO',NULL),
- ('payments','created_at','timestamp with time zone',NULL,'NO','now()');
+ ('payments','created_at','timestamp with time zone',NULL,'NO','now()'),
+ ('clinical_documents','id','uuid',NULL,'NO','gen_random_uuid()'),
+ ('clinical_documents','clinic_id','uuid',NULL,'NO',NULL),
+ ('clinical_documents','patient_id','uuid',NULL,'NO',NULL),
+ ('clinical_documents','appointment_id','uuid',NULL,'YES',NULL),
+ ('clinical_documents','document_type','character varying',15,'NO',NULL),
+ ('clinical_documents','number','integer',NULL,'NO',NULL),
+ ('clinical_documents','issued_on','date',NULL,'NO',NULL),
+ ('clinical_documents','rest_days','smallint',NULL,'YES',NULL),
+ ('clinical_documents','target_specialty','character varying',60,'YES',NULL),
+ ('clinical_documents','content','character varying',22000,'YES',NULL),
+ ('clinical_documents','sha256','character varying',64,'NO',NULL),
+ ('clinical_documents','voided_at','timestamp with time zone',NULL,'YES',NULL),
+ ('clinical_documents','voided_by','uuid',NULL,'YES',NULL),
+ ('clinical_documents','void_reason','character varying',200,'YES',NULL),
+ ('clinical_documents','anonymized_at','timestamp with time zone',NULL,'YES',NULL),
+ ('clinical_documents','created_by','uuid',NULL,'NO',NULL),
+ ('clinical_documents','created_at','timestamp with time zone',NULL,'NO','now()'),
+ ('clinical_documents','updated_at','timestamp with time zone',NULL,'NO','now()'),
+ ('clinical_documents','version','bigint',NULL,'NO','0');
 
 DO $$
 DECLARE
@@ -232,7 +253,7 @@ BEGIN
       FROM information_schema.columns c
      WHERE c.table_schema = 'core' AND c.table_name IN ('clinics', 'users', 'refresh_tokens', 'patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log',
                                 'appointments', 'business_hours', 'clinic_holidays', 'holidays',
-                                'procedure_types', 'budgets', 'budget_items', 'budget_documents', 'installments', 'payments')
+                                'procedure_types', 'budgets', 'budget_items', 'budget_documents', 'installments', 'payments', 'clinical_documents')
        AND NOT EXISTS (SELECT 1 FROM expected_cols e WHERE e.tbl = c.table_name AND e.col = c.column_name)
   ) x;
   IF v IS NOT NULL THEN
@@ -252,7 +273,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns
               WHERE table_schema = 'core' AND table_name IN ('clinics', 'users', 'refresh_tokens', 'patients', 'medical_histories', 'clinical_notes', 'patient_files', 'audit_log',
                                 'appointments', 'business_hours', 'clinic_holidays', 'holidays',
-                                'procedure_types', 'budgets', 'budget_items', 'budget_documents', 'installments', 'payments')
+                                'procedure_types', 'budgets', 'budget_items', 'budget_documents', 'installments', 'payments', 'clinical_documents')
                 AND data_type IN ('character', 'text')) THEN
     RAISE EXCEPTION 'tipos char/text nao sao permitidos nestas tabelas';
   END IF;
@@ -321,7 +342,12 @@ BEGIN
       ('ux_pay_id_inst_clinic',       true,  '(id, installment_id, clinic_id)',          NULL),
       ('ux_pay_reverses',             true,  '(reverses_payment_id)',                    NULL),
       ('ix_pay_installment',          false, '(clinic_id, installment_id)',              NULL),
-      ('ix_pay_clinic_paid',          false, '(clinic_id, paid_on, id)',                 NULL)
+      ('ix_pay_clinic_paid',          false, '(clinic_id, paid_on, id)',                 NULL),
+      -- Fase 4
+      ('ux_cdoc_number',              true,  '(clinic_id, document_type, number)',       NULL),
+      ('ix_cdoc_patient',             false, '(clinic_id, patient_id, created_at DESC, id DESC)', NULL),
+      ('ix_cdoc_appointment',         false, '(clinic_id, appointment_id)',              '(appointment_id IS NOT NULL)'),
+      ('ix_appt_completed_patient',   false, '(clinic_id, patient_id, starts_at)',       '((status)::text = ''COMPLETED''::text)')
     ) AS t(idx, uniq, cols, pred)
   LOOP
     SELECT indexdef INTO def FROM pg_indexes WHERE schemaname = 'core' AND indexname = r.idx;
@@ -391,7 +417,11 @@ BEGIN
       ('budget_documents',  'fk_bdoc_created_by',      'core.users'),
       ('installments',      'fk_inst_created_by',      'core.users'),
       ('payments',          'fk_pay_installment',      'core.installments'),
-      ('payments',          'fk_pay_created_by',       'core.users')
+      ('payments',          'fk_pay_created_by',       'core.users'),
+      -- Fase 4
+      ('clinical_documents', 'fk_cdoc_patient',        'core.patients'),
+      ('clinical_documents', 'fk_cdoc_created_by',     'core.users'),
+      ('clinical_documents', 'fk_cdoc_voided_by',      'core.users')
     ) AS t(tbl, fk, ref)
   LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_constraint c

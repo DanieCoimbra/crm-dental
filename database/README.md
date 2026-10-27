@@ -44,6 +44,26 @@ Regras que o backend precisa respeitar (detalhes em `docs/features/banco/Fase-3/
 
 Testes novos (todos rodam em `tests/run_all.sh`): `procedure_types`, `budgets`, `budget_items`, `budget_status`, `installments`, `payments`, `payments_append_only`, `budget_documents`, `money_invariants` (propriedade, 1.600 operações com semente fixa), `audit_commercial`, `anonymize_commercial`, `phase3_isolation`, `phase3_permissions`, `phase3_performance` (200 mil linhas financeiras), `commercial_concurrency.sh` (duas conexões) e `migrations_phase3.sh` (reversões e função de anonimização restaurada). A suíte completa leva cerca de 3 minutos.
 
+## Fase 4: documentos e dashboard (V031–V035)
+
+Uma tabela nova em `core` (`clinical_documents`), duas colunas em `users` e um índice. **Nada manual no Supabase:** sem extensão nova; o PDF do documento **não é guardado** (o backend o gera sob demanda a partir da linha).
+
+| Migration | Conteúdo |
+|---|---|
+| `V031` | `users.cro_number` e `users.cro_state` (os dois ou nenhum, só `DENTIST_ADMIN`); só o próprio usuário altera o seu CRO (trigger `guard_user_cro`) |
+| `V032` | `clinical_documents`: atestado, receita e encaminhamento imutáveis, texto cifrado pela aplicação, número por clínica e tipo atribuído pelo banco, anulação, RLS por clínica **e** por papel (só `DENTIST_ADMIN`) |
+| `V033` | auditoria dos documentos (`INSERT`, `VOID`, `ANONYMIZE`) e `core.record_document_download(uuid)` (`DOWNLOAD`) |
+| `V034` | `anonymize_patient` passa a zerar `content`, `rest_days`, `target_specialty` e `void_reason` dos documentos do paciente (a linha permanece; não bloqueia a anonimização) |
+| `V035` | `ix_appt_completed_patient` (taxa de retorno do dashboard); sem view nem tabela de resumo |
+
+Regras que o backend precisa respeitar (detalhes em `docs/features/banco/Fase-4/*/contract.md`): `READ COMMITTED`; **não enviar** `number`, `voided_*` nem `anonymized_at` no `INSERT` (reler a linha para obter o `number`); o `UPDATE` de anulação só toca `voided_at`, `voided_by`, `void_reason` e `version` (`@DynamicUpdate` ou demais colunas `updatable=false`); `content` é o Base64 do envelope AES-GCM (até 22.000 caracteres); `sha256` é calculado pelo backend sobre `v1|tipo|paciente|issued_on|rest_days|especialidade|content`; chamar `record_document_download` na mesma transação que gera o PDF (download **e** impressão); novo erro `CR012` (emissor sem CRO e UF). O corte do KPI "faturamento do mês" por papel é do backend (a recepção lê `budgets`).
+
+Testes novos (todos rodam em `tests/run_all.sh`, `MIGRATIONS_EXPECTED=35`): `users_cro` (125, 126), `clinical_documents` (127, 128), `clinical_documents_immutable` (129), `documents_numbering` (130), `documents_concurrency.sh` (131, duas conexões), `audit_documents` (132–134), `anonymize_documents` (135, 136), `phase4_performance` (137, 100 mil documentos e agendamentos), `phase4_isolation` (138), `phase4_permissions` (139) e `migrations_phase4.sh` (140, reversões e função de anonimização restaurada). O teste 143 (`ddl-auto=validate` da Fase 4) depende do backend e está **pendente**.
+
+## V030 (auditoria de segurança e desempenho de 2026-10-27)
+
+`V030` tira o ruído de `audit_log` do recálculo do total por item em `budgets` (o `UPDATE` só é auditado quando o conteúdo, o status ou a `version` mudam), faz `refresh_budget_total` exigir `app.user_id` (`28000`) e leva a guarda `CR003` de paciente anonimizado para `budget_documents`. Reversão: `U030`. Testes 122, 123 e 124.
+
 ## Criar uma migration
 
 1. Próximo número livre: `V007__descricao_em_snake_case.sql` (3 dígitos, dois sublinhados).

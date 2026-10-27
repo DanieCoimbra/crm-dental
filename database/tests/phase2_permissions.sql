@@ -187,7 +187,7 @@ BEGIN
   -- o conjunto SECURITY DEFINER não muda na Fase 2
   SELECT array_agg(p.proname ORDER BY p.proname) INTO names
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'core' AND p.prosecdef;
-  IF names IS DISTINCT FROM ARRAY['anonymize_patient', 'find_refresh_token', 'find_user_for_login', 'purge_expired_refresh_tokens', 'write_audit'] THEN
+  IF names IS DISTINCT FROM ARRAY['anonymize_patient', 'find_refresh_token', 'find_user_for_login', 'purge_expired_refresh_tokens', 'record_document_download', 'write_audit', 'write_document_audit'] THEN
     RAISE EXCEPTION 'T80: funcoes SECURITY DEFINER inesperadas: %', names;
   END IF;
 

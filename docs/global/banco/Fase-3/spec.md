@@ -585,6 +585,8 @@ Operadores usados (`=`, `<`, `>=` em `uuid`, `date`, `timestamptz`, `varchar`) s
 
 ---
 
+> **Adendo V030 (2026-10-27, auditoria de segurança e desempenho):** (a) o `UPDATE` de `budgets` só é auditado quando status, `version`, `discount_amount`, `appointment_id`, `valid_until` ou `notes` mudam (dois triggers: `trg_budgets_audit_insdel` para `INSERT`/`DELETE` e `trg_budgets_audit_upd` com `WHEN`); o recálculo do total por item deixa de gerar linha de `audit_log` (editar 50 itens gerava ~100 linhas). (b) `core.refresh_budget_total` passa a exigir `app.user_id` (`28000`), no lugar do efeito colateral da auditoria em cascata. (c) `core.budget_documents` ganha a guarda `CR003` de paciente anonimizado no próprio banco (`trg_bdoc_no_anonymized_parent`, reaproveitando `forbid_child_of_anonymized`), que antes só o backend aplicava. Reversão: `U030`. Testes 122, 123 e 124. Vale para as seções 4.2 e 8 abaixo.
+
 ## 5. Migrations e ambientes
 
 ### 5.1 Estrutura (acréscimos)

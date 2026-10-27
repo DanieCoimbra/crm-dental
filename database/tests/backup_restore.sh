@@ -24,7 +24,7 @@ work="$(mktemp -d)"
 cleanup() {
   # Fase 1: audit_log é só de inserção (inclusive TRUNCATE, por trigger) e as FKs são RESTRICT; esta limpeza desliga o
   # trigger de TRUNCATE só aqui e esvazia as tabelas clínicas e da agenda (Fase 2), que só este teste popula com dados commitados
-  admin -c "ALTER TABLE core.audit_log DISABLE TRIGGER trg_audit_log_no_truncate; ALTER TABLE core.payments DISABLE TRIGGER trg_pay_no_truncate; TRUNCATE core.audit_log, core.payments, core.installments, core.budget_documents, core.budget_items, core.budgets, core.appointments, core.procedure_types, core.business_hours, core.clinic_holidays, core.patient_files, core.clinical_notes, core.medical_histories, core.patients; ALTER TABLE core.audit_log ENABLE TRIGGER trg_audit_log_no_truncate; ALTER TABLE core.payments ENABLE TRIGGER trg_pay_no_truncate" >/dev/null 2>&1
+  admin -c "ALTER TABLE core.audit_log DISABLE TRIGGER trg_audit_log_no_truncate; ALTER TABLE core.payments DISABLE TRIGGER trg_pay_no_truncate; ALTER TABLE core.clinical_documents DISABLE TRIGGER trg_cdoc_no_truncate; TRUNCATE core.audit_log, core.clinical_documents, core.payments, core.installments, core.budget_documents, core.budget_items, core.budgets, core.appointments, core.procedure_types, core.business_hours, core.clinic_holidays, core.patient_files, core.clinical_notes, core.medical_histories, core.patients; ALTER TABLE core.audit_log ENABLE TRIGGER trg_audit_log_no_truncate; ALTER TABLE core.payments ENABLE TRIGGER trg_pay_no_truncate; ALTER TABLE core.clinical_documents ENABLE TRIGGER trg_cdoc_no_truncate" >/dev/null 2>&1
   admin -c "DELETE FROM core.refresh_tokens WHERE clinic_id IN (SELECT id FROM core.clinics WHERE name LIKE 'bkp-test-%')" >/dev/null 2>&1
   admin -c "DELETE FROM core.users WHERE clinic_id IN (SELECT id FROM core.clinics WHERE name LIKE 'bkp-test-%')" >/dev/null 2>&1
   admin -c "DELETE FROM core.clinics WHERE name LIKE 'bkp-test-%'" >/dev/null 2>&1
@@ -68,6 +68,10 @@ seed_clinical() { # $1 clínica  $2 usuário  $3 paciente  $4 nome  $5 CPF  $6 s
               VALUES ('$1', 1, true, '08:00', '18:00', '$2');
             INSERT INTO core.clinic_holidays (clinic_id, holiday_date, name, created_by)
               VALUES ('$1', DATE '2031-05-06', 'bkp-feriado-$6', '$2');
+            -- Fase 4: CRO do dentista (pela própria sessão) e um documento clínico (atestado) por clínica
+            UPDATE core.users SET cro_number = '12345', cro_state = 'SP' WHERE id = '$2';
+            INSERT INTO core.clinical_documents (clinic_id, patient_id, document_type, issued_on, rest_days, content, sha256, created_by)
+              VALUES ('$1', '$3', 'CERTIFICATE', DATE '2031-06-12', 3, repeat('QUJG', 12), repeat('b', 64), '$2');
             -- Fase 3: procedimento, orçamento com item, PDF, parcela e pagamento (o orçamento passa por SENT e APPROVED)
             DO \$\$
             DECLARE v_pt uuid := gen_random_uuid(); v_b uuid := gen_random_uuid(); v_i uuid := gen_random_uuid();
@@ -125,8 +129,8 @@ echo "$data" | grep -q 'bkp-paciente-a' && echo "$data" | grep -q 'bkp-paciente-
   && echo "$data" | grep -q 'QUJDQUJDQUJD' && echo "$data" | grep -q 'QUJEQUJEQUJE' \
   && ok "26: o dump traz pacientes, prontuario cifrado e exames das clinicas A e B" || bad "26: faltam linhas clinicas no dump"
 n_clin=$(grep -Ec '^(patients|medical_histories|clinical_notes|patient_files)[|]2[|]2$' "$work/pkg/counts.txt")
-n_aud=$(grep -Ec '^audit_log[|]22[|]22$' "$work/pkg/counts.txt")   # 8 da Fase 1 + 2 agendamentos (V020) + 12 da Fase 3 (V028; a V030 tirou os 2 UPDATEs de recalculo de total por item)
-[ "$n_clin" = "4" ] && [ "$n_aud" = "1" ] && ok "26: counts.txt traz as 5 tabelas da Fase 1 (2 linhas por tabela clinica; 22 de auditoria)" \
+n_aud=$(grep -Ec '^audit_log[|]24[|]24$' "$work/pkg/counts.txt")   # 8 da Fase 1 + 2 agendamentos (V020) + 12 da Fase 3 (V028; a V030 tirou os 2 UPDATEs de recalculo de total por item) + 2 documentos (V033)
+[ "$n_clin" = "4" ] && [ "$n_aud" = "1" ] && ok "26: counts.txt traz as 5 tabelas da Fase 1 (2 linhas por tabela clinica; 24 de auditoria)" \
   || bad "26: contagens da Fase 1 divergem em counts.txt: $(grep -E '^(patients|medical_histories|clinical_notes|patient_files|audit_log)[|]' "$work/pkg/counts.txt" | tr '\n' ' ')"
 echo "$data" | grep -q 'audit_log_id_seq' && ok "26: a sequencia da identidade do audit_log entra no dump" || bad "26: sequencia do audit_log ausente do dump"
 # Fase 2: as 4 tabelas novas (e as duas colunas novas) entram no dump com as linhas das DUAS clínicas
@@ -142,6 +146,11 @@ echo "$data" | grep -q 'bkp-proc-A' && echo "$data" | grep -q 'bkp-proc-B' && ec
 n_f3=$(grep -Ec '^(procedure_types|budgets|budget_items|budget_documents|installments|payments)[|]2[|]2$' "$work/pkg/counts.txt")
 [ "$n_f3" = "6" ] && ok "26: counts.txt traz as 6 tabelas da Fase 3 (2 linhas por tabela)" \
   || bad "26: contagens da Fase 3 divergem em counts.txt: $(grep -E '^(procedure_types|budgets|budget_items|budget_documents|installments|payments)[|]' "$work/pkg/counts.txt" | tr '\n' ' ')"
+# Fase 4: a tabela de documentos clínicos entra no dump com as linhas das DUAS clínicas (teste 142); o conteúdo é o Base64 cifrado
+echo "$data" | grep -q 'QUJGQUJGQUJG' && ok "26: o dump traz os documentos clinicos das clinicas A e B (Fase 4)" || bad "26: faltam documentos clinicos no dump"
+[ "$(grep -Ec '^clinical_documents[|]2[|]2$' "$work/pkg/counts.txt")" = "1" ] && ok "26: counts.txt traz clinical_documents (2 linhas)" \
+  || bad "26: contagem de clinical_documents diverge em counts.txt: $(grep -E '^clinical_documents[|]' "$work/pkg/counts.txt" | tr '\n' ' ')"
+echo "$data" | grep -Eq 'COPY core\.users .*cro_number' && ok "26: users.cro_number e cro_state entram no dump" || bad "26: colunas do CRO ausentes do dump"
 pg_restore -l "$work/pkg/core.dump" | grep -q 'POLICY' && ok "26: o dump traz as politicas RLS" || bad "26: dump sem politicas RLS"
 ! pg_restore -l "$work/pkg/core.dump" | grep -Eq 'ACL|OWNER TO' && ok "26: o dump nao traz GRANTs nem donos (--no-acl --no-owner)" || bad "26: dump contem ACL/OWNER"
 

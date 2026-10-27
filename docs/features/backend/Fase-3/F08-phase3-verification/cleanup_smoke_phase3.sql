@@ -31,6 +31,7 @@ END $$;
 DELETE FROM core.payments          WHERE clinic_id IN (SELECT id FROM _smoke_clinics);
 DELETE FROM core.installments      WHERE clinic_id IN (SELECT id FROM _smoke_clinics);
 DELETE FROM core.budget_documents  WHERE clinic_id IN (SELECT id FROM _smoke_clinics);
+DELETE FROM core.clinical_documents WHERE clinic_id IN (SELECT id FROM _smoke_clinics);  -- Fase 4 (imutável: DELETE só passa com session_replication_role = replica)
 DELETE FROM core.budget_items      WHERE clinic_id IN (SELECT id FROM _smoke_clinics);
 DELETE FROM core.budgets           WHERE clinic_id IN (SELECT id FROM _smoke_clinics);
 DELETE FROM core.appointments      WHERE clinic_id IN (SELECT id FROM _smoke_clinics);

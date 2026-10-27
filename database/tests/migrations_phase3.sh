@@ -50,7 +50,7 @@ revert_range() {
 
 # --- 117: numeração e reversões ------------------------------------------------------------------------------------------------
 last=$(vnum "${vfiles[${#vfiles[@]}-1]}")
-[ "$last" = "30" ] && [ "${#vfiles[@]}" = "30" ] && ok "117: 30 migrations (V001..V030), a ultima e a V030" || bad "117: esperadas 30 migrations, ha ${#vfiles[@]} (ultima V$last)"
+[ "$last" = "35" ] && [ "${#vfiles[@]}" = "35" ] && ok "117: 35 migrations (V001..V035), a ultima e a V035" || bad "117: esperadas 35 migrations, ha ${#vfiles[@]} (ultima V$last)"
 missing=""
 for v in $(seq 22 30); do ls "$DB_DIR"/rollback/U$(printf '%03d' "$v")__*.sql >/dev/null 2>&1 || missing="$missing U$(printf '%03d' "$v")"; done
 [ -z "$missing" ] && ok "117: toda migration da Fase 3 (V022..V030) tem seu U de reversao" || bad "117: faltam reversoes:$missing"

@@ -26,7 +26,7 @@ pids=""
 cleanup() {
   exec 3>&- 2>/dev/null || true
   for p in $pids; do kill "$p" 2>/dev/null; done
-  admin -c "ALTER TABLE core.audit_log DISABLE TRIGGER trg_audit_log_no_truncate; ALTER TABLE core.payments DISABLE TRIGGER trg_pay_no_truncate; TRUNCATE core.audit_log, core.payments, core.installments, core.budget_documents, core.budget_items, core.budgets, core.appointments, core.procedure_types, core.business_hours, core.clinic_holidays, core.patient_files, core.clinical_notes, core.medical_histories, core.patients; ALTER TABLE core.audit_log ENABLE TRIGGER trg_audit_log_no_truncate; ALTER TABLE core.payments ENABLE TRIGGER trg_pay_no_truncate" >/dev/null 2>&1
+  admin -c "ALTER TABLE core.audit_log DISABLE TRIGGER trg_audit_log_no_truncate; ALTER TABLE core.payments DISABLE TRIGGER trg_pay_no_truncate; ALTER TABLE core.clinical_documents DISABLE TRIGGER trg_cdoc_no_truncate; TRUNCATE core.audit_log, core.clinical_documents, core.payments, core.installments, core.budget_documents, core.budget_items, core.budgets, core.appointments, core.procedure_types, core.business_hours, core.clinic_holidays, core.patient_files, core.clinical_notes, core.medical_histories, core.patients; ALTER TABLE core.audit_log ENABLE TRIGGER trg_audit_log_no_truncate; ALTER TABLE core.payments ENABLE TRIGGER trg_pay_no_truncate; ALTER TABLE core.clinical_documents ENABLE TRIGGER trg_cdoc_no_truncate" >/dev/null 2>&1
   admin -c "DELETE FROM core.users WHERE clinic_id IN (SELECT id FROM core.clinics WHERE name LIKE 'conc3-test-%')" >/dev/null 2>&1
   admin -c "DELETE FROM core.clinics WHERE name LIKE 'conc3-test-%'" >/dev/null 2>&1
   rm -rf "$work"

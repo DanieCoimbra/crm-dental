@@ -144,11 +144,12 @@ DECLARE
   names text[];
 BEGIN
   -- as únicas funções SECURITY DEFINER de core são as três do contrato da Fase 0 mais as duas da Fase 1
-  -- (write_audit e anonymize_patient; verificadas em tests/phase1_privileges.sql)
+  -- (write_audit e anonymize_patient; verificadas em tests/phase1_privileges.sql) e as duas da Fase 4 (write_document_audit e
+  -- record_document_download; verificadas em tests/phase4_permissions.sql)
   SELECT array_agg(p.proname ORDER BY p.proname) INTO names
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname = 'core' AND p.prosecdef
-     AND p.proname NOT IN ('write_audit', 'anonymize_patient');
+     AND p.proname NOT IN ('write_audit', 'anonymize_patient', 'write_document_audit', 'record_document_download');
   IF names IS DISTINCT FROM ARRAY['find_refresh_token', 'find_user_for_login', 'purge_expired_refresh_tokens'] THEN
     RAISE EXCEPTION 'T16: funcoes SECURITY DEFINER inesperadas em core: %', names;
   END IF;

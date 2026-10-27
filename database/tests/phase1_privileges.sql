@@ -204,10 +204,10 @@ DECLARE
   names text[];
   f record;
 BEGIN
-  -- conjunto de funções SECURITY DEFINER do schema: as 3 da Fase 0 mais write_audit e anonymize_patient
+  -- conjunto de funções SECURITY DEFINER do schema: as 3 da Fase 0, write_audit e anonymize_patient (Fase 1) e write_document_audit e record_document_download (Fase 4)
   SELECT array_agg(p.proname ORDER BY p.proname) INTO names
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'core' AND p.prosecdef;
-  IF names IS DISTINCT FROM ARRAY['anonymize_patient', 'find_refresh_token', 'find_user_for_login', 'purge_expired_refresh_tokens', 'write_audit'] THEN
+  IF names IS DISTINCT FROM ARRAY['anonymize_patient', 'find_refresh_token', 'find_user_for_login', 'purge_expired_refresh_tokens', 'record_document_download', 'write_audit', 'write_document_audit'] THEN
     RAISE EXCEPTION 'T53: funcoes SECURITY DEFINER inesperadas: %', names;
   END IF;
 
