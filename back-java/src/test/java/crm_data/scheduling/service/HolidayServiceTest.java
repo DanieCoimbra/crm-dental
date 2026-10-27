@@ -132,7 +132,7 @@ class HolidayServiceTest {
 	@Test
 	void updateChangesDateAndNameWhenTheVersionMatches() {
 		ClinicHoliday holiday = clinic(DAY, "Recesso", 4L);
-		when(clinicHolidays.findById(holiday.getId())).thenReturn(Optional.of(holiday));
+		when(clinicHolidays.findOwnById(holiday.getId())).thenReturn(Optional.of(holiday));
 		when(clinicHolidays.saveAndFlush(holiday)).thenReturn(holiday);
 
 		HolidayChange change = service.update(holiday.getId(), DAY.plusDays(1), "Novo nome", 4L);
@@ -146,9 +146,9 @@ class HolidayServiceTest {
 	@Test
 	void updateWithStaleVersionIsConflictAndUnknownIdIsNotFound() {
 		ClinicHoliday holiday = clinic(DAY, "Recesso", 4L);
-		when(clinicHolidays.findById(holiday.getId())).thenReturn(Optional.of(holiday));
+		when(clinicHolidays.findOwnById(holiday.getId())).thenReturn(Optional.of(holiday));
 		UUID unknown = UUID.randomUUID();
-		when(clinicHolidays.findById(unknown)).thenReturn(Optional.empty());
+		when(clinicHolidays.findOwnById(unknown)).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> service.update(holiday.getId(), DAY, "x1", 3L)).isInstanceOfSatisfying(BusinessException.class,
 				ex -> assertThat(ex.type()).isEqualTo(ProblemTypes.CONFLICT));
@@ -161,9 +161,9 @@ class HolidayServiceTest {
 	@Test
 	void deleteRemovesPhysicallyWithoutImpactAndUnknownIdIsNotFound() {
 		ClinicHoliday holiday = clinic(DAY, "Recesso", 0L);
-		when(clinicHolidays.findById(holiday.getId())).thenReturn(Optional.of(holiday));
+		when(clinicHolidays.findOwnById(holiday.getId())).thenReturn(Optional.of(holiday));
 		UUID unknown = UUID.randomUUID();
-		when(clinicHolidays.findById(unknown)).thenReturn(Optional.empty());
+		when(clinicHolidays.findOwnById(unknown)).thenReturn(Optional.empty());
 
 		service.delete(holiday.getId());
 

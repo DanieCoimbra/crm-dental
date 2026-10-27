@@ -125,8 +125,8 @@ echo "$data" | grep -q 'bkp-paciente-a' && echo "$data" | grep -q 'bkp-paciente-
   && echo "$data" | grep -q 'QUJDQUJDQUJD' && echo "$data" | grep -q 'QUJEQUJEQUJE' \
   && ok "26: o dump traz pacientes, prontuario cifrado e exames das clinicas A e B" || bad "26: faltam linhas clinicas no dump"
 n_clin=$(grep -Ec '^(patients|medical_histories|clinical_notes|patient_files)[|]2[|]2$' "$work/pkg/counts.txt")
-n_aud=$(grep -Ec '^audit_log[|]24[|]24$' "$work/pkg/counts.txt")   # 8 da Fase 1 + 2 agendamentos (V020) + 14 da Fase 3 (V028)
-[ "$n_clin" = "4" ] && [ "$n_aud" = "1" ] && ok "26: counts.txt traz as 5 tabelas da Fase 1 (2 linhas por tabela clinica; 24 de auditoria)" \
+n_aud=$(grep -Ec '^audit_log[|]22[|]22$' "$work/pkg/counts.txt")   # 8 da Fase 1 + 2 agendamentos (V020) + 12 da Fase 3 (V028; a V030 tirou os 2 UPDATEs de recalculo de total por item)
+[ "$n_clin" = "4" ] && [ "$n_aud" = "1" ] && ok "26: counts.txt traz as 5 tabelas da Fase 1 (2 linhas por tabela clinica; 22 de auditoria)" \
   || bad "26: contagens da Fase 1 divergem em counts.txt: $(grep -E '^(patients|medical_histories|clinical_notes|patient_files|audit_log)[|]' "$work/pkg/counts.txt" | tr '\n' ' ')"
 echo "$data" | grep -q 'audit_log_id_seq' && ok "26: a sequencia da identidade do audit_log entra no dump" || bad "26: sequencia do audit_log ausente do dump"
 # Fase 2: as 4 tabelas novas (e as duas colunas novas) entram no dump com as linhas das DUAS clínicas

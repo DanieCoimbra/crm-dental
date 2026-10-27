@@ -37,7 +37,7 @@ class BudgetLookupServiceTest {
 	@Test
 	void requireApprovedReturnsTheBudgetOnlyWhenApprovedAndNeverPrintsTheAmount() {
 		Budget approved = budget(BudgetStatus.APPROVED);
-		when(budgets.findById(approved.getId())).thenReturn(java.util.Optional.of(approved));
+		when(budgets.findOwnById(approved.getId())).thenReturn(java.util.Optional.of(approved));
 
 		ApprovedBudget result = lookup.requireApproved(approved.getId());
 
@@ -50,7 +50,7 @@ class BudgetLookupServiceTest {
 	@org.junit.jupiter.params.provider.EnumSource(value = BudgetStatus.class, names = { "DRAFT", "SENT", "REJECTED" })
 	void requireApprovedRefusesAnyOtherStatusWith409(BudgetStatus status) {
 		Budget budget = budget(status);
-		when(budgets.findById(budget.getId())).thenReturn(java.util.Optional.of(budget));
+		when(budgets.findOwnById(budget.getId())).thenReturn(java.util.Optional.of(budget));
 
 		org.assertj.core.api.Assertions.assertThatThrownBy(() -> lookup.requireApproved(budget.getId()))
 				.isInstanceOf(crm_data.shared.error.BusinessException.class);
@@ -61,7 +61,7 @@ class BudgetLookupServiceTest {
 		Budget approved = budget(BudgetStatus.APPROVED);
 		Budget draft = budget(BudgetStatus.DRAFT);
 		when(budgets.findForUpdateById(approved.getId())).thenReturn(java.util.Optional.of(approved));
-		when(budgets.findById(draft.getId())).thenReturn(java.util.Optional.of(draft));
+		when(budgets.findOwnById(draft.getId())).thenReturn(java.util.Optional.of(draft));
 
 		assertThat(lookup.lockApproved(approved.getId()).id()).isEqualTo(approved.getId());
 		assertThat(lookup.totalOf(draft.getId())).isEqualByComparingTo("800.00");
@@ -70,7 +70,7 @@ class BudgetLookupServiceTest {
 	@Test
 	void anUnknownBudgetIs404() {
 		UUID id = UUID.randomUUID();
-		when(budgets.findById(id)).thenReturn(java.util.Optional.empty());
+		when(budgets.findOwnById(id)).thenReturn(java.util.Optional.empty());
 		when(budgets.findForUpdateById(id)).thenReturn(java.util.Optional.empty());
 
 		org.assertj.core.api.Assertions.assertThatThrownBy(() -> lookup.totalOf(id)).isInstanceOf(crm_data.shared.error.BusinessException.class);

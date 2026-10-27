@@ -26,7 +26,7 @@ public class AuditLogController {
 	@GetMapping
 	public PageResponse<AuditEntryResponse> list(@RequestParam(required = false) String tableName,
 			@RequestParam(required = false) UUID recordId,
-			@RequestParam(defaultValue = "0") @Min(value = 0, message = "deve ser maior ou igual a 0") int page,
+			@RequestParam(defaultValue = "0") @Min(value = 0, message = "deve ser maior ou igual a 0") @Max(value = 100000, message = "deve ser no máximo 100000") int page,
 			@RequestParam(defaultValue = "20") @Min(value = 1, message = "deve estar entre 1 e 50") @Max(value = 50, message = "deve estar entre 1 e 50") int size) {
 		return PageResponse.of(audit.list(tableName, recordId, page, size), AuditEntryResponse::from);
 	}

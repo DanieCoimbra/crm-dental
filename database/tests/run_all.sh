@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Harness local de testes do banco (precursor do db-pr.yml da F05).
-# Fase 2: MIGRATIONS_EXPECTED confere a quantidade de migrations (migrations_phase2.sh). Fase 3: 29 migrations; concorrencia em commercial_concurrency.sh; reversoes em migrations_phase3.sh.
+# Fase 2: MIGRATIONS_EXPECTED confere a quantidade de migrations (migrations_phase2.sh). Fase 3: 30 migrations (V030 = auditoria de budgets sem ruido e guarda de PDF); concorrencia em commercial_concurrency.sh; reversoes em migrations_phase3.sh.
 # Fluxo: stubs do Supabase -> testes do bootstrap -> migrations como crm_owner (apply_migrations.sh) -> tests/*.sql
 # Requer psql, openssl 3 e age (imagem database/tests/Dockerfile), um PostgreSQL DESCARTÁVEL e as variáveis padrão do psql
 # (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE) com um administrador.
@@ -8,7 +8,7 @@ set -euo pipefail
 
 DB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export DB_DIR
-MIGRATIONS_EXPECTED=29; export MIGRATIONS_EXPECTED
+MIGRATIONS_EXPECTED=30; export MIGRATIONS_EXPECTED
 HARNESS_ENV_FILE="$(mktemp)"; export HARNESS_ENV_FILE
 trap 'rm -f "$HARNESS_ENV_FILE"' EXIT
 
@@ -38,7 +38,7 @@ CRM_OWNER_PW="$CRM_OWNER_PW" CRM_APP_PW="$CRM_APP_PW" CRM_BACKUP_PW="$CRM_BACKUP
 echo "== concorrencia do comercial e do financeiro (testes 91, 99, 107 e 110; duas conexoes como crm_app)"
 CRM_APP_PW="$CRM_APP_PW" bash "$DB_DIR/tests/commercial_concurrency.sh"
 
-echo "== migrations da Fase 3, reversoes e funcao de anonimizacao restaurada (testes 117 e 118; banco descartavel proprio)"
+echo "== migrations da Fase 3, reversoes e funcao de anonimizacao restaurada (testes 117, 118 e 124; banco descartavel proprio)"
 CRM_OWNER_PW="$CRM_OWNER_PW" CRM_APP_PW="$CRM_APP_PW" CRM_BACKUP_PW="$CRM_BACKUP_PW" bash "$DB_DIR/tests/migrations_phase3.sh"
 
 echo "== backup e restauracao (testes 26 a 28, 85 e 119)"

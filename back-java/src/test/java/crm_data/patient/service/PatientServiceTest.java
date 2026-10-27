@@ -116,7 +116,7 @@ class PatientServiceTest {
 	@Test
 	void updateWithStaleVersionIsConflictAndDoesNotWrite() {
 		Patient patient = existing(3);
-		when(patients.findById(patient.getId())).thenReturn(Optional.of(patient));
+		when(patients.findOwnById(patient.getId())).thenReturn(Optional.of(patient));
 
 		assertThatThrownBy(() -> service.update(patient.getId(), details(null), 2))
 				.isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.type()).isEqualTo(ProblemTypes.CONFLICT));
@@ -126,7 +126,7 @@ class PatientServiceTest {
 	@Test
 	void updateAppliesFieldsWhenVersionMatches() {
 		Patient patient = existing(3);
-		when(patients.findById(patient.getId())).thenReturn(Optional.of(patient));
+		when(patients.findOwnById(patient.getId())).thenReturn(Optional.of(patient));
 		when(patients.saveAndFlush(patient)).thenReturn(patient);
 
 		Patient updated = service.update(patient.getId(), details("52998224725"), 3);
@@ -140,17 +140,29 @@ class PatientServiceTest {
 	void updateOfAnonymizedPatientIsConflict() {
 		Patient patient = existing(0);
 		ReflectionTestUtils.setField(patient, "anonymizedAt", NOW);
-		when(patients.findById(patient.getId())).thenReturn(Optional.of(patient));
+		when(patients.findOwnById(patient.getId())).thenReturn(Optional.of(patient));
 
 		assertThatThrownBy(() -> service.update(patient.getId(), details(null), 0))
 				.isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.getMessage()).isEqualTo("Paciente anonimizado."));
 		verify(patients, never()).saveAndFlush(any());
 	}
 
+	/** {@code findById} não aplica o filtro de tenant; a busca por id passa pela consulta JPQL (auditoria 2026-10-27). */
+	@Test
+	void lookupByIdGoesThroughTheTenantFilteredQuery() {
+		UUID id = UUID.randomUUID();
+		when(patients.findOwnById(id)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> service.get(id)).isInstanceOf(BusinessException.class);
+
+		verify(patients).findOwnById(id);
+		verify(patients, never()).findById(any());
+	}
+
 	@Test
 	void unknownIdIsNotFound() {
 		UUID id = UUID.randomUUID();
-		when(patients.findById(id)).thenReturn(Optional.empty());
+		when(patients.findOwnById(id)).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> service.get(id))
 				.isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.type()).isEqualTo(ProblemTypes.NOT_FOUND));
@@ -161,7 +173,7 @@ class PatientServiceTest {
 	@Test
 	void deactivateRecordsTheInstantAndReactivateClearsIt() {
 		Patient patient = existing(0);
-		when(patients.findById(patient.getId())).thenReturn(Optional.of(patient));
+		when(patients.findOwnById(patient.getId())).thenReturn(Optional.of(patient));
 		when(patients.saveAndFlush(patient)).thenReturn(patient);
 
 		service.setActive(patient.getId(), false);
@@ -176,7 +188,7 @@ class PatientServiceTest {
 	@Test
 	void settingTheCurrentStateIsIdempotentAndWritesNothing() {
 		Patient patient = existing(0);
-		when(patients.findById(patient.getId())).thenReturn(Optional.of(patient));
+		when(patients.findOwnById(patient.getId())).thenReturn(Optional.of(patient));
 
 		Patient result = service.setActive(patient.getId(), true);
 
@@ -189,7 +201,7 @@ class PatientServiceTest {
 		Patient patient = existing(0);
 		patient.deactivate(NOW);
 		ReflectionTestUtils.setField(patient, "anonymizedAt", NOW);
-		when(patients.findById(patient.getId())).thenReturn(Optional.of(patient));
+		when(patients.findOwnById(patient.getId())).thenReturn(Optional.of(patient));
 
 		assertThatThrownBy(() -> service.setActive(patient.getId(), true))
 				.isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.type()).isEqualTo(ProblemTypes.CONFLICT));
@@ -214,7 +226,7 @@ class PatientServiceTest {
 	@Test
 	void deactivatingPublishesTheSynchronousEventBeforeWritingAndTheEventCarriesOnlyIds() {
 		Patient patient = existing(0);
-		when(patients.findById(patient.getId())).thenReturn(Optional.of(patient));
+		when(patients.findOwnById(patient.getId())).thenReturn(Optional.of(patient));
 		when(patients.saveAndFlush(patient)).thenReturn(patient);
 
 		service.setActive(patient.getId(), false);
@@ -229,8 +241,8 @@ class PatientServiceTest {
 		Patient inactive = existing(0);
 		inactive.deactivate(NOW);
 		Patient active = existing(0);
-		when(patients.findById(inactive.getId())).thenReturn(Optional.of(inactive));
-		when(patients.findById(active.getId())).thenReturn(Optional.of(active));
+		when(patients.findOwnById(inactive.getId())).thenReturn(Optional.of(inactive));
+		when(patients.findOwnById(active.getId())).thenReturn(Optional.of(active));
 		when(patients.saveAndFlush(inactive)).thenReturn(inactive);
 
 		service.setActive(inactive.getId(), true);
@@ -244,7 +256,7 @@ class PatientServiceTest {
 	void inactivatingAnAlreadyInactivePatientIsIdempotentAndDoesNotCancelAgainNorPublish() {
 		Patient inactive = existing(0);
 		inactive.deactivate(NOW);
-		when(patients.findById(inactive.getId())).thenReturn(Optional.of(inactive));
+		when(patients.findOwnById(inactive.getId())).thenReturn(Optional.of(inactive));
 
 		service.setActive(inactive.getId(), false);
 
@@ -255,7 +267,7 @@ class PatientServiceTest {
 	@Test
 	void aRefusalFromTheListenerKeepsThePatientActiveAndNothingIsWritten() {
 		Patient patient = existing(0);
-		when(patients.findById(patient.getId())).thenReturn(Optional.of(patient));
+		when(patients.findOwnById(patient.getId())).thenReturn(Optional.of(patient));
 		BusinessException refusal = new BusinessException(ProblemTypes.CONFLICT, "Finalize o atendimento antes de inativar o paciente.");
 		org.mockito.Mockito.doThrow(refusal).when(events).publishEvent(any(PatientEvents.Deactivating.class));
 

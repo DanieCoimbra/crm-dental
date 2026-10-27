@@ -42,13 +42,13 @@ class BudgetLookupService implements BudgetLookup {
 	@Override
 	@Transactional(readOnly = true)
 	public BigDecimal totalOf(UUID budgetId) {
-		return budgets.findById(budgetId).orElseThrow(BudgetLookupService::notFound).getTotalAmount();
+		return budgets.findOwnById(budgetId).orElseThrow(BudgetLookupService::notFound).getTotalAmount();
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public ApprovedBudget requireApproved(UUID budgetId) {
-		return approved(budgets.findById(budgetId).orElseThrow(BudgetLookupService::notFound));
+		return approved(budgets.findOwnById(budgetId).orElseThrow(BudgetLookupService::notFound));
 	}
 
 	@Override

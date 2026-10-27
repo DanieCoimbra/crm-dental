@@ -159,7 +159,7 @@ public class BudgetDocumentService {
 	/** Revisões ativas, a maior primeiro. @throws BusinessException {@code not-found} (404) se o orçamento não existe */
 	public List<DocumentSummary> list(UUID budgetId) {
 		return readTx.execute(status -> {
-			budgets.findById(budgetId).orElseThrow(() -> notFound());
+			budgets.findOwnById(budgetId).orElseThrow(() -> notFound());
 			return documents.findActiveByBudgetId(budgetId).stream().map(BudgetDocumentService::summary).toList();
 		});
 	}

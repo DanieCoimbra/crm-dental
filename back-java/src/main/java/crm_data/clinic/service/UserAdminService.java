@@ -123,6 +123,6 @@ public class UserAdminService {
 	}
 
 	private User find(UUID id) {
-		return users.findById(id).orElseThrow(() -> new BusinessException(ProblemTypes.NOT_FOUND, "Usuário não encontrado."));
+		return users.findOwnById(id).orElseThrow(() -> new BusinessException(ProblemTypes.NOT_FOUND, "Usuário não encontrado."));
 	}
 }

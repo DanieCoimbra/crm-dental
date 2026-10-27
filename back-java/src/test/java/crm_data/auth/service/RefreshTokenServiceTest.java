@@ -66,7 +66,7 @@ class RefreshTokenServiceTest {
 			((Runnable) call.getArgument(1)).run();
 			return null;
 		}).when(tenantTransactions).run(any(), any());
-		when(users.findById(userId)).thenReturn(Optional.of(user));
+		when(users.findOwnById(userId)).thenReturn(Optional.of(user));
 		when(sessions.create(user, "novo-refresh")).thenReturn(session);
 	}
 
@@ -179,7 +179,7 @@ class RefreshTokenServiceTest {
 		when(tokens.markUsed(tokenId, NOW)).thenReturn(1);
 		User inactive = mock(User.class);
 		when(inactive.isActive()).thenReturn(false);
-		when(users.findById(userId)).thenReturn(Optional.of(inactive));
+		when(users.findOwnById(userId)).thenReturn(Optional.of(inactive));
 
 		assertUnauthorized();
 
@@ -192,7 +192,7 @@ class RefreshTokenServiceTest {
 	void missingUserCannotRefreshEither() {
 		stored(NOW.plusSeconds(3600), null, null);
 		when(tokens.markUsed(tokenId, NOW)).thenReturn(1);
-		when(users.findById(userId)).thenReturn(Optional.empty());
+		when(users.findOwnById(userId)).thenReturn(Optional.empty());
 
 		assertUnauthorized();
 

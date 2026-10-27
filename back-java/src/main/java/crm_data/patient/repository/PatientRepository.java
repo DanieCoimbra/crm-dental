@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import crm_data.patient.domain.Patient;
+import java.util.Optional;
 
 public interface PatientRepository extends JpaRepository<Patient, UUID>, JpaSpecificationExecutor<Patient> {
 
@@ -52,4 +53,10 @@ public interface PatientRepository extends JpaRepository<Patient, UUID>, JpaSpec
 
 		String getPhone();
 	}
+	/**
+	 * Como {@code findById}, mas por JPQL: o filtro Hibernate do tenant se aplica ({@code find} por id não o aplica) e a RLS segue
+	 * como barreira final. Id de outra clínica não volta.
+	 */
+	@Query("select p from Patient p where p.id = :id")
+	Optional<Patient> findOwnById(@Param("id") UUID id);
 }

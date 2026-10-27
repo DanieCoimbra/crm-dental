@@ -85,7 +85,7 @@ public class PaymentService {
 	 */
 	@Transactional
 	public PaymentResult reverse(UUID paymentId) {
-		Payment original = payments.findById(paymentId)
+		Payment original = payments.findOwnById(paymentId)
 				.orElseThrow(() -> new BusinessException(ProblemTypes.NOT_FOUND, "Pagamento não encontrado."));
 		if (original.getKind() != PaymentKind.PAYMENT) {
 			throw new BusinessException(ProblemTypes.CONFLICT, ConflictMessages.REVERSAL_OF_REVERSAL);
@@ -114,7 +114,7 @@ public class PaymentService {
 	/** Relê o lançamento (o banco carimba {@code created_at}) e a parcela depois do trigger. */
 	private PaymentResult result(UUID paymentId, UUID installmentId) {
 		entityManager.clear();
-		Payment payment = payments.findById(paymentId).orElseThrow();
+		Payment payment = payments.findOwnById(paymentId).orElseThrow();
 		InstallmentRow row = installments.findRowById(installmentId).orElseThrow(PaymentService::installmentNotFound);
 		Map<UUID, BigDecimal> net = netPaid(installmentId);
 		return new PaymentResult(payment, row, net.getOrDefault(installmentId, BigDecimal.ZERO.setScale(2)));

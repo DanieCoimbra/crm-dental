@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Fase 3 / F08 (testes 117 e 118): migrations V022-V029 do zero, reversões e a função de anonimização restaurada, num banco descartável
+# Fase 3 / F08 (testes 117 e 118): migrations V022-V030 do zero, reversões e a função de anonimização restaurada, num banco descartável
 # PRÓPRIO (phase3_scratch), para não mexer no banco dos demais testes.
-#   117  V001-V029 aplicam do zero; toda V022..V029 tem seu U; as 6 tabelas existem; a cadeia U029 -> U022 reverte (nenhuma tabela, função
-#        ou política da Fase 3 sobra, e as da Fase 2 ficam intactas) e V022-V029 reaplicam
+#   117  V001-V030 aplicam do zero; toda V022..V030 tem seu U; as 6 tabelas existem; a cadeia U030 -> U022 reverte (nenhuma tabela, função
+#        ou política da Fase 3 sobra, e as da Fase 2 ficam intactas) e V022-V030 reaplicam
 #   118  a U029 restaura o comportamento da V021 (sem CR006, sem limpeza de budgets.notes nem dos PDFs); a V029 reaplicada volta a recusar
 #        com CR006
+#   124  a U030 restaura o trigger único de auditoria de budgets e remove a guarda de PDF de paciente anonimizado; a V030 reaplica
 # Requer: psql/openssl no PATH, PGHOST/PGPORT/PGUSER/PGPASSWORD (administrador de um servidor DESCARTÁVEL), DB_DIR e as senhas
 #         CRM_OWNER_PW, CRM_APP_PW e CRM_BACKUP_PW do bootstrap do harness.
 set -uo pipefail
@@ -49,10 +50,10 @@ revert_range() {
 
 # --- 117: numeração e reversões ------------------------------------------------------------------------------------------------
 last=$(vnum "${vfiles[${#vfiles[@]}-1]}")
-[ "$last" = "29" ] && [ "${#vfiles[@]}" = "29" ] && ok "117: 29 migrations (V001..V029), a ultima e a V029" || bad "117: esperadas 29 migrations, ha ${#vfiles[@]} (ultima V$last)"
+[ "$last" = "30" ] && [ "${#vfiles[@]}" = "30" ] && ok "117: 30 migrations (V001..V030), a ultima e a V030" || bad "117: esperadas 30 migrations, ha ${#vfiles[@]} (ultima V$last)"
 missing=""
-for v in $(seq 22 29); do ls "$DB_DIR"/rollback/U$(printf '%03d' "$v")__*.sql >/dev/null 2>&1 || missing="$missing U$(printf '%03d' "$v")"; done
-[ -z "$missing" ] && ok "117: toda migration da Fase 3 (V022..V029) tem seu U de reversao" || bad "117: faltam reversoes:$missing"
+for v in $(seq 22 30); do ls "$DB_DIR"/rollback/U$(printf '%03d' "$v")__*.sql >/dev/null 2>&1 || missing="$missing U$(printf '%03d' "$v")"; done
+[ -z "$missing" ] && ok "117: toda migration da Fase 3 (V022..V030) tem seu U de reversao" || bad "117: faltam reversoes:$missing"
 
 # --- banco descartável + bootstrap --------------------------------------------------------------------------------------------
 scram() { SCRAM_PASSWORD="$1" bash "$DB_DIR/scripts/scram_verifier.sh"; }
@@ -65,7 +66,7 @@ fresh_db() { # recria o banco descartavel e roda o bootstrap dos papeis e das ex
 fresh_db && ok "banco descartavel $SCRATCH criado e bootstrap dos papeis e das extensoes feito" \
   || { bad "nao foi possivel criar $SCRATCH ou o bootstrap falhou"; echo "migrations_phase3: FALHOU"; exit 1; }
 
-apply_range 1 29 && ok "117: V001-V029 aplicam do zero" || { bad "117: V001-V029 falharam"; echo "migrations_phase3: FALHOU"; exit 1; }
+apply_range 1 30 && ok "117: V001-V030 aplicam do zero" || { bad "117: V001-V030 falharam"; echo "migrations_phase3: FALHOU"; exit 1; }
 n_tbl=$(admin_s psql -X -At -c "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
                                  WHERE n.nspname = 'core' AND c.relkind = 'r'
                                    AND c.relname IN ('procedure_types', 'budgets', 'budget_items', 'budget_documents', 'installments', 'payments')")
@@ -123,14 +124,25 @@ if [ -n "${P2:-}" ]; then
   [ "$r" = "CR006" ] && ok "118: com a V029 reaplicada, parcela OPEN volta a recusar com CR006" || bad "118: esperado CR006 (obtido: $r)"
 fi
 
+# --- 124: a U030 restaura a auditoria unica de budgets e remove a guarda do PDF; a V030 reaplica -----------------------------------
+revert_range 30 30 && ok "124: U030 reverte" || bad "124: U030 falhou"
+[ "$(admin_s psql -X -At -c "SELECT count(*) FROM pg_trigger WHERE tgrelid = 'core.budgets'::regclass AND tgname = 'trg_budgets_audit' AND NOT tgisinternal")" = "1" ] \
+  && [ "$(admin_s psql -X -At -c "SELECT count(*) FROM pg_trigger WHERE tgrelid = 'core.budgets'::regclass AND tgname IN ('trg_budgets_audit_insdel', 'trg_budgets_audit_upd')")" = "0" ] \
+  && ok "124: apos a U030 volta o trigger unico trg_budgets_audit" || bad "124: trigger de auditoria de budgets nao restaurado"
+[ "$(admin_s psql -X -At -c "SELECT count(*) FROM pg_trigger WHERE tgname = 'trg_bdoc_no_anonymized_parent'")" = "0" ] \
+  && ok "124: a guarda de PDF de paciente anonimizado sai com a U030" || bad "124: trg_bdoc_no_anonymized_parent ainda existe"
+apply_range 30 30 && ok "124: a V030 reaplica depois da U030" || bad "124: a V030 nao reaplicou"
+[ "$(admin_s psql -X -At -c "SELECT count(*) FROM pg_trigger WHERE tgname IN ('trg_budgets_audit_insdel', 'trg_budgets_audit_upd', 'trg_bdoc_no_anonymized_parent') AND NOT tgisinternal")" = "3" ] \
+  && ok "124: os 3 triggers da V030 existem apos reaplicar" || bad "124: triggers da V030 ausentes apos reaplicar"
+
 # --- 117: com linhas no audit_log a U028 se RECUSA (o log e so de insercao) e nao altera nada ---------------------------------------------
 revert_range 28 28 >/dev/null 2>&1 && bad "117: a U028 deveria falhar com auditoria das tabelas novas no log" || ok "117: a U028 recusa reverter com linhas de auditoria das tabelas novas (restaurar do pg_dump)"
-[ "$(admin_s psql -X -At -c "SELECT count(*) FROM pg_trigger WHERE tgname IN ('trg_budgets_audit', 'trg_inst_audit', 'trg_pay_audit', 'trg_bdoc_audit') AND NOT tgisinternal")" = "4" ] \
-  && ok "117: a U028 recusada e atomica: os 4 triggers de auditoria continuam" || bad "117: a U028 recusada deixou a reversao pela metade"
+[ "$(admin_s psql -X -At -c "SELECT count(*) FROM pg_trigger WHERE tgname IN ('trg_budgets_audit_insdel', 'trg_budgets_audit_upd', 'trg_inst_audit', 'trg_pay_audit', 'trg_bdoc_audit') AND NOT tgisinternal")" = "5" ] \
+  && ok "117: a U028 recusada e atomica: os 5 triggers de auditoria (V028+V030) continuam" || bad "117: a U028 recusada deixou a reversao pela metade"
 
 # --- 117: a cadeia U029 -> U022 limpa a Fase 3 e preserva a Fase 2; V022-V029 reaplicam (banco novo, sem auditoria) --------------------
-fresh_db && apply_range 1 29 && ok "117: banco novo com V001-V029 para a cadeia de reversao" || { bad "117: nao foi possivel recriar o banco"; echo "migrations_phase3: FALHOU"; exit 1; }
-revert_range 29 22 && ok "117: a cadeia U029 -> U022 reverte" || bad "117: a cadeia U029 -> U022 falhou"
+fresh_db && apply_range 1 30 && ok "117: banco novo com V001-V030 para a cadeia de reversao" || { bad "117: nao foi possivel recriar o banco"; echo "migrations_phase3: FALHOU"; exit 1; }
+revert_range 30 22 && ok "117: a cadeia U030 -> U022 reverte" || bad "117: a cadeia U030 -> U022 falhou"
 left=$(admin_s psql -X -At -c "SELECT (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'core' AND c.relkind = 'r'
                                          AND c.relname IN ('procedure_types', 'budgets', 'budget_items', 'budget_documents', 'installments', 'payments'))
                                       + (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'core'
@@ -144,7 +156,7 @@ left=$(admin_s psql -X -At -c "SELECT (SELECT count(*) FROM pg_class c JOIN pg_n
   && ok "117: a Fase 2 permanece (appointments existe e ck_audit_table volta a 5 tabelas)" || bad "117: a Fase 2 foi afetada pela cadeia"
 [ "$(admin_s psql -X -At -c "SELECT count(*) FROM pg_constraint WHERE conname = 'fk_appt_procedure'")" = "0" ] \
   && ok "117: a FK do procedimento no agendamento saiu com a U023" || bad "117: fk_appt_procedure ainda existe"
-apply_range 22 29 && ok "117: V022-V029 reaplicam depois da cadeia" || bad "117: V022-V029 nao reaplicaram"
+apply_range 22 30 && ok "117: V022-V030 reaplicam depois da cadeia" || bad "117: V022-V030 nao reaplicaram"
 n_tbl=$(admin_s psql -X -At -c "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
                                  WHERE n.nspname = 'core' AND c.relkind = 'r'
                                    AND c.relname IN ('procedure_types', 'budgets', 'budget_items', 'budget_documents', 'installments', 'payments')")

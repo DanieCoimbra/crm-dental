@@ -145,7 +145,7 @@ public class PatientService {
 	}
 
 	private Patient find(UUID id) {
-		return patients.findById(id).orElseThrow(() -> new BusinessException(ProblemTypes.NOT_FOUND, "Paciente não encontrado."));
+		return patients.findOwnById(id).orElseThrow(() -> new BusinessException(ProblemTypes.NOT_FOUND, "Paciente não encontrado."));
 	}
 
 	private static void apply(Patient patient, PatientDetails details) {

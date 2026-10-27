@@ -1,7 +1,6 @@
 package crm_data.phase3;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -24,7 +23,6 @@ import crm_data.shared.storage.FileStorage;
 import crm_data.shared.storage.StorageException;
 import crm_data.support.DatabaseContainer;
 import crm_data.support.tenant.PatientFixtures;
-import crm_data.support.tenant.TenantFixtures.Clinic;
 import tools.jackson.databind.JsonNode;
 
 /**

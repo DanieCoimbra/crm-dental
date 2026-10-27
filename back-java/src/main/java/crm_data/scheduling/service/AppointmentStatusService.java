@@ -94,7 +94,7 @@ public class AppointmentStatusService {
 		if (!AppointmentTransitions.mayPerform(action, role)) {
 			throw new BusinessException(ProblemTypes.FORBIDDEN, "Você não tem permissão para esta operação.");
 		}
-		Appointment appointment = appointments.findById(id)
+		Appointment appointment = appointments.findOwnById(id)
 				.orElseThrow(() -> new BusinessException(ProblemTypes.NOT_FOUND, "Agendamento não encontrado."));
 		if (!Objects.equals(appointment.getVersion(), expectedVersion)) {
 			throw new BusinessException(ProblemTypes.CONFLICT, ConflictMessages.APPOINTMENT_CHANGED);

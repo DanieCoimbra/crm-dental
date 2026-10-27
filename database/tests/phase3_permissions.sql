@@ -194,9 +194,10 @@ BEGIN
   IF (SELECT count(*) FROM pg_trigger t WHERE t.tgrelid = 'core.payments'::regclass AND t.tgname IN ('trg_pay_append_only', 'trg_pay_no_truncate')) <> 2 THEN
     RAISE EXCEPTION 'T115: payments sem os triggers de somente insercao';
   END IF;
-  -- auditoria só nas 4 tabelas previstas
+  -- auditoria só nas 4 tabelas previstas (V030: budgets tem 2 triggers, INSERT/DELETE e UPDATE com WHEN; as demais, 1)
   IF (SELECT count(*) FROM pg_trigger t WHERE NOT t.tgisinternal AND t.tgname LIKE '%audit%'
-        AND t.tgrelid IN ('core.budgets'::regclass, 'core.installments'::regclass, 'core.payments'::regclass, 'core.budget_documents'::regclass)) <> 4 THEN
+        AND t.tgrelid IN ('core.budgets'::regclass, 'core.installments'::regclass, 'core.payments'::regclass, 'core.budget_documents'::regclass)) <> 5
+     OR (SELECT count(*) FROM pg_trigger t WHERE NOT t.tgisinternal AND t.tgname LIKE '%audit%' AND t.tgrelid = 'core.budgets'::regclass) <> 2 THEN
     RAISE EXCEPTION 'T115: as 4 tabelas auditadas precisam do trigger de auditoria';
   END IF;
   -- DDL do contrato: tipos monetarios numeric(12,2)

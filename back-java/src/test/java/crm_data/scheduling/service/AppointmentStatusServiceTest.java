@@ -82,7 +82,7 @@ class AppointmentStatusServiceTest {
 		Appointment appointment = new Appointment(UUID.randomUUID(), patientId, start, start.plusSeconds(3600), null, userId);
 		appointment.setStatus(status);
 		ReflectionTestUtils.setField(appointment, "version", version);
-		when(appointments.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+		when(appointments.findOwnById(appointment.getId())).thenReturn(Optional.of(appointment));
 		return appointment;
 	}
 
@@ -151,7 +151,7 @@ class AppointmentStatusServiceTest {
 	void staleVersionIs409UnknownIdIs404(Action action) {
 		Appointment appointment = readyFor(action);
 		UUID unknown = UUID.randomUUID();
-		when(appointments.findById(unknown)).thenReturn(Optional.empty());
+		when(appointments.findOwnById(unknown)).thenReturn(Optional.empty());
 
 		assertRule(() -> call(action).apply(appointment.getId(), 2L), ProblemTypes.CONFLICT, null);
 		assertRule(() -> call(action).apply(unknown, 0L), ProblemTypes.NOT_FOUND, null);

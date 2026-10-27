@@ -66,7 +66,7 @@ class LoginServiceTest {
 				new HashingGate(4, java.time.Duration.ofSeconds(1)));
 		realHash = encoder.encode(PASSWORD);
 		when(tenantTransactions.execute(any(), any())).thenAnswer(call -> ((Supplier<Object>) call.getArgument(1)).get());
-		when(users.findById(userId)).thenReturn(Optional.of(user));
+		when(users.findOwnById(userId)).thenReturn(Optional.of(user));
 		when(refreshTokens.issue(any(), any())).thenReturn("refresh-novo");
 		when(sessions.create(user, "refresh-novo")).thenReturn(session);
 	}
@@ -180,7 +180,7 @@ class LoginServiceTest {
 	@Test
 	void userVanishingBetweenLookupAndSessionIsUnauthorized() {
 		account(true);
-		when(users.findById(userId)).thenReturn(Optional.empty());
+		when(users.findOwnById(userId)).thenReturn(Optional.empty());
 
 		assertGenericUnauthorized(() -> service.login(EMAIL, PASSWORD, IP));
 	}

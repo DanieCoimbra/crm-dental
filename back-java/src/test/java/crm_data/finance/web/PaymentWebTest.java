@@ -187,7 +187,8 @@ class PaymentWebTest {
 
 	@ParameterizedTest
 	@ValueSource(strings = { "/finance/receivables?from=2026-10-01&to=2026-10-31&size=101", "/finance/receivables?from=2026-10-01&to=2026-10-31&size=0",
-			"/finance/receivables?from=2026-10-01&to=2026-10-31&page=-1", "/finance/overdue?size=101", "/finance/overdue?page=-1",
+			"/finance/receivables?from=2026-10-01&to=2026-10-31&page=-1", "/finance/receivables?from=2026-10-01&to=2026-10-31&page=100001",
+			"/finance/overdue?size=101", "/finance/overdue?page=-1", "/finance/overdue?page=100001",
 			"/finance/cash-flow?from=ontem&to=2026-10-31", "/finance/revenue?from=2026-10-01&to=2026-13-01" })
 	void pagingAndDateFormatAreValidatedAtTheEdge(String path) throws Exception {
 		mvc.perform(get("/api/v1" + path).with(as(Role.DENTIST_ADMIN))).andExpect(status().isBadRequest());

@@ -73,4 +73,10 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
 			order by a.startsAt, a.id""")
 	List<Appointment> findWindowByStatus(@Param("from") Instant from, @Param("to") Instant to, @Param("lower") Instant lower,
 			@Param("statuses") Collection<AppointmentStatus> statuses);
+	/**
+	 * Como {@code findById}, mas por JPQL: o filtro Hibernate do tenant se aplica ({@code find} por id não o aplica) e a RLS segue
+	 * como barreira final. Id de outra clínica não volta.
+	 */
+	@Query("select a from Appointment a where a.id = :id")
+	Optional<Appointment> findOwnById(@Param("id") UUID id);
 }

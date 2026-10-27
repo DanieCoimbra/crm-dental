@@ -79,4 +79,10 @@ public interface PaymentRepository extends Repository<Payment, UUID> {
 
 		BigDecimal getNet();
 	}
+	/**
+	 * Como {@code findById}, mas por JPQL: o filtro Hibernate do tenant se aplica ({@code find} por id não o aplica) e a RLS segue
+	 * como barreira final. Id de outra clínica não volta.
+	 */
+	@Query("select p from Payment p where p.id = :id")
+	Optional<Payment> findOwnById(@Param("id") UUID id);
 }

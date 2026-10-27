@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
@@ -17,7 +16,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -522,13 +520,13 @@ class BudgetDocumentServiceTest {
 	@Test
 	void listReturnsTheActiveRevisionsAndAnUnknownBudgetIs404() {
 		Budget budget = budget(BudgetStatus.SENT, 0, "1250.00");
-		when(budgets.findById(budget.getId())).thenReturn(Optional.of(budget));
+		when(budgets.findOwnById(budget.getId())).thenReturn(Optional.of(budget));
 		BudgetDocument document = new BudgetDocument(UUID.randomUUID(), budget.getId(), patientId, "k", 10, "a".repeat(64), userId);
 		ReflectionTestUtils.setField(document, "revision", (short) 2);
 		ReflectionTestUtils.setField(document, "generatedAt", NOW);
 		when(documents.findActiveByBudgetId(budget.getId())).thenReturn(List.of(document));
 		UUID unknown = UUID.randomUUID();
-		when(budgets.findById(unknown)).thenReturn(Optional.empty());
+		when(budgets.findOwnById(unknown)).thenReturn(Optional.empty());
 
 		assertThat(service.list(budget.getId())).extracting(DocumentSummary::revision, DocumentSummary::sizeBytes).containsExactly(org.assertj.core.groups.Tuple.tuple(2, 10L));
 		assertThatThrownBy(() -> service.list(unknown)).isInstanceOfSatisfying(BusinessException.class,

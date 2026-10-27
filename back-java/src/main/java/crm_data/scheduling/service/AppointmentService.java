@@ -268,7 +268,7 @@ public class AppointmentService {
 	// ---- leitura ----
 
 	private Appointment load(UUID id) {
-		return appointments.findById(id)
+		return appointments.findOwnById(id)
 				.orElseThrow(() -> new BusinessException(ProblemTypes.NOT_FOUND, "Agendamento não encontrado."));
 	}
 

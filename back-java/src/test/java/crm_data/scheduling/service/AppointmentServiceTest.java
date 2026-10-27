@@ -247,7 +247,7 @@ class AppointmentServiceTest {
 	@Test
 	void theSameRaceOnAReschedule() {
 		Appointment scheduled = existing(AppointmentStatus.SCHEDULED, at(MONDAY, 9, 0), 0);
-		when(appointments.findById(scheduled.getId())).thenReturn(Optional.of(scheduled));
+		when(appointments.findOwnById(scheduled.getId())).thenReturn(Optional.of(scheduled));
 		when(appointments.saveAndFlush(any(Appointment.class))).thenThrow(lockFailure("40P01"));
 
 		assertThatThrownBy(() -> service.reschedule(scheduled.getId(), at(MONDAY, 14, 0), at(MONDAY, 15, 0), null, false, 0L))
@@ -314,9 +314,9 @@ class AppointmentServiceTest {
 	@Test
 	void getReturnsTheAppointmentOrNotFound() {
 		Appointment found = existing(AppointmentStatus.SCHEDULED, at(MONDAY, 9, 0), 0);
-		when(appointments.findById(found.getId())).thenReturn(Optional.of(found));
+		when(appointments.findOwnById(found.getId())).thenReturn(Optional.of(found));
 		UUID unknown = UUID.randomUUID();
-		when(appointments.findById(unknown)).thenReturn(Optional.empty());
+		when(appointments.findOwnById(unknown)).thenReturn(Optional.empty());
 
 		assertThat(service.get(found.getId()).appointment()).isSameAs(found);
 		assertThatThrownBy(() -> service.get(unknown)).isInstanceOfSatisfying(BusinessException.class,
@@ -328,7 +328,7 @@ class AppointmentServiceTest {
 	@Test
 	void rescheduleMovesTheTimeAndAConfirmedOneGoesBackToScheduled() {
 		Appointment confirmed = existing(AppointmentStatus.CONFIRMED, at(MONDAY, 9, 0), 3);
-		when(appointments.findById(confirmed.getId())).thenReturn(Optional.of(confirmed));
+		when(appointments.findOwnById(confirmed.getId())).thenReturn(Optional.of(confirmed));
 
 		AppointmentView result = service.reschedule(confirmed.getId(), at(MONDAY, 14, 0), at(MONDAY, 15, 0), "nova obs", false, 3L);
 
@@ -341,7 +341,7 @@ class AppointmentServiceTest {
 	@Test
 	void editingOnlyTheNotesKeepsTheStatusSkipsTheHourRulesAndDoesNotPublishRescheduled() {
 		Appointment confirmed = existing(AppointmentStatus.CONFIRMED, at(MONDAY, 9, 0), 3);
-		when(appointments.findById(confirmed.getId())).thenReturn(Optional.of(confirmed));
+		when(appointments.findOwnById(confirmed.getId())).thenReturn(Optional.of(confirmed));
 
 		service.reschedule(confirmed.getId(), confirmed.getStartsAt(), confirmed.getEndsAt(), null, false, 3L);
 
@@ -354,7 +354,7 @@ class AppointmentServiceTest {
 	@Test
 	void rescheduleAppliesTheSameRulesToTheNewTime() {
 		Appointment scheduled = existing(AppointmentStatus.SCHEDULED, at(MONDAY, 9, 0), 0);
-		when(appointments.findById(scheduled.getId())).thenReturn(Optional.of(scheduled));
+		when(appointments.findOwnById(scheduled.getId())).thenReturn(Optional.of(scheduled));
 
 		assertRule(() -> service.reschedule(scheduled.getId(), at(MONDAY, 12, 0), at(MONDAY, 12, 45), null, false, 0L),
 				ProblemTypes.BUSINESS_RULE, "LUNCH");
@@ -368,7 +368,7 @@ class AppointmentServiceTest {
 	void dentistFitsOnAReschedule() {
 		login(Role.DENTIST_ADMIN);
 		Appointment scheduled = existing(AppointmentStatus.SCHEDULED, at(MONDAY, 9, 0), 0);
-		when(appointments.findById(scheduled.getId())).thenReturn(Optional.of(scheduled));
+		when(appointments.findOwnById(scheduled.getId())).thenReturn(Optional.of(scheduled));
 
 		service.reschedule(scheduled.getId(), at(MONDAY, 19, 0), at(MONDAY, 20, 0), null, true, 0L);
 
@@ -386,9 +386,9 @@ class AppointmentServiceTest {
 	@Test
 	void staleVersionIsConflictAndUnknownIdIsNotFound() {
 		Appointment scheduled = existing(AppointmentStatus.SCHEDULED, at(MONDAY, 9, 0), 4);
-		when(appointments.findById(scheduled.getId())).thenReturn(Optional.of(scheduled));
+		when(appointments.findOwnById(scheduled.getId())).thenReturn(Optional.of(scheduled));
 		UUID unknown = UUID.randomUUID();
-		when(appointments.findById(unknown)).thenReturn(Optional.empty());
+		when(appointments.findOwnById(unknown)).thenReturn(Optional.empty());
 
 		assertRule(() -> service.reschedule(scheduled.getId(), at(MONDAY, 10, 0), at(MONDAY, 11, 0), null, false, 3L),
 				ProblemTypes.CONFLICT, null);
@@ -401,7 +401,7 @@ class AppointmentServiceTest {
 	@CsvSource({ "IN_PROGRESS", "COMPLETED", "CANCELED", "NO_SHOW" })
 	void onlyScheduledAndConfirmedCanBeChanged(AppointmentStatus status) {
 		Appointment appointment = existing(status, at(MONDAY, 9, 0), 0);
-		when(appointments.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+		when(appointments.findOwnById(appointment.getId())).thenReturn(Optional.of(appointment));
 
 		assertThatThrownBy(() -> service.reschedule(appointment.getId(), at(MONDAY, 10, 0), at(MONDAY, 11, 0), null, false, 0L))
 				.isInstanceOfSatisfying(BusinessException.class, ex -> {
@@ -473,7 +473,7 @@ class AppointmentServiceTest {
 	@Test
 	void rescheduleReplacesTheProcedureAndNullClearsIt() {
 		Appointment appointment = existingWithProcedure(AppointmentStatus.SCHEDULED, procedureId);
-		when(appointments.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+		when(appointments.findOwnById(appointment.getId())).thenReturn(Optional.of(appointment));
 		UUID other = UUID.randomUUID();
 
 		service.reschedule(appointment.getId(), at(MONDAY, 9, 0), at(MONDAY, 10, 0), "obs", false, other, 0L);
@@ -487,7 +487,7 @@ class AppointmentServiceTest {
 	@Test
 	void theShortRescheduleOverloadClearsTheProcedure() {
 		Appointment appointment = existingWithProcedure(AppointmentStatus.SCHEDULED, procedureId);
-		when(appointments.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+		when(appointments.findOwnById(appointment.getId())).thenReturn(Optional.of(appointment));
 
 		service.reschedule(appointment.getId(), at(MONDAY, 9, 0), at(MONDAY, 10, 0), "obs", false, 0L);
 
@@ -497,7 +497,7 @@ class AppointmentServiceTest {
 	@Test
 	void keepingTheSameInactiveProcedureOnAnEditIsRefusedLikeAnyOtherValue() {
 		Appointment appointment = existingWithProcedure(AppointmentStatus.SCHEDULED, procedureId);
-		when(appointments.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+		when(appointments.findOwnById(appointment.getId())).thenReturn(Optional.of(appointment));
 		doThrow(new BusinessException(ProblemTypes.BUSINESS_RULE, "O procedimento está inativo.", "PROCEDURE_INACTIVE"))
 				.when(procedures).requireActive(procedureId);
 
@@ -511,8 +511,8 @@ class AppointmentServiceTest {
 	void aWrongVersionOrStatusWinsOverTheProcedureCheck() {
 		Appointment stale = existingWithProcedure(AppointmentStatus.SCHEDULED, procedureId);
 		Appointment done = existingWithProcedure(AppointmentStatus.COMPLETED, procedureId);
-		when(appointments.findById(stale.getId())).thenReturn(Optional.of(stale));
-		when(appointments.findById(done.getId())).thenReturn(Optional.of(done));
+		when(appointments.findOwnById(stale.getId())).thenReturn(Optional.of(stale));
+		when(appointments.findOwnById(done.getId())).thenReturn(Optional.of(done));
 
 		assertThatThrownBy(() -> service.reschedule(stale.getId(), at(MONDAY, 9, 0), at(MONDAY, 10, 0), null, false, procedureId, 9L))
 				.isInstanceOf(BusinessException.class);
@@ -533,6 +533,7 @@ class AppointmentServiceTest {
 		List<AppointmentView> views = service.list(MONDAY, MONDAY, List.of());
 
 		assertThat(views).extracting(v -> v.procedure() == null ? null : v.procedure().name()).containsExactly("Canal", "Canal", null);
+		@SuppressWarnings("unchecked")
 		ArgumentCaptor<java.util.Collection<UUID>> ids = ArgumentCaptor.forClass(java.util.Collection.class);
 		verify(procedures).briefs(ids.capture());
 		assertThat(ids.getValue()).containsExactly(procedureId);
@@ -541,7 +542,7 @@ class AppointmentServiceTest {
 	@Test
 	void anAppointmentWhoseProcedureWasNotResolvedHasANullProcedureInsteadOfFailing() {
 		Appointment appointment = existingWithProcedure(AppointmentStatus.SCHEDULED, procedureId);
-		when(appointments.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+		when(appointments.findOwnById(appointment.getId())).thenReturn(Optional.of(appointment));
 		when(procedures.briefs(anyCollection())).thenReturn(Map.of());
 
 		assertThat(service.get(appointment.getId()).procedure()).isNull();

@@ -130,7 +130,7 @@ public class HolidayService {
 	}
 
 	private ClinicHoliday load(UUID id) {
-		return clinicHolidays.findById(id)
+		return clinicHolidays.findOwnById(id)
 				.orElseThrow(() -> new BusinessException(ProblemTypes.NOT_FOUND, "Feriado não encontrado."));
 	}
 

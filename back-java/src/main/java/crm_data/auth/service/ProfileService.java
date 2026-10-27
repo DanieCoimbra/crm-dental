@@ -143,7 +143,7 @@ public class ProfileService {
 	}
 
 	private User current() {
-		return users.findById(TokenPrincipal.current().userId())
+		return users.findOwnById(TokenPrincipal.current().userId())
 				.orElseThrow(() -> new BusinessException(ProblemTypes.UNAUTHORIZED, "Autenticação necessária."));
 	}
 

@@ -1,9 +1,10 @@
 -- =====================================================================
 -- tests/audit_commercial.sql | Fase 3 / F06-commercial-audit
 -- Teste 111 da spec global da Fase 3: toda gravação em budgets, installments, payments e budget_documents gera exatamente 1 linha em
--- audit_log (sem valores); os efeitos em cascata geram linhas próprias (recálculo do total = UPDATE em budgets; pagamento que quita ou
--- estorno que reabre = UPDATE em installments); procedure_types e budget_items NÃO geram linhas; sem app.user_id a gravação inteira falha
--- (28000); o log continua só de inserção e recusa nome de tabela fora da lista.
+-- audit_log (sem valores); pagamento que quita ou estorno que reabre = UPDATE em installments. V030: o recálculo do total por item
+-- NÃO gera linha em budgets (só mudança de conteúdo, status ou version); procedure_types e budget_items NÃO geram linhas; sem
+-- app.user_id a gravação inteira falha (28000), inclusive a edição de item; o log continua só de inserção e recusa nome de tabela
+-- fora da lista.
 -- Executar : como administrador, depois das migrations. Tudo dentro de uma transação revertida.
 -- Códigos  : 28000 sem app.user_id; 23503 usuário de outra clínica; 23514 table_name fora da lista; 42501 log só de inserção.
 -- =====================================================================
@@ -19,6 +20,7 @@ BEGIN;
 \set y3 'f4000000-0000-4000-8000-000000000905'
 \set y4 'f4000000-0000-4000-8000-000000000906'
 \set b2 'f4000000-0000-4000-8000-000000000907'
+\set b3 'f4000000-0000-4000-8000-000000000908'
 
 -- linhas de auditoria de uma tabela/registro/ação (o log é lido como administrador)
 CREATE FUNCTION pg_temp.ac(p_table text, p_record text, p_action text) RETURNS bigint LANGUAGE sql AS $$
@@ -37,7 +39,7 @@ SET SESSION AUTHORIZATION crm_app;
 :ctx_a_d \gset
 SELECT pg_temp.expect_rows('item (2 x pt1)', pg_temp.item_sql(:'ca', :'b1', :'pt1', '2', '1'), 1);
 RESET SESSION AUTHORIZATION;
-SELECT pg_temp.expect_n('T111 item novo gera UPDATE no orcamento (total recalculado)', pg_temp.ac('budgets', :'b1', 'UPDATE'), 1);
+SELECT pg_temp.expect_n('T111 item novo NAO gera UPDATE auditado no orcamento (recalculo do total, V030)', pg_temp.ac('budgets', :'b1', 'UPDATE'), 0);
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM core.audit_log WHERE table_name = 'budget_items') THEN
@@ -51,7 +53,7 @@ SELECT pg_temp.expect_rows('envia', pg_temp.budget_status_sql(:'b1', 'SENT'), 1)
 SELECT pg_temp.expect_rows('PDF', pg_temp.doc_sql(:'ca', :'b1', :'pa', :'ua_d'), 1);
 SELECT pg_temp.expect_rows('aprova', pg_temp.budget_status_sql(:'b1', 'APPROVED'), 1);
 RESET SESSION AUTHORIZATION;
-SELECT pg_temp.expect_n('T111 UPDATEs do orcamento: item, desconto, envio, aprovacao = 4', pg_temp.ac('budgets', :'b1', 'UPDATE'), 4);
+SELECT pg_temp.expect_n('T111 UPDATEs auditados do orcamento: envio e aprovacao = 2 (item e desconto igual nao contam)', pg_temp.ac('budgets', :'b1', 'UPDATE'), 2);
 SELECT pg_temp.expect_n('T111 INSERT do PDF',
   (SELECT count(*) FROM core.audit_log WHERE table_name = 'budget_documents' AND action = 'INSERT'), 1);
 
@@ -109,9 +111,16 @@ BEGIN
 END $$;
 
 -- Sem app.user_id: a gravação inteira falha e NADA persiste (administrador: não passa pela RLS)
+-- b3: rascunho com 1 item (150,00), criado com usuário, para as mudanças reais sem usuário
+SET SESSION AUTHORIZATION crm_app;
+:ctx_a_d \gset
+SELECT pg_temp.expect_rows('b3', pg_temp.budget_sql(:'b3', :'ca', :'pa', :'ua_d'), 1);
+SELECT pg_temp.expect_rows('item do b3', pg_temp.item_sql(:'ca', :'b3', :'pt1', '1', '1'), 1);
+RESET SESSION AUTHORIZATION;
 :ctx_a_d_nouser \gset
 SELECT pg_temp.expect_err('T111 INSERT de orcamento sem app.user_id', '28000', pg_temp.budget_sql(:'b2', :'ca', :'pa', :'ua_d'));
-SELECT pg_temp.expect_err('T111 UPDATE de orcamento sem app.user_id', '28000', pg_temp.budget_discount_sql(:'b1', '0'));
+SELECT pg_temp.expect_err('T111 UPDATE de orcamento (desconto muda) sem app.user_id', '28000', pg_temp.budget_discount_sql(:'b3', '10'));
+SELECT pg_temp.expect_err('T111 item novo sem app.user_id (V030: refresh_budget_total exige o usuario)', '28000', pg_temp.item_sql(:'ca', :'b3', :'pt1', '1', '2'));
 SELECT pg_temp.expect_err('T111 INSERT de pagamento sem app.user_id', '28000', pg_temp.pay_sql(:'y4', :'ca', :'i1', 'PAYMENT', '10', '2031-10-05', '', :'ua_d'));
 SELECT pg_temp.expect_err('T111 INSERT de parcela sem app.user_id', '28000', pg_temp.inst_sql(gen_random_uuid()::text, :'ca', :'b1', :'pa', '2', '100', '2031-11-01', :'ua_d'));
 SELECT pg_temp.expect_err('T111 INSERT de PDF sem app.user_id', '28000', pg_temp.doc_sql(:'ca', :'b1', :'pa', :'ua_d'));
@@ -126,7 +135,7 @@ BEGIN
 END $$;
 -- usuário de outra clínica na sessão: a FK composta do log recusa
 :ctx_a_d_user_b \gset
-SELECT pg_temp.expect_err('T111 app.user_id de outra clinica', '23503', pg_temp.budget_discount_sql(:'b1', '0'));
+SELECT pg_temp.expect_err('T111 app.user_id de outra clinica', '23503', pg_temp.budget_discount_sql(:'b3', '20'));
 :ctx_a_d \gset
 
 -- O log: só identificadores, só de inserção, lista de tabelas ampliada e fechada
@@ -152,7 +161,7 @@ SET SESSION AUTHORIZATION crm_app;
 :ctx_a_r \gset
 SELECT pg_temp.expect_rows('T111 recepcao nao le o log', 'SELECT 1 FROM core.audit_log', 0);
 :ctx_a_d \gset
-SELECT pg_temp.expect_rows('T111 dentista le as linhas dos orcamentos', 'SELECT 1 FROM core.audit_log WHERE table_name = ''budgets''', 5);
+SELECT pg_temp.expect_rows('T111 dentista le as linhas dos orcamentos (b1: INSERT, envio, aprovacao; b3: INSERT)', 'SELECT 1 FROM core.audit_log WHERE table_name = ''budgets''', 4);
 RESET SESSION AUTHORIZATION;
 
 ROLLBACK;

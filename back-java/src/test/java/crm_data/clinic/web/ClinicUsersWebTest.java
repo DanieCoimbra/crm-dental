@@ -334,7 +334,7 @@ class ClinicUsersWebTest {
 
 	@Test
 	void listRejectsSizeOutsideOneToFiftyAndNegativePage() throws Exception {
-		for (String query : new String[] { "?size=0", "?size=51", "?size=-3", "?page=-1", "?size=abc" }) {
+		for (String query : new String[] { "?size=0", "?size=51", "?size=-3", "?page=-1", "?page=100001", "?size=abc" }) {
 			mvc.perform(get("/api/v1/users" + query).with(as(Role.DENTIST_ADMIN)))
 					.andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.type").value("https://crm.local/problems/validation"));

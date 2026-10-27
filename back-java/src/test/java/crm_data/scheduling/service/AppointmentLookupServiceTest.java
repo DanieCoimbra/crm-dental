@@ -37,7 +37,7 @@ class AppointmentLookupServiceTest {
 
 	@Test
 	void requireOfPatientAcceptsTheirAppointmentWithoutLocking() {
-		when(appointments.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+		when(appointments.findOwnById(appointment.getId())).thenReturn(Optional.of(appointment));
 
 		assertThatCode(() -> lookup.requireOfPatient(appointment.getId(), patientId)).doesNotThrowAnyException();
 
@@ -51,13 +51,13 @@ class AppointmentLookupServiceTest {
 		assertThatCode(() -> lookup.lockOfPatient(appointment.getId(), patientId)).doesNotThrowAnyException();
 
 		verify(appointments).findForUpdateById(appointment.getId());
-		verify(appointments, never()).findById(appointment.getId());
+		verify(appointments, never()).findOwnById(appointment.getId());
 	}
 
 	@Test
 	void unknownAppointmentIsNotFoundForBothChecks() {
 		UUID unknown = UUID.randomUUID();
-		when(appointments.findById(unknown)).thenReturn(Optional.empty());
+		when(appointments.findOwnById(unknown)).thenReturn(Optional.empty());
 		when(appointments.findForUpdateById(unknown)).thenReturn(Optional.empty());
 
 		assertError(() -> lookup.requireOfPatient(unknown, patientId), ProblemTypes.NOT_FOUND, "Agendamento não encontrado.");
@@ -66,7 +66,7 @@ class AppointmentLookupServiceTest {
 
 	@Test
 	void anAppointmentOfAnotherPatientIsConflictForBothChecks() {
-		when(appointments.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+		when(appointments.findOwnById(appointment.getId())).thenReturn(Optional.of(appointment));
 		when(appointments.findForUpdateById(appointment.getId())).thenReturn(Optional.of(appointment));
 		UUID other = UUID.randomUUID();
 

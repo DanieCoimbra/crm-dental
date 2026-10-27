@@ -31,15 +31,15 @@ class Phase3SchemaValidateIT extends Phase3ItSupport {
 	Environment environment;
 
 	@Test
-	void hibernateValidatesTheMappingAgainstV001ToV029() {
+	void hibernateValidatesTheMappingAgainstV001ToV030() {
 		assertThat(environment.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("validate");
 	}
 
 	@Test
-	void allTwentyNineMigrationsExistAndTheCommercialObjectsAreInPlace() throws IOException {
+	void allThirtyMigrationsExistAndTheCommercialObjectsAreInPlace() throws IOException {
 		Path migrations = Path.of("..", "database", "migrations");
 		try (Stream<Path> files = Files.list(migrations)) {
-			assertThat(files.filter(f -> f.getFileName().toString().matches("V0\\d\\d__.*\\.sql")).count()).isEqualTo(29);
+			assertThat(files.filter(f -> f.getFileName().toString().matches("V0\\d\\d__.*\\.sql")).count()).isEqualTo(30);
 		}
 		var admin = DatabaseContainer.admin();
 		assertThat(admin.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = 'core' AND table_type = 'BASE TABLE'", String.class))

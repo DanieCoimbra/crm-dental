@@ -36,7 +36,7 @@ class ProcedureTypeLookupServiceTest {
 	@Test
 	void requireActivePassesForAnActiveProcedure() {
 		ProcedureType active = procedure("Limpeza", "150.00", true);
-		when(procedureTypes.findById(active.getId())).thenReturn(Optional.of(active));
+		when(procedureTypes.findOwnById(active.getId())).thenReturn(Optional.of(active));
 
 		lookup.requireActive(active.getId());
 	}
@@ -44,7 +44,7 @@ class ProcedureTypeLookupServiceTest {
 	@Test
 	void requireActiveIs404ForAnUnknownOrForeignProcedure() {
 		UUID unknown = UUID.randomUUID();
-		when(procedureTypes.findById(unknown)).thenReturn(Optional.empty());
+		when(procedureTypes.findOwnById(unknown)).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> lookup.requireActive(unknown)).isInstanceOfSatisfying(BusinessException.class, ex -> {
 			assertThat(ex.type()).isEqualTo(ProblemTypes.NOT_FOUND);
@@ -55,7 +55,7 @@ class ProcedureTypeLookupServiceTest {
 	@Test
 	void requireActiveIs422WithTheStableReasonForAnInactiveProcedure() {
 		ProcedureType inactive = procedure("Limpeza", "150.00", false);
-		when(procedureTypes.findById(inactive.getId())).thenReturn(Optional.of(inactive));
+		when(procedureTypes.findOwnById(inactive.getId())).thenReturn(Optional.of(inactive));
 
 		assertThatThrownBy(() -> lookup.requireActive(inactive.getId())).isInstanceOfSatisfying(BusinessException.class, ex -> {
 			assertThat(ex.type()).isEqualTo(ProblemTypes.BUSINESS_RULE);

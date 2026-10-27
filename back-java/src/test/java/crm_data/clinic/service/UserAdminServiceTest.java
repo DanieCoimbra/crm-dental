@@ -61,8 +61,8 @@ class UserAdminServiceTest {
 		dentist = user(dentistId, clinicId, Role.DENTIST_ADMIN);
 		receptionist = user(UUID.randomUUID(), clinicId, Role.RECEPTIONIST);
 		TenantContext.set(clinicId, dentistId, Role.DENTIST_ADMIN);
-		when(users.findById(dentistId)).thenReturn(Optional.of(dentist));
-		when(users.findById(receptionist.getId())).thenReturn(Optional.of(receptionist));
+		when(users.findOwnById(dentistId)).thenReturn(Optional.of(dentist));
+		when(users.findOwnById(receptionist.getId())).thenReturn(Optional.of(receptionist));
 		when(users.saveAndFlush(any(User.class))).thenAnswer(call -> call.getArgument(0));
 	}
 
@@ -145,7 +145,7 @@ class UserAdminServiceTest {
 	@Test
 	void anotherDentistCannotBeDeactivatedEither_422() {
 		User otherDentist = user(UUID.randomUUID(), clinicId, Role.DENTIST_ADMIN);
-		when(users.findById(otherDentist.getId())).thenReturn(Optional.of(otherDentist));
+		when(users.findOwnById(otherDentist.getId())).thenReturn(Optional.of(otherDentist));
 
 		assertRule(() -> service.setActive(otherDentist.getId(), false), ProblemTypes.BUSINESS_RULE);
 	}
@@ -153,7 +153,7 @@ class UserAdminServiceTest {
 	@Test
 	void unknownOrOtherClinicIdIsNotFound_404() {
 		UUID foreign = UUID.randomUUID();
-		when(users.findById(foreign)).thenReturn(Optional.empty()); // a RLS esconde usuários de outra clínica
+		when(users.findOwnById(foreign)).thenReturn(Optional.empty()); // a RLS esconde usuários de outra clínica
 
 		assertRule(() -> service.setActive(foreign, false), ProblemTypes.NOT_FOUND);
 		assertRule(() -> service.resetPassword(foreign, "SenhaForte2026"), ProblemTypes.NOT_FOUND);

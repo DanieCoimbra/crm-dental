@@ -46,7 +46,7 @@ public class PatientFileController {
 
 	@GetMapping
 	public PageResponse<FileResponse> list(@PathVariable UUID patientId,
-			@RequestParam(defaultValue = "0") @Min(value = 0, message = "deve ser maior ou igual a 0") int page,
+			@RequestParam(defaultValue = "0") @Min(value = 0, message = "deve ser maior ou igual a 0") @Max(value = 100000, message = "deve ser no máximo 100000") int page,
 			@RequestParam(defaultValue = "20") @Min(value = 1, message = "deve estar entre 1 e 50") @Max(value = 50, message = "deve estar entre 1 e 50") int size) {
 		return PageResponse.of(files.list(patientId, page, size), FileResponse::from);
 	}

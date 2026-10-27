@@ -60,7 +60,7 @@ management:
       show-details: never
       group:
         readiness:
-          include: readinessState,db
+          include: readinessState # sem db: o endpoint é público e sem limite (auditoria 2026-10-27)
 
 springdoc:
   api-docs:

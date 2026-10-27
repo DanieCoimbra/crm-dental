@@ -20,7 +20,7 @@ class AppointmentLookupService implements AppointmentLookup {
 	@Override
 	@Transactional(readOnly = true)
 	public void requireOfPatient(UUID appointmentId, UUID patientId) {
-		check(appointments.findById(appointmentId).orElse(null), patientId);
+		check(appointments.findOwnById(appointmentId).orElse(null), patientId);
 	}
 
 	@Override

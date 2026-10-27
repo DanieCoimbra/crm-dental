@@ -182,7 +182,7 @@ public class BudgetService {
 	/** @throws BusinessException {@code not-found} (404) se não existe na clínica */
 	@Transactional(readOnly = true)
 	public BudgetView get(UUID id) {
-		return view(budgets.findById(id).orElseThrow(() -> notFound()));
+		return view(budgets.findOwnById(id).orElseThrow(() -> notFound()));
 	}
 
 	/**
@@ -298,7 +298,7 @@ public class BudgetService {
 	public BudgetView reloaded(UUID id) {
 		entityManager.flush();
 		entityManager.clear();
-		return view(budgets.findById(id).orElseThrow(() -> notFound()));
+		return view(budgets.findOwnById(id).orElseThrow(() -> notFound()));
 	}
 
 	private BudgetView view(Budget budget) {

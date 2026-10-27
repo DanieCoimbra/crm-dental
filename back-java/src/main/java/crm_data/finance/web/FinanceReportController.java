@@ -39,13 +39,13 @@ public class FinanceReportController {
 
 	@GetMapping("/finance/receivables")
 	public ReceivablesResponse receivables(@RequestParam(required = false) LocalDate from, @RequestParam(required = false) LocalDate to,
-			@RequestParam(defaultValue = "0") @Min(value = 0, message = PAGE_MIN) int page,
+			@RequestParam(defaultValue = "0") @Min(value = 0, message = PAGE_MIN) @Max(value = 100000, message = "deve ser no máximo 100000") int page,
 			@RequestParam(defaultValue = "20") @Min(value = 1, message = SIZE_RANGE) @Max(value = FinanceRules.MAX_PAGE_SIZE, message = SIZE_RANGE) int size) {
 		return ReceivablesResponse.from(reports.receivables(from, to, page, size));
 	}
 
 	@GetMapping("/finance/overdue")
-	public ReceivablesResponse overdue(@RequestParam(defaultValue = "0") @Min(value = 0, message = PAGE_MIN) int page,
+	public ReceivablesResponse overdue(@RequestParam(defaultValue = "0") @Min(value = 0, message = PAGE_MIN) @Max(value = 100000, message = "deve ser no máximo 100000") int page,
 			@RequestParam(defaultValue = "20") @Min(value = 1, message = SIZE_RANGE) @Max(value = FinanceRules.MAX_PAGE_SIZE, message = SIZE_RANGE) int size) {
 		return ReceivablesResponse.from(reports.overdue(page, size));
 	}

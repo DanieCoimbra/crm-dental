@@ -53,4 +53,10 @@ public interface BudgetRepository extends JpaRepository<Budget, UUID>, JpaSpecif
 
 	@Query("select count(b) from Budget b where b.patientId = :patientId and b.status in :statuses")
 	long countByPatientAndStatuses(@Param("patientId") UUID patientId, @Param("statuses") Collection<BudgetStatus> statuses);
+	/**
+	 * Como {@code findById}, mas por JPQL: o filtro Hibernate do tenant se aplica ({@code find} por id não o aplica) e a RLS segue
+	 * como barreira final. Id de outra clínica não volta.
+	 */
+	@Query("select b from Budget b where b.id = :id")
+	Optional<Budget> findOwnById(@Param("id") UUID id);
 }

@@ -6,10 +6,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.core.env.Environment;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -51,10 +54,16 @@ class PlatformFoundationIT {
 	}
 
 	@Test
-	void readinessIsPublicAndUpWithDatabase() throws Exception {
+	void readinessIsPublicAndUp() throws Exception {
 		mvc.perform(get("/actuator/health/readiness"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("UP"));
+	}
+
+	/** O readiness é público e sem rate limit: se incluísse o banco, cada chamada seguraria uma conexão do pool (auditoria 2026-10-27). */
+	@Test
+	void publicReadinessDoesNotQueryTheDatabase(@Autowired Environment environment) {
+		assertThat(environment.getProperty("management.endpoint.health.group.readiness.include")).isEqualTo("readinessState");
 	}
 
 	@Test

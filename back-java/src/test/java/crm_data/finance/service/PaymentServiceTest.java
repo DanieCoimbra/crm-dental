@@ -70,7 +70,7 @@ class PaymentServiceTest {
 		when(zones.zone()).thenReturn(ZoneId.of("America/Sao_Paulo"));
 		when(installments.findRowById(installmentId)).thenReturn(Optional.of(row));
 		when(payments.save(any(Payment.class))).thenAnswer(call -> call.getArgument(0));
-		when(payments.findById(any())).thenAnswer(call -> Optional.empty());
+		when(payments.findOwnById(any())).thenAnswer(call -> Optional.empty());
 	}
 
 	@AfterEach
@@ -87,7 +87,7 @@ class PaymentServiceTest {
 	private void foundAfterSave() {
 		when(payments.save(any(Payment.class))).thenAnswer(call -> {
 			Payment saved = call.getArgument(0);
-			when(payments.findById(saved.getId())).thenReturn(Optional.of(saved));
+			when(payments.findOwnById(saved.getId())).thenReturn(Optional.of(saved));
 			return saved;
 		});
 	}
@@ -149,11 +149,11 @@ class PaymentServiceTest {
 	@Test
 	void reverseCreatesATotalReversalOfTheSameInstallmentAmountAndMethodDatedToday() {
 		Payment original = stored(installmentId, PaymentKind.PAYMENT);
-		when(payments.findById(original.getId())).thenReturn(Optional.of(original));
+		when(payments.findOwnById(original.getId())).thenReturn(Optional.of(original));
 		when(payments.existsByReversesPaymentId(original.getId())).thenReturn(false);
 		when(payments.save(any(Payment.class))).thenAnswer(call -> {
 			Payment saved = call.getArgument(0);
-			when(payments.findById(saved.getId())).thenReturn(Optional.of(saved));
+			when(payments.findOwnById(saved.getId())).thenReturn(Optional.of(saved));
 			return saved;
 		});
 
@@ -175,11 +175,11 @@ class PaymentServiceTest {
 	void reversingAReversalOrAReversedPaymentOrAnUnknownOneIsRefused() {
 		Payment reversal = stored(installmentId, PaymentKind.REVERSAL);
 		Payment reversed = stored(installmentId, PaymentKind.PAYMENT);
-		when(payments.findById(reversal.getId())).thenReturn(Optional.of(reversal));
-		when(payments.findById(reversed.getId())).thenReturn(Optional.of(reversed));
+		when(payments.findOwnById(reversal.getId())).thenReturn(Optional.of(reversal));
+		when(payments.findOwnById(reversed.getId())).thenReturn(Optional.of(reversed));
 		when(payments.existsByReversesPaymentId(reversed.getId())).thenReturn(true);
 		UUID unknown = UUID.randomUUID();
-		when(payments.findById(unknown)).thenReturn(Optional.empty());
+		when(payments.findOwnById(unknown)).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> service.reverse(reversal.getId())).hasMessage(ConflictMessages.REVERSAL_OF_REVERSAL);
 		assertThatThrownBy(() -> service.reverse(reversed.getId())).hasMessage(ConflictMessages.PAYMENT_REVERSED);

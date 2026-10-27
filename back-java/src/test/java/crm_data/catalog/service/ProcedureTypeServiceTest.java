@@ -85,7 +85,7 @@ class ProcedureTypeServiceTest {
 	@Test
 	void updateChangesTheFourFieldsAndKeepsActiveAndAuthor() {
 		ProcedureType procedure = existing(3);
-		when(procedureTypes.findById(procedure.getId())).thenReturn(Optional.of(procedure));
+		when(procedureTypes.findOwnById(procedure.getId())).thenReturn(Optional.of(procedure));
 
 		ProcedureType updated = service.update(procedure.getId(), "Restauração resina", new BigDecimal("300.00"), (short) 60, "#10B981", 3L);
 
@@ -101,7 +101,7 @@ class ProcedureTypeServiceTest {
 	@Test
 	void aStaleVersionOnUpdateOrActiveChangeIs409AndWritesNothing() {
 		ProcedureType procedure = existing(3);
-		when(procedureTypes.findById(procedure.getId())).thenReturn(Optional.of(procedure));
+		when(procedureTypes.findOwnById(procedure.getId())).thenReturn(Optional.of(procedure));
 
 		assertThatThrownBy(() -> service.update(procedure.getId(), "X1", BigDecimal.ONE, (short) 5, "#000000", 2L))
 				.isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.type()).isEqualTo(ProblemTypes.CONFLICT));
@@ -116,7 +116,7 @@ class ProcedureTypeServiceTest {
 	@Test
 	void anUnknownProcedureIs404ForGetUpdateAndActiveChange() {
 		UUID unknown = UUID.randomUUID();
-		when(procedureTypes.findById(unknown)).thenReturn(Optional.empty());
+		when(procedureTypes.findOwnById(unknown)).thenReturn(Optional.empty());
 
 		for (Runnable call : List.<Runnable>of(() -> service.get(unknown),
 				() -> service.update(unknown, "X1", BigDecimal.ONE, (short) 5, "#000000", 0L), () -> service.setActive(unknown, false, 0L))) {
@@ -128,7 +128,7 @@ class ProcedureTypeServiceTest {
 	@Test
 	void setActiveTogglesAndPublishesTheNewState() {
 		ProcedureType procedure = existing(0);
-		when(procedureTypes.findById(procedure.getId())).thenReturn(Optional.of(procedure));
+		when(procedureTypes.findOwnById(procedure.getId())).thenReturn(Optional.of(procedure));
 
 		ProcedureType inactive = service.setActive(procedure.getId(), false, 0L);
 

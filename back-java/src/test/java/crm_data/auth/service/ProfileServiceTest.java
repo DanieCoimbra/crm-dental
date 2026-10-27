@@ -45,7 +45,7 @@ class ProfileServiceTest {
 		user = new User(userId, "Ana", "ana@clinica.com", encoder.encode(CURRENT), Role.DENTIST_ADMIN);
 		ReflectionTestUtils.setField(user, "clinicId", UUID.randomUUID());
 		TenantContext.set(UUID.randomUUID(), userId, Role.DENTIST_ADMIN);
-		when(users.findById(userId)).thenReturn(Optional.of(user));
+		when(users.findOwnById(userId)).thenReturn(Optional.of(user));
 		when(users.saveAndFlush(any(User.class))).thenAnswer(call -> call.getArgument(0));
 	}
 
@@ -61,7 +61,7 @@ class ProfileServiceTest {
 	@Test
 	void meIsAlwaysTheUserOfTheToken() {
 		assertThat(service.me()).isSameAs(user);
-		verify(users).findById(userId);
+		verify(users).findOwnById(userId);
 	}
 
 	@Test
@@ -228,7 +228,7 @@ class ProfileServiceTest {
 		User stale = new User(userId, "Ana", "ana@clinica.com", encoder.encode(CURRENT), Role.DENTIST_ADMIN);
 		ReflectionTestUtils.setField(stale, "version", 1L);
 		ReflectionTestUtils.setField(user, "version", 2L);
-		when(users.findById(userId)).thenReturn(Optional.of(stale)).thenReturn(Optional.of(user)); // leitura (v1), depois recarga (v2)
+		when(users.findOwnById(userId)).thenReturn(Optional.of(stale)).thenReturn(Optional.of(user)); // leitura (v1), depois recarga (v2)
 
 		assertRule(() -> service.changePassword(CURRENT, "NovaSenha2026"), ProblemTypes.CONFLICT);
 
@@ -238,7 +238,7 @@ class ProfileServiceTest {
 
 	@Test
 	void tokenUserMissingFromTheTenantIsUnauthorized() {
-		when(users.findById(userId)).thenReturn(Optional.empty());
+		when(users.findOwnById(userId)).thenReturn(Optional.empty());
 
 		assertRule(service::me, ProblemTypes.UNAUTHORIZED);
 	}

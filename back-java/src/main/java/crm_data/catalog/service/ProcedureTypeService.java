@@ -102,7 +102,7 @@ public class ProcedureTypeService {
 	}
 
 	private ProcedureType load(UUID id) {
-		return procedureTypes.findById(id)
+		return procedureTypes.findOwnById(id)
 				.orElseThrow(() -> new BusinessException(ProblemTypes.NOT_FOUND, "Procedimento não encontrado."));
 	}
 

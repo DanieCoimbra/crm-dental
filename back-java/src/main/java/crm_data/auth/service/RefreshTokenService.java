@@ -116,7 +116,7 @@ public class RefreshTokenService {
 			tokens.revokeFamily(token.familyId(), now);
 			return new Rotation(null, true);
 		}
-		User user = users.findById(token.userId()).filter(User::isActive).orElse(null);
+		User user = users.findOwnById(token.userId()).filter(User::isActive).orElse(null);
 		if (user == null) { // inativado (ou removido) desde a emissão
 			tokens.revokeFamily(token.familyId(), now);
 			return new Rotation(null, false);

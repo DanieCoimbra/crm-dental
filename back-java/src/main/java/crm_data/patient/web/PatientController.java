@@ -48,7 +48,7 @@ public class PatientController {
 	@GetMapping
 	public PageResponse<PatientSummaryResponse> search(@RequestParam(required = false) String q,
 			@RequestParam(defaultValue = "active") @Pattern(regexp = "active|inactive|all", message = "deve ser active, inactive ou all") String status,
-			@RequestParam(defaultValue = "0") @Min(value = 0, message = "deve ser maior ou igual a 0") int page,
+			@RequestParam(defaultValue = "0") @Min(value = 0, message = "deve ser maior ou igual a 0") @Max(value = 100000, message = "deve ser no máximo 100000") int page,
 			@RequestParam(defaultValue = "20") @Min(value = 1, message = "deve estar entre 1 e 50") @Max(value = 50, message = "deve estar entre 1 e 50") int size) {
 		return PageResponse.of(patients.search(q, Status.parse(status), page, size), PatientSummaryResponse::from);
 	}

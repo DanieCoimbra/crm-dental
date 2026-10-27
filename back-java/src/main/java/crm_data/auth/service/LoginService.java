@@ -72,7 +72,7 @@ public class LoginService {
 		UserLookup account = found.get();
 		rateLimiter.resetLoginFailures(clientIp, email);
 		return tenantTransactions.execute(account.clinicId(), () -> {
-			User user = users.findById(account.id()).orElseThrow(
+			User user = users.findOwnById(account.id()).orElseThrow(
 					() -> new BusinessException(ProblemTypes.UNAUTHORIZED, "Credenciais inválidas."));
 			return sessions.create(user, refreshTokens.issue(user.getId(), UUID.randomUUID()));
 		});

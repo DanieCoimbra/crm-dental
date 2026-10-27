@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import crm_data.catalog.domain.ProcedureType;
+import java.util.Optional;
 
 public interface ProcedureTypeRepository extends JpaRepository<ProcedureType, UUID> {
 
@@ -22,4 +23,10 @@ public interface ProcedureTypeRepository extends JpaRepository<ProcedureType, UU
 	/** Em lote (resumo e preço): id de outra clínica não volta (filtro + RLS). */
 	@Query("select p from ProcedureType p where p.id in :ids")
 	List<ProcedureType> findAllByIds(@Param("ids") Collection<UUID> ids);
+	/**
+	 * Como {@code findById}, mas por JPQL: o filtro Hibernate do tenant se aplica ({@code find} por id não o aplica) e a RLS segue
+	 * como barreira final. Id de outra clínica não volta.
+	 */
+	@Query("select p from ProcedureType p where p.id = :id")
+	Optional<ProcedureType> findOwnById(@Param("id") UUID id);
 }

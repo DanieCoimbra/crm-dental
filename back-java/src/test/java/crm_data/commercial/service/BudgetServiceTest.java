@@ -109,7 +109,7 @@ class BudgetServiceTest {
 	@Test
 	void createWritesTheHeaderThenTheItemsThenTheDiscountFlushingBetweenSteps() {
 		Budget stored = stored(BudgetStatus.DRAFT, 0);
-		when(budgets.findById(any())).thenReturn(Optional.of(stored));
+		when(budgets.findOwnById(any())).thenReturn(Optional.of(stored));
 
 		BudgetView view = service.create(patientId, draft("50.00", item(restoration, 2, "0.00"), item(root, 1, "100.00")));
 
@@ -130,7 +130,7 @@ class BudgetServiceTest {
 
 	@Test
 	void theHeaderIsInsertedWithoutDiscountAndWithoutASecondUpdateWhenThereIsNoDiscount() {
-		when(budgets.findById(any())).thenReturn(Optional.of(stored(BudgetStatus.DRAFT, 0)));
+		when(budgets.findOwnById(any())).thenReturn(Optional.of(stored(BudgetStatus.DRAFT, 0)));
 
 		service.create(patientId, draft("0.00", item(restoration, 1, "0.00")));
 
@@ -141,10 +141,11 @@ class BudgetServiceTest {
 
 	@Test
 	void theItemsGetPositionsOneToNAndTheDatabaseOwnedFieldsAreNeverSet() {
-		when(budgets.findById(any())).thenReturn(Optional.of(stored(BudgetStatus.DRAFT, 0)));
+		when(budgets.findOwnById(any())).thenReturn(Optional.of(stored(BudgetStatus.DRAFT, 0)));
 
 		service.create(patientId, draft("0.00", item(restoration, 2, "10.00"), item(root, 3, "0.00"), item(restoration, 1, "0.00")));
 
+		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<BudgetItem>> saved = ArgumentCaptor.forClass(List.class);
 		verify(items).saveAll(saved.capture());
 		assertThat(saved.getValue()).extracting(i -> (int) i.getPosition()).containsExactly(1, 2, 3);
@@ -159,13 +160,13 @@ class BudgetServiceTest {
 
 	@Test
 	void createRelooksTheBudgetAfterClearingThePersistenceContext() {
-		when(budgets.findById(any())).thenReturn(Optional.of(stored(BudgetStatus.DRAFT, 0)));
+		when(budgets.findOwnById(any())).thenReturn(Optional.of(stored(BudgetStatus.DRAFT, 0)));
 
 		service.create(patientId, draft("0.00", item(restoration, 1, "0.00")));
 
 		InOrder order = inOrder(entityManager, budgets);
 		order.verify(entityManager).clear();
-		order.verify(budgets).findById(any());
+		order.verify(budgets).findOwnById(any());
 	}
 
 	@Test
@@ -183,7 +184,7 @@ class BudgetServiceTest {
 
 	@Test
 	void noAppointmentMeansNoLookup() {
-		when(budgets.findById(any())).thenReturn(Optional.of(stored(BudgetStatus.DRAFT, 0)));
+		when(budgets.findOwnById(any())).thenReturn(Optional.of(stored(BudgetStatus.DRAFT, 0)));
 
 		service.create(patientId, draft("0.00", item(restoration, 1, "0.00")));
 
@@ -230,7 +231,7 @@ class BudgetServiceTest {
 	@Test
 	void createPublishesTheEventWithOnlyIds() {
 		Budget stored = stored(BudgetStatus.DRAFT, 0);
-		when(budgets.findById(any())).thenReturn(Optional.of(stored));
+		when(budgets.findOwnById(any())).thenReturn(Optional.of(stored));
 
 		service.create(patientId, draft("0.00", item(restoration, 1, "0.00")));
 
@@ -250,7 +251,7 @@ class BudgetServiceTest {
 		BudgetItem old = new BudgetItem(UUID.randomUUID(), budget.getId(), restoration, (short) 1, BigDecimal.ZERO, (short) 1);
 		when(budgets.findForUpdateById(budget.getId())).thenReturn(Optional.of(budget));
 		when(items.findByBudgetIdOrderByPositionAsc(budget.getId())).thenReturn(List.of(old));
-		when(budgets.findById(budget.getId())).thenReturn(Optional.of(budget));
+		when(budgets.findOwnById(budget.getId())).thenReturn(Optional.of(budget));
 		List<BigDecimal> discountsAtFlush = new java.util.ArrayList<>();
 		org.mockito.Mockito.doAnswer(call -> {
 			discountsAtFlush.add(budget.getDiscountAmount());
@@ -273,7 +274,7 @@ class BudgetServiceTest {
 	void updateWithoutAnOldDiscountSkipsTheZeroingFlush() {
 		Budget budget = stored(BudgetStatus.DRAFT, 0);
 		when(budgets.findForUpdateById(budget.getId())).thenReturn(Optional.of(budget));
-		when(budgets.findById(budget.getId())).thenReturn(Optional.of(budget));
+		when(budgets.findOwnById(budget.getId())).thenReturn(Optional.of(budget));
 
 		service.update(budget.getId(), draft("0.00", item(root, 1, "0.00")), 0L);
 
@@ -286,7 +287,7 @@ class BudgetServiceTest {
 		Budget budget = stored(BudgetStatus.DRAFT, 0);
 		UUID appointmentId = UUID.randomUUID();
 		when(budgets.findForUpdateById(budget.getId())).thenReturn(Optional.of(budget));
-		when(budgets.findById(budget.getId())).thenReturn(Optional.of(budget));
+		when(budgets.findOwnById(budget.getId())).thenReturn(Optional.of(budget));
 
 		service.update(budget.getId(), new DraftInput(appointmentId, LocalDate.of(2026, 12, 15), "Em 6x", new BigDecimal("10.00"),
 				List.of(item(restoration, 1, "0.00"))), 0L);
@@ -332,7 +333,7 @@ class BudgetServiceTest {
 	void discardTurnsADraftIntoRejectedAndPublishesTheEvent() {
 		Budget budget = stored(BudgetStatus.DRAFT, 2);
 		when(budgets.findForUpdateById(budget.getId())).thenReturn(Optional.of(budget));
-		when(budgets.findById(budget.getId())).thenReturn(Optional.of(budget));
+		when(budgets.findOwnById(budget.getId())).thenReturn(Optional.of(budget));
 
 		service.discard(budget.getId(), 2L);
 
@@ -362,7 +363,7 @@ class BudgetServiceTest {
 	void getReturnsTheBudgetItemsAndThePatient() {
 		Budget budget = stored(BudgetStatus.SENT, 1);
 		BudgetItem item = new BudgetItem(UUID.randomUUID(), budget.getId(), restoration, (short) 1, BigDecimal.ZERO, (short) 1);
-		when(budgets.findById(budget.getId())).thenReturn(Optional.of(budget));
+		when(budgets.findOwnById(budget.getId())).thenReturn(Optional.of(budget));
 		when(items.findByBudgetIdOrderByPositionAsc(budget.getId())).thenReturn(List.of(item));
 
 		BudgetView view = service.get(budget.getId());
@@ -374,7 +375,7 @@ class BudgetServiceTest {
 	@Test
 	void getOfAnUnknownBudgetIs404() {
 		UUID unknown = UUID.randomUUID();
-		when(budgets.findById(unknown)).thenReturn(Optional.empty());
+		when(budgets.findOwnById(unknown)).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> service.get(unknown))
 				.isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.type()).isEqualTo(ProblemTypes.NOT_FOUND));

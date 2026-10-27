@@ -25,7 +25,7 @@ class ProcedureTypeLookupService implements ProcedureTypeLookup {
 	@Override
 	@Transactional(readOnly = true)
 	public void requireActive(UUID procedureTypeId) {
-		ProcedureType procedure = procedureTypes.findById(procedureTypeId)
+		ProcedureType procedure = procedureTypes.findOwnById(procedureTypeId)
 				.orElseThrow(() -> new BusinessException(ProblemTypes.NOT_FOUND, "Procedimento não encontrado."));
 		if (!procedure.isActive()) {
 			throw new BusinessException(ProblemTypes.BUSINESS_RULE, "O procedimento está inativo.", INACTIVE_REASON);

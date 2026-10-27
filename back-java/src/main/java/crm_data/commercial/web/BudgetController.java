@@ -53,7 +53,7 @@ public class BudgetController {
 	public PageResponse<BudgetSummaryResponse> list(@RequestParam(required = false) List<BudgetStatus> status,
 			@RequestParam(required = false) UUID patientId,
 			@RequestParam(required = false) @Min(value = 1, message = "deve ser maior ou igual a 1") Integer number,
-			@RequestParam(defaultValue = "0") @Min(value = 0, message = "deve ser maior ou igual a 0") int page,
+			@RequestParam(defaultValue = "0") @Min(value = 0, message = "deve ser maior ou igual a 0") @Max(value = 100000, message = "deve ser no máximo 100000") int page,
 			@RequestParam(defaultValue = "20") @Min(value = 1, message = "deve estar entre 1 e 50") @Max(value = 50, message = "deve estar entre 1 e 50") int size) {
 		return PageResponse.of(budgets.list(status, patientId, number, page, size), BudgetSummaryResponse::from);
 	}
