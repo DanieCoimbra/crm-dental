@@ -31,7 +31,7 @@ public class AuditQueryService {
 
 	/** Tabelas auditadas (constraint {@code ck_audit_table}). */
 	static final Set<String> TABLES = Set.of("patients", "medical_histories", "clinical_notes", "patient_files", "appointments",
-			"budgets", "installments", "payments", "budget_documents");
+			"budgets", "installments", "payments", "budget_documents", "clinical_documents");
 
 	/** Entrada da página com o nome do usuário já resolvido ({@code null} se não encontrado). */
 	public record Entry(AuditLog log, String userName) {

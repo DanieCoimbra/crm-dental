@@ -62,6 +62,13 @@ public class StartupConfigValidator {
 			}
 		}
 
+		for (String key : List.of("crm.clinical-documents.issues-per-minute", "crm.clinical-documents.pdfs-per-minute")) {
+			String limit = env.getProperty(key);
+			if (StringUtils.hasText(limit) && !validLimit(limit.trim())) {
+				problems.add(key + " deve ser um inteiro entre 1 e 600");
+			}
+		}
+
 		String port = env.getProperty("PORT");
 		if (StringUtils.hasText(port) && !validPort(port.trim())) {
 			problems.add("PORT deve ser um inteiro entre 1 e 65535");
@@ -72,6 +79,16 @@ public class StartupConfigValidator {
 	private static boolean hasStrictSsl(String url) {
 		String lower = url.toLowerCase(Locale.ROOT);
 		return STRICT_SSL_MODES.stream().anyMatch(mode -> lower.contains("sslmode=" + mode));
+	}
+
+	private static boolean validLimit(String value) {
+		try {
+			int parsed = Integer.parseInt(value);
+			return parsed >= 1 && parsed <= 600;
+		}
+		catch (NumberFormatException ex) {
+			return false;
+		}
 	}
 
 	private static boolean validPort(String port) {

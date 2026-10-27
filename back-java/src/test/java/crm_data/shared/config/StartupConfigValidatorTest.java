@@ -51,6 +51,25 @@ class StartupConfigValidatorTest {
 	}
 
 	@Test
+	void clinicalDocumentLimitsMustBeBetween1And600() {
+		for (String bad : List.of("0", "601", "abc", "-1")) {
+			MockEnvironment env = validEnvironment().withProperty("crm.clinical-documents.pdfs-per-minute", bad);
+			assertThat(StartupConfigValidator.problems(env)).singleElement().asString()
+					.contains("crm.clinical-documents.pdfs-per-minute");
+		}
+		MockEnvironment ok = validEnvironment().withProperty("crm.clinical-documents.issues-per-minute", "600")
+				.withProperty("crm.clinical-documents.pdfs-per-minute", "1");
+		assertThat(StartupConfigValidator.problems(ok)).isEmpty();
+	}
+
+	@Test
+	void clinicalDocumentLimitsDefaultTo30() {
+		CrmProperties properties = new CrmProperties(List.of(), null, false, null);
+		assertThat(properties.clinicalDocuments().issuesPerMinute()).isEqualTo(30);
+		assertThat(properties.clinicalDocuments().pdfsPerMinute()).isEqualTo(30);
+	}
+
+	@Test
 	void treatsBlankValueAsMissing() {
 		MockEnvironment env = validEnvironment().withProperty("CRM_JWT_SECRET", "   ");
 		assertThat(StartupConfigValidator.problems(env)).singleElement().asString().contains("CRM_JWT_SECRET");

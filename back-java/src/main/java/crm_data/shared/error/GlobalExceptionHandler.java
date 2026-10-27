@@ -71,6 +71,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		return validation(ex.errors(), request);
 	}
 
+	/** Hash do documento diverge do conteúdo: 500 {@code integrity}. Só o id do documento (na mensagem) vai ao log. */
+	@ExceptionHandler(IntegrityException.class)
+	ResponseEntity<Object> handleIntegrity(IntegrityException ex, HttpServletRequest request) {
+		log.error("Falha de integridade em {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+		return respond(ProblemTypes.INTEGRITY, "Ocorreu um erro inesperado. Informe o X-Request-Id ao suporte.", request);
+	}
+
 	@ExceptionHandler(OptimisticLockingFailureException.class)
 	ResponseEntity<Object> handleOptimisticLock(OptimisticLockingFailureException ex, HttpServletRequest request) {
 		return respond(ProblemTypes.CONFLICT, ConflictMessages.STALE_VERSION,
@@ -108,6 +115,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 			case "CR009" -> respond(ProblemTypes.CONFLICT, ConflictMessages.INSTALLMENT_RULE, request);
 			case "CR010" -> respond(ProblemTypes.CONFLICT, ConflictMessages.PAYMENT_RULE, request);
 			case "CR011" -> respond(ProblemTypes.CONFLICT, ConflictMessages.INSTALLMENTS_SUM, request);
+			// Fase 4: emissor sem CRO (a checagem prévia do service devolve a mesma resposta)
+			case "CR012" -> respond(ProblemTypes.CONFLICT, ConflictMessages.PROFESSIONAL_REGISTRY_MISSING, request);
 			case "23514" -> checkViolation(ex, request);
 			case "23P01" -> respond(ProblemTypes.CONFLICT, ConflictMessages.SLOT_TAKEN, request);
 			// deadlock ou falha de serialização: a operação perdeu a disputa; é retentável, não um defeito (409, não 500)

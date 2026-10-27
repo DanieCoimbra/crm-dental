@@ -39,7 +39,7 @@ class Phase3SchemaValidateIT extends Phase3ItSupport {
 	void allThirtyMigrationsExistAndTheCommercialObjectsAreInPlace() throws IOException {
 		Path migrations = Path.of("..", "database", "migrations");
 		try (Stream<Path> files = Files.list(migrations)) {
-			assertThat(files.filter(f -> f.getFileName().toString().matches("V0\\d\\d__.*\\.sql")).count()).isEqualTo(30);
+			assertThat(files.filter(f -> f.getFileName().toString().matches("V0\\d\\d__.*\\.sql")).count()).isGreaterThanOrEqualTo(30);
 		}
 		var admin = DatabaseContainer.admin();
 		assertThat(admin.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = 'core' AND table_type = 'BASE TABLE'", String.class))

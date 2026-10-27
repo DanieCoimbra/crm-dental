@@ -1,6 +1,10 @@
 package crm_data.auth.service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,6 +17,8 @@ import crm_data.auth.repository.UserRepository;
 import crm_data.shared.error.BusinessException;
 import crm_data.shared.error.ConflictMessages;
 import crm_data.shared.error.ConstraintViolations;
+import crm_data.shared.error.FieldValidationException;
+import crm_data.shared.error.ProblemDetails;
 import crm_data.shared.error.ProblemTypes;
 import crm_data.shared.security.TokenPrincipal;
 
@@ -24,6 +30,10 @@ import crm_data.shared.security.TokenPrincipal;
  */
 @Service
 public class ProfileService {
+
+	private static final Pattern CRO_DIGITS = Pattern.compile("^\\d{1,15}$");
+	private static final Set<String> BRAZILIAN_STATES = Set.of("AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+			"MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO");
 
 	private final UserRepository users;
 	private final PasswordEncoder passwordEncoder;
@@ -83,6 +93,39 @@ public class ProfileService {
 				refreshTokens.revokeAllOfUser(saved.getId());
 			}
 			return saved;
+		});
+	}
+
+	/**
+	 * Grava ou apaga o CRO do PRÓPRIO dentista. Os dois campos preenchidos (CRO de 1 a 15 dígitos e UF em maiúsculas) ou os
+	 * dois nulos; um sem o outro é 400. Controle otimista pela {@code version} do usuário.
+	 *
+	 * @throws FieldValidationException 400 com {@code errors[]}
+	 * @throws BusinessException {@code conflict} (409) se a versão estiver defasada
+	 */
+	public User registerProfessional(String cro, String state, long version) {
+		List<ProblemDetails.FieldError> errors = new ArrayList<>();
+		boolean hasCro = cro != null && !cro.isEmpty();
+		boolean hasState = state != null && !state.isEmpty();
+		if (hasCro != hasState) {
+			errors.add(new ProblemDetails.FieldError(hasCro ? "croState" : "cro", "informe o CRO e a UF juntos, ou nenhum"));
+		}
+		if (hasCro && !CRO_DIGITS.matcher(cro).matches()) {
+			errors.add(new ProblemDetails.FieldError("cro", "deve ter de 1 a 15 dígitos"));
+		}
+		if (hasState && !BRAZILIAN_STATES.contains(state)) {
+			errors.add(new ProblemDetails.FieldError("croState", "UF inválida"));
+		}
+		if (!errors.isEmpty()) {
+			throw new FieldValidationException(errors);
+		}
+		return writeTx.execute(status -> {
+			User user = current();
+			if (!Objects.equals(user.getVersion(), version)) {
+				throw new BusinessException(ProblemTypes.CONFLICT, ConflictMessages.STALE_VERSION);
+			}
+			user.registerProfessional(hasCro ? cro : null, hasState ? state : null);
+			return users.saveAndFlush(user);
 		});
 	}
 

@@ -36,6 +36,6 @@ class AuditTrailReadOnlyTest {
 
 	@Test
 	void actionsMatchTheDatabaseConstraint() {
-		assertThat(AuditAction.values()).extracting(Enum::name).containsExactly("INSERT", "UPDATE", "DELETE", "ANONYMIZE");
+		assertThat(AuditAction.values()).extracting(Enum::name).containsExactly("INSERT", "UPDATE", "DELETE", "ANONYMIZE", "VOID", "DOWNLOAD");
 	}
 }

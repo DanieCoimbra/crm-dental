@@ -94,6 +94,10 @@ crm:
     max-concurrent: 3 # envios com PDF simultâneos por instância (pool do banco tem 10 conexões)
     sends-per-minute: 6 # por usuário
     transaction-timeout: 20s # teto da transação do envio
+  clinical-documents:
+    # documentos clínicos (Fase 4): limites por usuário/minuto (1 a 600); ambos têm padrão 30 no código
+    issues-per-minute: 30
+    pdfs-per-minute: 30
   jwt:
     # sem valor padrão: a aplicação não sobe sem segredo de pelo menos 32 bytes (shared/config/JwtConfig)
     secret: ${CRM_JWT_SECRET:}

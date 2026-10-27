@@ -92,6 +92,10 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.POST, "/api/v1/budgets", "/api/v1/budgets/**").hasRole("DENTIST_ADMIN")
 				.requestMatchers(HttpMethod.PUT, "/api/v1/budgets/**").hasRole("DENTIST_ADMIN")
 				.requestMatchers(HttpMethod.GET, "/api/v1/budgets/*/installments").hasRole("DENTIST_ADMIN")
+				// documentos clínicos (Fase 4), CRO e PDF: só o dentista; o dashboard cai em authenticated (os dois papéis)
+				.requestMatchers("/api/v1/patients/*/clinical-documents", "/api/v1/patients/*/clinical-documents/**",
+						"/api/v1/clinical-documents/**").hasRole("DENTIST_ADMIN")
+				.requestMatchers(HttpMethod.PUT, "/api/v1/me/professional-registry").hasRole("DENTIST_ADMIN")
 				.requestMatchers("/api/v1/installments/**", "/api/v1/payments/**", "/api/v1/finance/**",
 						"/api/v1/patients/*/financial").hasRole("DENTIST_ADMIN")
 				.anyRequest().authenticated())

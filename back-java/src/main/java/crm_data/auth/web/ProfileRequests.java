@@ -33,6 +33,19 @@ public final class ProfileRequests {
 		}
 	}
 
+	/**
+	 * Corpo de {@code PUT /me/professional-registry}. {@code cro} e {@code croState} vêm juntos ou os dois nulos (apaga);
+	 * a regra do par é do service ({@link crm_data.auth.service.ProfileService#registerProfessional}).
+	 */
+	public record ProfessionalRegistryRequest(String cro, String croState,
+			@NotNull(message = "obrigatório") Long version) {
+
+		public ProfessionalRegistryRequest {
+			cro = cro == null ? null : cro.strip();
+			croState = croState == null ? null : croState.strip();
+		}
+	}
+
 	public record ChangePasswordRequest(
 			@NotBlank(message = "obrigatório") @Size(max = 256, message = "deve ter no máximo 256 caracteres") String currentPassword,
 			@NotNull(message = "obrigatório") @Size(min = 10, max = 64, message = "deve ter entre 10 e 64 caracteres")

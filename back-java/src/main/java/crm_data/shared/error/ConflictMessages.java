@@ -59,6 +59,17 @@ public final class ConflictMessages {
 	/** {@code ck_items_line} / {@code ck_budgets_total} que escaparam da validação prévia. */
 	public static final String AMOUNT_OUT_OF_RANGE = "Valores do orçamento fora do limite.";
 
+	// ---- Fase 4: documentos clínicos ----
+
+	/** {@code CR012}: emissor sem CRO cadastrado. */
+	public static final String PROFESSIONAL_REGISTRY_MISSING = "Cadastre seu CRO e a UF no perfil antes de emitir documentos.";
+
+	/** Anular documento já anulado ou anonimizado. */
+	public static final String DOCUMENT_STATE = "Documento já anulado ou anonimizado.";
+
+	/** PDF de documento anonimizado. */
+	public static final String DOCUMENT_ANONYMIZED = "Documento anonimizado: o conteúdo não está mais disponível.";
+
 	private ConflictMessages() {
 	}
 }

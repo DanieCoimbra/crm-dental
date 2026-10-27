@@ -15,6 +15,8 @@ public enum ProblemTypes {
 	BUSINESS_RULE("business-rule", HttpStatus.UNPROCESSABLE_CONTENT, "Regra de negócio violada"),
 	RATE_LIMITED("rate-limited", HttpStatus.TOO_MANY_REQUESTS, "Muitas requisições"),
 	INTERNAL("internal", HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno"),
+	/** Documento clínico adulterado no banco (hash não confere); 500 com detalhe genérico. */
+	INTEGRITY("integrity", HttpStatus.INTERNAL_SERVER_ERROR, "Falha de integridade"),
 	UNAVAILABLE("unavailable", HttpStatus.SERVICE_UNAVAILABLE, "Serviço indisponível");
 
 	private static final String BASE_URI = "https://crm.local/problems/";

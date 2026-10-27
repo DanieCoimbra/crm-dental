@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import crm_data.auth.service.ProfileService;
 import crm_data.auth.web.ProfileRequests.ChangePasswordRequest;
+import crm_data.auth.web.ProfileRequests.ProfessionalRegistryRequest;
 import crm_data.auth.web.ProfileRequests.UpdateProfileRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,12 @@ public class MeController {
 	@PutMapping
 	public UserResponse update(@Valid @RequestBody UpdateProfileRequest request) {
 		return UserResponse.from(profile.updateProfile(request.name(), request.email(), request.currentPassword()));
+	}
+
+	/** Só o dentista (rota em {@code SecurityConfig}); campo omitido e {@code null} se confundem, por isso rota própria. */
+	@PutMapping("/professional-registry")
+	public UserResponse registerProfessional(@Valid @RequestBody ProfessionalRegistryRequest request) {
+		return UserResponse.from(profile.registerProfessional(request.cro(), request.croState(), request.version()));
 	}
 
 	@PutMapping("/password")

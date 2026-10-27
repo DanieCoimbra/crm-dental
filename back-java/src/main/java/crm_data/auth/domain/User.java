@@ -59,6 +59,13 @@ public class User extends TenantAwareEntity {
 	@Column(name = "created_by")
 	private UUID createdBy;
 
+	/** Registro profissional (Fase 4): só dígitos, 1 a 15; sempre junto com a UF ({@code ck_users_cro_pair}). */
+	@Column(name = "cro_number", length = 15)
+	private String croNumber;
+
+	@Column(name = "cro_state", length = 2)
+	private String croState;
+
 	@Column(name = "created_at", insertable = false, updatable = false)
 	private Instant createdAt;
 
@@ -76,6 +83,12 @@ public class User extends TenantAwareEntity {
 			return false;
 		}
 		return encoder.matches(rawPassword, passwordHash);
+	}
+
+	/** Grava ou apaga ({@code null, null}) o CRO do próprio usuário; o par é validado antes de chegar aqui. */
+	public void registerProfessional(String cro, String state) {
+		this.croNumber = cro;
+		this.croState = state;
 	}
 
 	public User(UUID id, String name, String email, String passwordHash, Role role) {

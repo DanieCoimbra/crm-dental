@@ -55,6 +55,12 @@ public class ProbeController {
 		throw new BusinessException(type, "mensagem de negócio");
 	}
 
+	/** Documento adulterado: hash não confere (500 {@code integrity}); a mensagem leva só o id. */
+	@GetMapping("/probe/integrity")
+	void integrity() {
+		throw new crm_data.shared.error.IntegrityException("documento id=00000000");
+	}
+
 	@GetMapping("/probe/rate-limited")
 	void rateLimited() {
 		throw new RateLimitedException("Muitas tentativas.", 30);

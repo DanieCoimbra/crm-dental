@@ -23,7 +23,8 @@ public class ClinicalCacheHeaders extends OncePerRequestFilter {
 
 	private static final List<String> PREFIXES = List.of("/api/v1/patients", "/api/v1/audit-log", "/api/v1/appointments",
 			"/api/v1/business-hours", "/api/v1/holidays", "/api/v1/clinic-holidays", "/api/v1/procedure-types",
-			"/api/v1/budgets", "/api/v1/installments", "/api/v1/payments", "/api/v1/finance");
+			"/api/v1/budgets", "/api/v1/installments", "/api/v1/payments", "/api/v1/finance", "/api/v1/clinical-documents",
+			"/api/v1/dashboard");
 
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {

@@ -242,4 +242,64 @@ class ProfileServiceTest {
 
 		assertRule(service::me, ProblemTypes.UNAUTHORIZED);
 	}
+
+	// ---- Fase 4: CRO ----
+
+	private static void assertFieldErrors(Runnable action, String... fields) {
+		assertThatThrownBy(action::run).isInstanceOfSatisfying(crm_data.shared.error.FieldValidationException.class,
+				ex -> assertThat(ex.errors()).extracting(crm_data.shared.error.ProblemDetails.FieldError::field)
+						.containsExactlyInAnyOrder(fields));
+	}
+
+	@Test
+	void registersAndClearsTheProfessionalRegistryOfTheTokenUser() {
+		ReflectionTestUtils.setField(user, "version", 3L);
+
+		User saved = service.registerProfessional("12345", "SP", 3L);
+		assertThat(saved.getCroNumber()).isEqualTo("12345");
+		assertThat(saved.getCroState()).isEqualTo("SP");
+
+		User cleared = service.registerProfessional(null, null, 3L);
+		assertThat(cleared.getCroNumber()).isNull();
+		assertThat(cleared.getCroState()).isNull();
+		verify(users, org.mockito.Mockito.times(2)).saveAndFlush(any(User.class));
+	}
+
+	@Test
+	void registryRequiresBothFieldsOrNone() {
+		assertFieldErrors(() -> service.registerProfessional("12345", null, 0L), "croState");
+		assertFieldErrors(() -> service.registerProfessional(null, "SP", 0L), "cro");
+		assertFieldErrors(() -> service.registerProfessional("", "SP", 0L), "cro");
+		verify(users, never()).saveAndFlush(any(User.class));
+	}
+
+	@Test
+	void registryValidatesDigitsAndState() {
+		assertFieldErrors(() -> service.registerProfessional("12A45", "SP", 0L), "cro");
+		assertFieldErrors(() -> service.registerProfessional("1234567890123456", "SP", 0L), "cro");
+		assertFieldErrors(() -> service.registerProfessional("12345", "sp", 0L), "croState");
+		assertFieldErrors(() -> service.registerProfessional("12345", "XX", 0L), "croState");
+		assertFieldErrors(() -> service.registerProfessional("12A45", "XX", 0L), "cro", "croState");
+		ReflectionTestUtils.setField(user, "version", 0L);
+		service.registerProfessional("123456789012345", "TO", 0L);
+	}
+
+	@Test
+	void registryWithStaleVersionIsConflictAndNothingIsSaved() {
+		ReflectionTestUtils.setField(user, "version", 5L);
+
+		assertRule(() -> service.registerProfessional("12345", "SP", 4L), ProblemTypes.CONFLICT);
+
+		verify(users, never()).saveAndFlush(any(User.class));
+	}
+
+	@Test
+	void updatingTheProfileNeverTouchesTheRegistry() {
+		user.registerProfessional("999", "RJ");
+
+		User updated = service.updateProfile("Ana Souza", "ana@clinica.com", null);
+
+		assertThat(updated.getCroNumber()).isEqualTo("999");
+		assertThat(updated.getCroState()).isEqualTo("RJ");
+	}
 }

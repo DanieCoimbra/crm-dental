@@ -48,6 +48,15 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
+	void integrityFailureIs500IntegrityWithGenericDetail() throws Exception {
+		mvc.perform(get("/probe/integrity").with(user("u")))
+				.andExpect(status().isInternalServerError())
+				.andExpect(content().contentTypeCompatibleWith(PROBLEM))
+				.andExpect(jsonPath("$.type").value("https://crm.local/problems/integrity"))
+				.andExpect(jsonPath("$.detail").value("Ocorreu um erro inesperado. Informe o X-Request-Id ao suporte."));
+	}
+
+	@Test
 	void rateLimitedReturns429WithRetryAfter() throws Exception {
 		mvc.perform(get("/probe/rate-limited").with(user("u")))
 				.andExpect(status().isTooManyRequests())
@@ -182,6 +191,7 @@ class GlobalExceptionHandlerTest {
 			"CR009|409|conflict|Operação inválida para o estado da parcela.",
 			"CR010|409|conflict|Pagamento inválido: valor acima do saldo ou parcela cancelada.",
 			"CR011|409|conflict|As parcelas não somam o total do orçamento.",
+			"CR012|409|conflict|Cadastre seu CRO e a UF no perfil antes de emitir documentos.",
 			"23505-PTYPE|409|conflict|Já existe um procedimento ativo com este nome.",
 			"23505-REVERSE|409|conflict|Este pagamento já foi estornado.",
 			"23505-PLAN|409|conflict|O plano de parcelas foi alterado. Recarregue.",

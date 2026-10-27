@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.List;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 /**
  * Propriedades próprias da aplicação (prefixo {@code crm}), alimentadas por variáveis de ambiente.
@@ -14,12 +15,38 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param documents limites do envio do PDF do orçamento (Fase 3); todos com padrão
  */
 @ConfigurationProperties(prefix = "crm")
-public record CrmProperties(List<String> corsOrigins, Storage storage, boolean hstsEnabled, Documents documents) {
+public record CrmProperties(List<String> corsOrigins, Storage storage, boolean hstsEnabled, Documents documents,
+		ClinicalDocuments clinicalDocuments) {
 
+	/** Forma anterior à Fase 4 (sem os limites dos documentos clínicos, que usam o padrão). */
+	public CrmProperties(List<String> corsOrigins, Storage storage, boolean hstsEnabled, Documents documents) {
+		this(corsOrigins, storage, hstsEnabled, documents, null);
+	}
+
+	@ConstructorBinding
 	public CrmProperties {
 		corsOrigins = corsOrigins == null ? List.of()
 				: corsOrigins.stream().map(String::trim).filter(origin -> !origin.isEmpty()).toList();
 		documents = documents == null ? Documents.defaults() : documents;
+		clinicalDocuments = clinicalDocuments == null ? ClinicalDocuments.defaults() : clinicalDocuments;
+	}
+
+	/**
+	 * Limites por usuário dos documentos clínicos (Fase 4), por minuto: emissões e PDFs (padrão 30 cada; 1 a 600, validado
+	 * na inicialização do perfil prod).
+	 */
+	public record ClinicalDocuments(Integer issuesPerMinute, Integer pdfsPerMinute) {
+
+		public static final int DEFAULT_PER_MINUTE = 30;
+
+		public ClinicalDocuments {
+			issuesPerMinute = issuesPerMinute == null ? DEFAULT_PER_MINUTE : issuesPerMinute;
+			pdfsPerMinute = pdfsPerMinute == null ? DEFAULT_PER_MINUTE : pdfsPerMinute;
+		}
+
+		static ClinicalDocuments defaults() {
+			return new ClinicalDocuments(null, null);
+		}
 	}
 
 	/**
